@@ -10,6 +10,7 @@ import { serviceLabel } from "@/lib/labels";
 import AutoRefresh from "@/components/AutoRefresh";
 import JobCard from "./JobCard";
 import AddJobModal from "./AddJobModal";
+import EditJobModal from "./EditJobModal";
 import ManageCrewsModal from "./ManageCrewsModal";
 import { reorderColumn, deleteJob, bulkRescheduleDay, updateJobFrequency } from "./actions";
 
@@ -47,6 +48,7 @@ export default function DashboardBoard({
   const [localJobs, setLocalJobs] = useState(jobs);
   const [addOpen, setAddOpen] = useState(false);
   const [addDefaultCrew, setAddDefaultCrew] = useState<string | null>(null);
+  const [editJob, setEditJob] = useState<JobWithNextDate | null>(null);
   const [manageCrewsOpen, setManageCrewsOpen] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -175,8 +177,11 @@ export default function DashboardBoard({
 
   return (
     <div>
-      {/* A refresh landing mid-drag or mid-save would yank the card being moved. */}
-      <AutoRefresh paused={pending || dragJobId !== null} />
+      {/* A refresh landing mid-drag, mid-save or under an open dialog would
+          yank the card out from under the user. */}
+      <AutoRefresh
+        paused={pending || dragJobId !== null || addOpen || editJob !== null || manageCrewsOpen}
+      />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
@@ -309,6 +314,7 @@ export default function DashboardBoard({
                       selected={selected.has(job.id)}
                       onToggleSelect={() => toggleSelected(job.id)}
                       onDelete={() => handleDelete(job)}
+                      onEdit={() => setEditJob(job)}
                       onFrequencyChange={(frequency) => handleFrequencyChange(job, frequency)}
                       onDragStart={() => setDragJobId(job.id)}
                       onDragOverCard={(e) => {
@@ -341,6 +347,20 @@ export default function DashboardBoard({
               setLocalJobs((prev) => [...prev, { ...job, nextDate }]);
             }
             setAddOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {editJob && (
+        <EditJobModal
+          job={editJob}
+          crews={crews}
+          onClose={() => setEditJob(null)}
+          onSaved={() => {
+            setEditJob(null);
+            // Server truth comes back through the jobs prop; the edit may have
+            // moved the job off this day entirely.
             router.refresh();
           }}
         />

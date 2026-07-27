@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { parseISODate, toISODate } from "@/lib/date";
+import { addDays, parseISODate, toISODate } from "@/lib/date";
 import {
   generateNextOccurrence,
   ensureOccurrencesThrough,
@@ -102,6 +102,82 @@ export async function updateJobFrequency(
   }
 
   revalidateAffected(dateISO, crewId);
+  return job;
+}
+
+/**
+ * Edits a job's date, crew and notes.
+ *
+ * `scope: "future"` carries the change onto every later visit in the series,
+ * with a date change shifting them all by the same number of days so the
+ * cadence is preserved. Visits already completed or skipped are left alone —
+ * an edit shouldn't rewrite what a crew already did.
+ */
+export async function updateJob(input: {
+  jobId: string;
+  dateISO: string;
+  crewId: string;
+  notes?: string | null;
+  scope: "this" | "future";
+}) {
+  if (!input.crewId) throw new Error("A crew is required");
+
+  const current = await prisma.job.findUniqueOrThrow({ where: { id: input.jobId } });
+  const newDate = parseISODate(input.dateISO);
+  const notes = input.notes?.trim() || null;
+
+  if (input.scope === "future" && current.seriesId) {
+    // Both dates are UTC midnight, so a plain millisecond difference is an
+    // exact whole number of days.
+    const dayDelta = Math.round(
+      (newDate.getTime() - current.scheduledDate.getTime()) / 86_400_000,
+    );
+
+    const later = await prisma.job.findMany({
+      where: {
+        seriesId: current.seriesId,
+        scheduledDate: { gt: current.scheduledDate },
+        status: { in: ["SCHEDULED", "RESCHEDULED"] },
+      },
+      select: { id: true, scheduledDate: true },
+    });
+
+    if (later.length > 0) {
+      await prisma.$transaction(
+        later.map((j) =>
+          prisma.job.update({
+            where: { id: j.id },
+            data: {
+              crewId: input.crewId,
+              notes,
+              ...(dayDelta === 0
+                ? {}
+                : { scheduledDate: addDays(j.scheduledDate, dayDelta) }),
+            },
+          }),
+        ),
+      );
+    }
+  }
+
+  // Land at the bottom of whichever column it now belongs to.
+  const columnCount = await prisma.job.count({
+    where: { scheduledDate: newDate, crewId: input.crewId, id: { not: input.jobId } },
+  });
+
+  const job = await prisma.job.update({
+    where: { id: input.jobId },
+    data: {
+      scheduledDate: newDate,
+      crewId: input.crewId,
+      notes,
+      orderInDay: columnCount,
+    },
+    include: { customer: true, crew: true },
+  });
+
+  revalidateAffected(toISODate(current.scheduledDate), current.crewId);
+  revalidateAffected(input.dateISO, input.crewId);
   return job;
 }
 

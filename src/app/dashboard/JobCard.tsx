@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type { Frequency } from "@prisma/client";
 import type { JobWithNextDate } from "@/lib/types";
 import { formatShortDate } from "@/lib/date";
@@ -25,6 +26,7 @@ export default function JobCard({
   selected,
   onToggleSelect,
   onDelete,
+  onEdit,
   onFrequencyChange,
   onDragStart,
   onDragOverCard,
@@ -36,6 +38,7 @@ export default function JobCard({
   selected: boolean;
   onToggleSelect: () => void;
   onDelete: () => void;
+  onEdit: () => void;
   onFrequencyChange: (frequency: Frequency) => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragOverCard: (e: React.DragEvent) => void;
@@ -43,11 +46,30 @@ export default function JobCard({
 }) {
   const movable = job.status === "SCHEDULED" || job.status === "RESCHEDULED";
   const editableFrequency = movable;
+
+  // A drag ends with a click event in some browsers; this tells the two apart
+  // so dropping a card doesn't also open the edit dialog.
+  const draggedRef = useRef(false);
+
   return (
     <div
       draggable={!selectMode}
-      onDragStart={onDragStart}
+      onMouseDown={() => {
+        draggedRef.current = false;
+      }}
+      onDragStart={(e) => {
+        draggedRef.current = true;
+        onDragStart(e);
+      }}
       onDragOver={onDragOverCard}
+      onClick={() => {
+        if (draggedRef.current) {
+          draggedRef.current = false;
+          return;
+        }
+        if (selectMode) return;
+        onEdit();
+      }}
       className={`group rounded-lg border bg-white p-3 shadow-sm dark:bg-zinc-900 ${
         isDragOver ? "border-blue-400 ring-2 ring-blue-300" : "border-black/10 dark:border-white/10"
       } ${STATUS_STYLE[job.status]} ${selectMode ? "" : "cursor-grab active:cursor-grabbing"}`}
@@ -59,6 +81,7 @@ export default function JobCard({
             type="checkbox"
             checked={selected}
             disabled={!movable}
+            onClick={(e) => e.stopPropagation()}
             onChange={onToggleSelect}
             title={movable ? undefined : "Completed or skipped jobs can't be rescheduled"}
             className="mt-1 h-4 w-4 disabled:opacity-30"
@@ -108,7 +131,10 @@ export default function JobCard({
         </div>
         {!selectMode && (
           <button
-            onClick={onDelete}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
             aria-label="Delete job"
             className="shrink-0 rounded px-1 text-black/30 opacity-0 hover:bg-black/5 hover:text-black/70 group-hover:opacity-100 dark:text-white/30 dark:hover:bg-white/10 dark:hover:text-white/70"
           >
