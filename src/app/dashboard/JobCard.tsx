@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import type { Frequency } from "@prisma/client";
 import type { JobWithNextDate } from "@/lib/types";
 import { formatShortDate } from "@/lib/date";
@@ -29,6 +28,7 @@ export default function JobCard({
   onEdit,
   onFrequencyChange,
   onDragStart,
+  onDragEnd,
   onDragOverCard,
   isDragOver,
 }: {
@@ -41,32 +41,20 @@ export default function JobCard({
   onEdit: () => void;
   onFrequencyChange: (frequency: Frequency) => void;
   onDragStart: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
   onDragOverCard: (e: React.DragEvent) => void;
   isDragOver: boolean;
 }) {
   const movable = job.status === "SCHEDULED" || job.status === "RESCHEDULED";
   const editableFrequency = movable;
 
-  // A drag ends with a click event in some browsers; this tells the two apart
-  // so dropping a card doesn't also open the edit dialog.
-  const draggedRef = useRef(false);
-
   return (
     <div
       draggable={!selectMode}
-      onMouseDown={() => {
-        draggedRef.current = false;
-      }}
-      onDragStart={(e) => {
-        draggedRef.current = true;
-        onDragStart(e);
-      }}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onDragOver={onDragOverCard}
       onClick={() => {
-        if (draggedRef.current) {
-          draggedRef.current = false;
-          return;
-        }
         if (selectMode) return;
         onEdit();
       }}

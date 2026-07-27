@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Crew, Customer, Frequency } from "@prisma/client";
@@ -57,6 +57,24 @@ export default function DashboardBoard({
   const [rescheduleDate, setRescheduleDate] = useState(dateISO);
   const [pending, setPending] = useState(false);
 
+  // A drop reorders localJobs, which remounts the dragged card, so a guard held
+  // inside JobCard would be reset by the time the trailing click arrives. Keep
+  // it here, above the cards, where a remount can't clear it.
+  //
+  // Set when a drag finishes and cleared on the next mousedown, which always
+  // precedes a genuine click — so only the click a browser emits after a drop
+  // is swallowed, never a real one.
+  const justDraggedRef = useRef(false);
+
+  function noteDragEnded() {
+    justDraggedRef.current = true;
+  }
+
+  function openEditor(job: JobWithNextDate) {
+    if (justDraggedRef.current) return;
+    setEditJob(job);
+  }
+
   // Polled refreshes hand down a new `jobs` prop, which plain useState would
   // ignore. Adopting it during render keeps the board live without a remount.
   const incomingSignature = useMemo(() => signatureOf(jobs), [jobs]);
@@ -85,6 +103,7 @@ export default function DashboardBoard({
   }
 
   function handleDrop(targetCol: ColumnKey) {
+    noteDragEnded();
     if (!dragJobId) return;
     const job = localJobs.find((j) => j.id === dragJobId);
     if (!job) return;
@@ -249,7 +268,12 @@ export default function DashboardBoard({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          onMouseDownCapture={() => {
+            justDraggedRef.current = false;
+          }}
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        >
           {crews.map(({ id: key, name, color }) => {
             const list = columns.get(key) ?? [];
             return (
@@ -314,9 +338,10 @@ export default function DashboardBoard({
                       selected={selected.has(job.id)}
                       onToggleSelect={() => toggleSelected(job.id)}
                       onDelete={() => handleDelete(job)}
-                      onEdit={() => setEditJob(job)}
+                      onEdit={() => openEditor(job)}
                       onFrequencyChange={(frequency) => handleFrequencyChange(job, frequency)}
                       onDragStart={() => setDragJobId(job.id)}
+                      onDragEnd={noteDragEnded}
                       onDragOverCard={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
