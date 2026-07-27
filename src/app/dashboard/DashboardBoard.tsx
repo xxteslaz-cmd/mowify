@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Crew, Customer, Frequency } from "@prisma/client";
 import type { JobWithNextDate, CrewWithJobCount } from "@/lib/types";
 import { toISODate, calculateNextOccurrenceDate } from "@/lib/date";
@@ -267,15 +268,13 @@ export default function DashboardBoard({
                     <h2 className="text-sm font-semibold">{name}</h2>
                   </div>
                   <div className="flex items-center gap-2">
-                    <a
+                    <Link
                       href={`/crew/${key}/today?date=${dateISO}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="text-xs text-black/40 hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
                       title="Open this crew's phone view"
                     >
-                      view ↗
-                    </a>
+                      view
+                    </Link>
                     <button
                       onClick={() => {
                         setAddDefaultCrew(key);
