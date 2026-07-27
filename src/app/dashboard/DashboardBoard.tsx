@@ -12,7 +12,7 @@ import JobCard from "./JobCard";
 import AddJobModal from "./AddJobModal";
 import EditJobModal from "./EditJobModal";
 import ManageCrewsModal from "./ManageCrewsModal";
-import { deleteJob, bulkRescheduleDay, updateJobFrequency } from "./actions";
+import { deleteJob, bulkRescheduleDay, updateJobFrequency, moveJobInColumn } from "./actions";
 
 type ColumnKey = string;
 
@@ -74,6 +74,26 @@ export default function DashboardBoard({
     for (const list of map.values()) list.sort((a, b) => a.orderInDay - b.orderInDay);
     return map;
   }, [localJobs, crews]);
+
+  async function handleMove(job: JobWithNextDate, direction: "up" | "down") {
+    const list = columns.get(job.crewId) ?? [];
+    const index = list.findIndex((j) => j.id === job.id);
+    const target = direction === "up" ? index - 1 : index + 1;
+    if (index === -1 || target < 0 || target >= list.length) return;
+
+    const reordered = [...list];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    const positions = new Map(reordered.map((j, i) => [j.id, i]));
+
+    setLocalJobs((prev) =>
+      prev.map((j) => (positions.has(j.id) ? { ...j, orderInDay: positions.get(j.id)! } : j)),
+    );
+
+    setPending(true);
+    await moveJobInColumn({ jobId: job.id, direction });
+    router.refresh();
+    setPending(false);
+  }
 
   function toggleSelected(id: string) {
     setSelected((prev) => {
@@ -231,7 +251,7 @@ export default function DashboardBoard({
                   </p>
                 )}
 
-                {list.map((job) => (
+                {list.map((job, index) => (
                   <JobCard
                     key={job.id}
                     job={job}
@@ -242,6 +262,10 @@ export default function DashboardBoard({
                     onDelete={() => handleDelete(job)}
                     onEdit={() => setEditJob(job)}
                     onFrequencyChange={(frequency) => handleFrequencyChange(job, frequency)}
+                    onMoveUp={() => handleMove(job, "up")}
+                    onMoveDown={() => handleMove(job, "down")}
+                    isFirst={index === 0}
+                    isLast={index === list.length - 1}
                   />
                 ))}
               </div>

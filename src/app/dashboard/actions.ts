@@ -211,6 +211,42 @@ export async function deleteCrew(id: string) {
   revalidatePath("/dashboard");
 }
 
+/**
+ * Swaps a job with its neighbour in the same crew's day, which is what drives
+ * the numbered stop list on the crew's phone view.
+ *
+ * The whole column is rewritten to sequential positions rather than just the
+ * two rows swapped, so duplicate or gappy orderInDay values can't accumulate.
+ */
+export async function moveJobInColumn(input: {
+  jobId: string;
+  direction: "up" | "down";
+}) {
+  const job = await prisma.job.findUniqueOrThrow({ where: { id: input.jobId } });
+
+  const column = await prisma.job.findMany({
+    where: { scheduledDate: job.scheduledDate, crewId: job.crewId },
+    // createdAt breaks ties so the order is stable when positions collide.
+    orderBy: [{ orderInDay: "asc" }, { createdAt: "asc" }],
+    select: { id: true },
+  });
+
+  const index = column.findIndex((j) => j.id === job.id);
+  const target = input.direction === "up" ? index - 1 : index + 1;
+  if (index === -1 || target < 0 || target >= column.length) return;
+
+  const reordered = [...column];
+  [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+
+  await prisma.$transaction(
+    reordered.map((j, i) =>
+      prisma.job.update({ where: { id: j.id }, data: { orderInDay: i } }),
+    ),
+  );
+
+  revalidateAffected(toISODate(job.scheduledDate), job.crewId);
+}
+
 export async function updateJobStatus(jobId: string, status: "COMPLETED" | "SKIPPED") {
   const job = await prisma.job.update({
     where: { id: jobId },

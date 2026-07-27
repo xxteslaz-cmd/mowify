@@ -27,6 +27,10 @@ export default function JobCard({
   onDelete,
   onEdit,
   onFrequencyChange,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
 }: {
   job: JobWithNextDate;
   crewColor?: string;
@@ -36,6 +40,10 @@ export default function JobCard({
   onDelete: () => void;
   onEdit: () => void;
   onFrequencyChange: (frequency: Frequency) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const movable = job.status === "SCHEDULED" || job.status === "RESCHEDULED";
   const editableFrequency = movable;
@@ -107,16 +115,42 @@ export default function JobCard({
           )}
         </div>
         {!selectMode && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            aria-label="Delete job"
-            className="shrink-0 rounded px-1 text-black/30 opacity-0 hover:bg-black/5 hover:text-black/70 group-hover:opacity-100 dark:text-white/30 dark:hover:bg-white/10 dark:hover:text-white/70"
-          >
-            ×
-          </button>
+          <div className="flex shrink-0 flex-col items-center opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveUp();
+              }}
+              disabled={isFirst}
+              aria-label="Move stop earlier"
+              title="Move stop earlier"
+              className="rounded px-1 text-xs leading-none text-black/35 hover:bg-black/5 hover:text-black/70 disabled:pointer-events-none disabled:opacity-20 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
+            >
+              ▲
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMoveDown();
+              }}
+              disabled={isLast}
+              aria-label="Move stop later"
+              title="Move stop later"
+              className="rounded px-1 text-xs leading-none text-black/35 hover:bg-black/5 hover:text-black/70 disabled:pointer-events-none disabled:opacity-20 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
+            >
+              ▼
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              aria-label="Delete job"
+              className="rounded px-1 text-black/30 hover:bg-black/5 hover:text-black/70 dark:text-white/30 dark:hover:bg-white/10 dark:hover:text-white/70"
+            >
+              ×
+            </button>
+          </div>
         )}
       </div>
     </div>
