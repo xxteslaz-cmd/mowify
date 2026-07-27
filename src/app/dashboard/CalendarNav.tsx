@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import type { DaySummary } from "@/lib/data";
 import {
-  addDays,
   addMonths,
   formatDisplayDate,
   formatMonthLabel,
@@ -48,28 +47,12 @@ export default function CalendarNav({
     <div className="mb-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{formatDisplayDate(selected)}</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => selectDay(toISODate(addDays(selected, -1)))}
-            className="rounded-md border border-black/10 px-3 py-1.5 text-sm hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
-            aria-label="Previous day"
-          >
-            ←
-          </button>
-          <button
-            onClick={() => selectDay(today)}
-            className="rounded-md border border-black/10 px-3 py-1.5 text-sm hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
-          >
-            Today
-          </button>
-          <button
-            onClick={() => selectDay(toISODate(addDays(selected, 1)))}
-            className="rounded-md border border-black/10 px-3 py-1.5 text-sm hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
-            aria-label="Next day"
-          >
-            →
-          </button>
-        </div>
+        <button
+          onClick={() => selectDay(today)}
+          className="rounded-md border border-black/10 px-3 py-1.5 text-sm hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+        >
+          Go to today
+        </button>
       </div>
 
       <div className="rounded-lg border border-black/10 p-2 dark:border-white/10">
