@@ -25,6 +25,7 @@ export async function generateNextOccurrence(job: Job) {
       customerId: job.customerId,
       crewId: job.crewId,
       serviceType: job.serviceType,
+      customService: job.customService,
       frequency: job.frequency,
       scheduledDate: nextDate,
       orderInDay: job.orderInDay,

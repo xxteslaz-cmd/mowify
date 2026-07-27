@@ -5,17 +5,28 @@ import { useRouter } from "next/navigation";
 import type { Crew, Customer, Frequency } from "@prisma/client";
 import type { JobWithNextDate, CrewWithJobCount } from "@/lib/types";
 import { toISODate, calculateNextOccurrenceDate } from "@/lib/date";
+import { serviceLabel } from "@/lib/labels";
+import AutoRefresh from "@/components/AutoRefresh";
 import JobCard from "./JobCard";
 import AddJobModal from "./AddJobModal";
 import ManageCrewsModal from "./ManageCrewsModal";
 import { reorderColumn, deleteJob, bulkRescheduleDay, updateJobFrequency } from "./actions";
 
-const UNASSIGNED = "unassigned";
-
 type ColumnKey = string;
 
-function columnKeyFor(crewId: string | null) {
-  return crewId ?? UNASSIGNED;
+/**
+ * Fields whose change should pull the board back to server truth. Compared as a
+ * string so an unchanged poll is a no-op rather than a re-render that would
+ * discard an in-flight optimistic update.
+ */
+function signatureOf(jobs: JobWithNextDate[]) {
+  return jobs
+    .map((j) =>
+      [j.id, j.crewId, j.orderInDay, j.status, j.frequency, j.serviceType, j.customService ?? ""].join(
+        ":",
+      ),
+    )
+    .join("|");
 }
 
 export default function DashboardBoard({
@@ -43,26 +54,29 @@ export default function DashboardBoard({
   const [rescheduleDate, setRescheduleDate] = useState(dateISO);
   const [pending, setPending] = useState(false);
 
+  // Polled refreshes hand down a new `jobs` prop, which plain useState would
+  // ignore. Adopting it during render keeps the board live without a remount.
+  const incomingSignature = useMemo(() => signatureOf(jobs), [jobs]);
+  const [syncedSignature, setSyncedSignature] = useState(incomingSignature);
+  if (incomingSignature !== syncedSignature) {
+    setSyncedSignature(incomingSignature);
+    setLocalJobs(jobs);
+  }
+
   const columns = useMemo(() => {
     const map = new Map<ColumnKey, JobWithNextDate[]>();
-    map.set(UNASSIGNED, []);
     for (const crew of crews) map.set(crew.id, []);
     for (const job of localJobs) {
-      const key = columnKeyFor(job.crewId);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(job);
+      if (!map.has(job.crewId)) map.set(job.crewId, []);
+      map.get(job.crewId)!.push(job);
     }
     for (const list of map.values()) list.sort((a, b) => a.orderInDay - b.orderInDay);
     return map;
   }, [localJobs, crews]);
 
-  async function persistColumn(col: ColumnKey, jobIds: string[]) {
+  async function persistColumn(crewId: string, jobIds: string[]) {
     setPending(true);
-    await reorderColumn({
-      dateISO,
-      crewId: col === UNASSIGNED ? null : col,
-      orderedJobIds: jobIds,
-    });
+    await reorderColumn({ dateISO, crewId, orderedJobIds: jobIds });
     router.refresh();
     setPending(false);
   }
@@ -71,25 +85,25 @@ export default function DashboardBoard({
     if (!dragJobId) return;
     const job = localJobs.find((j) => j.id === dragJobId);
     if (!job) return;
-    const sourceCol = columnKeyFor(job.crewId);
-    const insertIndex = dragOverKey?.col === targetCol ? dragOverKey.index : columns.get(targetCol)?.length ?? 0;
+    const sourceCol = job.crewId;
+    const insertIndex =
+      dragOverKey?.col === targetCol ? dragOverKey.index : columns.get(targetCol)?.length ?? 0;
 
     const next = [...localJobs];
     const withoutDragged = next.filter((j) => j.id !== dragJobId);
 
     const destList = withoutDragged
-      .filter((j) => columnKeyFor(j.crewId) === targetCol)
+      .filter((j) => j.crewId === targetCol)
       .sort((a, b) => a.orderInDay - b.orderInDay);
     destList.splice(insertIndex, 0, job);
 
-    const targetCrewId = targetCol === UNASSIGNED ? null : targetCol;
     const updatedDest = destList.map((j, i) => ({
       ...j,
-      crewId: targetCrewId,
+      crewId: targetCol,
       orderInDay: i,
     }));
 
-    const untouched = withoutDragged.filter((j) => columnKeyFor(j.crewId) !== targetCol);
+    const untouched = withoutDragged.filter((j) => j.crewId !== targetCol);
     const merged = [...untouched, ...updatedDest];
 
     setLocalJobs(merged);
@@ -102,7 +116,7 @@ export default function DashboardBoard({
     );
     if (sourceCol !== targetCol) {
       const remainingSource = untouched
-        .filter((j) => columnKeyFor(j.crewId) === sourceCol)
+        .filter((j) => j.crewId === sourceCol)
         .sort((a, b) => a.orderInDay - b.orderInDay);
       if (remainingSource.length) {
         void persistColumn(
@@ -123,7 +137,7 @@ export default function DashboardBoard({
   }
 
   async function handleDelete(job: JobWithNextDate) {
-    if (!confirm(`Remove ${job.customer.name}'s ${job.serviceType} job from the schedule?`)) return;
+    if (!confirm(`Remove ${job.customer.name}'s ${serviceLabel(job)} job from the schedule?`)) return;
     setLocalJobs((prev) => prev.filter((j) => j.id !== job.id));
     await deleteJob(job.id, dateISO, job.crewId);
     router.refresh();
@@ -158,20 +172,20 @@ export default function DashboardBoard({
     router.push(`/dashboard?date=${rescheduleDate}`);
   }
 
-  const allColumns: { key: ColumnKey; name: string; color?: string }[] = [
-    { key: UNASSIGNED, name: "Unassigned" },
-    ...crews.map((c) => ({ key: c.id, name: c.name, color: c.color })),
-  ];
-
   return (
     <div>
+      {/* A refresh landing mid-drag or mid-save would yank the card being moved. */}
+      <AutoRefresh paused={pending || dragJobId !== null} />
+
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
           onClick={() => {
             setAddDefaultCrew(null);
             setAddOpen(true);
           }}
-          className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          disabled={crews.length === 0}
+          title={crews.length === 0 ? "Create a crew before adding jobs" : undefined}
+          className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-black/80 disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-white/80"
         >
           + Add Job
         </button>
@@ -216,28 +230,42 @@ export default function DashboardBoard({
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {allColumns.map(({ key, name, color }) => {
-          const list = columns.get(key) ?? [];
-          return (
-            <div
-              key={key}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOverKey((prev) => (prev && prev.col === key ? prev : { col: key, index: list.length }));
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                handleDrop(key);
-              }}
-              className="flex min-h-[120px] flex-col gap-2 rounded-lg bg-black/[.03] p-2 dark:bg-white/[.04]"
-            >
-              <div className="flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  {color && <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />}
-                  <h2 className="text-sm font-semibold">{name}</h2>
-                </div>
-                {key !== UNASSIGNED && (
+      {crews.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-black/15 p-10 text-center dark:border-white/15">
+          <p className="text-sm text-black/60 dark:text-white/60">
+            No active crews yet. Every job belongs to a crew, so add one to start scheduling.
+          </p>
+          <button
+            onClick={() => setManageCrewsOpen(true)}
+            className="mt-3 rounded-md bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
+          >
+            Add a crew
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {crews.map(({ id: key, name, color }) => {
+            const list = columns.get(key) ?? [];
+            return (
+              <div
+                key={key}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverKey((prev) =>
+                    prev && prev.col === key ? prev : { col: key, index: list.length },
+                  );
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  handleDrop(key);
+                }}
+                className="flex min-h-[120px] flex-col gap-2 rounded-lg bg-black/[.03] p-2 dark:bg-white/[.04]"
+              >
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
+                    <h2 className="text-sm font-semibold">{name}</h2>
+                  </div>
                   <div className="flex items-center gap-2">
                     <a
                       href={`/crew/${key}/today?date=${dateISO}`}
@@ -258,44 +286,48 @@ export default function DashboardBoard({
                       + job
                     </button>
                   </div>
+                </div>
+
+                {list.length === 0 && (
+                  <p className="px-1 py-6 text-center text-xs text-black/30 dark:text-white/30">
+                    No jobs
+                  </p>
                 )}
-              </div>
 
-              {list.length === 0 && (
-                <p className="px-1 py-6 text-center text-xs text-black/30 dark:text-white/30">No jobs</p>
-              )}
-
-              {list.map((job, index) => (
-                <div
-                  key={job.id}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setDragOverKey({ col: key, index });
-                  }}
-                >
-                  <JobCard
-                    job={job}
-                    crewColor={color}
-                    selectMode={selectMode}
-                    selected={selected.has(job.id)}
-                    onToggleSelect={() => toggleSelected(job.id)}
-                    onDelete={() => handleDelete(job)}
-                    onFrequencyChange={(frequency) => handleFrequencyChange(job, frequency)}
-                    onDragStart={() => setDragJobId(job.id)}
-                    onDragOverCard={(e) => {
+                {list.map((job, index) => (
+                  <div
+                    key={job.id}
+                    onDragOver={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       setDragOverKey({ col: key, index });
                     }}
-                    isDragOver={dragOverKey?.col === key && dragOverKey.index === index && dragJobId !== job.id}
-                  />
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
+                  >
+                    <JobCard
+                      job={job}
+                      crewColor={color}
+                      selectMode={selectMode}
+                      selected={selected.has(job.id)}
+                      onToggleSelect={() => toggleSelected(job.id)}
+                      onDelete={() => handleDelete(job)}
+                      onFrequencyChange={(frequency) => handleFrequencyChange(job, frequency)}
+                      onDragStart={() => setDragJobId(job.id)}
+                      onDragOverCard={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDragOverKey({ col: key, index });
+                      }}
+                      isDragOver={
+                        dragOverKey?.col === key && dragOverKey.index === index && dragJobId !== job.id
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {addOpen && (
         <AddJobModal

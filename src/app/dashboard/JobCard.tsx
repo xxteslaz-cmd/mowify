@@ -2,23 +2,7 @@
 
 import type { Frequency } from "@prisma/client";
 import type { JobWithNextDate } from "@/lib/types";
-
-const SERVICE_LABEL: Record<string, string> = {
-  MOW: "Mow",
-  MULCH: "Mulch",
-  CLEANUP: "Cleanup",
-  ONE_TIME: "One-time",
-  OTHER: "Other",
-};
-
-const FREQUENCIES: Frequency[] = ["ONE_TIME", "WEEKLY", "BIWEEKLY", "MONTHLY"];
-
-const FREQUENCY_LABEL: Record<Frequency, string> = {
-  ONE_TIME: "One-time",
-  WEEKLY: "Weekly",
-  BIWEEKLY: "Biweekly",
-  MONTHLY: "Monthly",
-};
+import { FREQUENCIES, FREQUENCY_LABEL, serviceLabel } from "@/lib/labels";
 
 const STATUS_STYLE: Record<string, string> = {
   SCHEDULED: "",
@@ -90,7 +74,7 @@ export default function JobCard({
           </div>
           <p className="truncate text-xs text-black/60 dark:text-white/60">{job.customer.address}</p>
           <div className="mt-1 flex items-center gap-2 text-xs text-black/70 dark:text-white/70">
-            <span>{SERVICE_LABEL[job.serviceType]}</span>
+            <span className="truncate">{serviceLabel(job)}</span>
             {editableFrequency && !selectMode ? (
               <select
                 value={job.frequency}

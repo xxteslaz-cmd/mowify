@@ -33,7 +33,6 @@ enum ServiceType {
   MOW
   MULCH
   CLEANUP
-  ONE_TIME
   OTHER
 }
 
@@ -56,9 +55,12 @@ model Job {
   customerId    String
   customer      Customer    @relation(fields: [customerId], references: [id])
   serviceType   ServiceType
+  // Free-text service name, used only when serviceType is OTHER. Displayed in
+  // place of the "Other" label everywhere a job's service is shown.
+  customService String?
   frequency     Frequency
-  crewId        String?
-  crew          Crew?       @relation(fields: [crewId], references: [id])
+  crewId        String
+  crew          Crew        @relation(fields: [crewId], references: [id])
   scheduledDate DateTime    @db.Date
   orderInDay    Int         @default(0)
   status        JobStatus   @default(SCHEDULED)

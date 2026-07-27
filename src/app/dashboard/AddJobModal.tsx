@@ -1,12 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Crew, Customer } from "@prisma/client";
+import type { Crew, Customer, Frequency, ServiceType } from "@prisma/client";
 import type { JobWithRelations } from "@/lib/types";
+import { SERVICE_TYPES, SERVICE_LABEL, FREQUENCIES, FREQUENCY_LABEL } from "@/lib/labels";
 import { createJob } from "./actions";
-
-const SERVICE_TYPES = ["MOW", "MULCH", "CLEANUP", "ONE_TIME", "OTHER"] as const;
-const FREQUENCIES = ["ONE_TIME", "WEEKLY", "BIWEEKLY", "MONTHLY"] as const;
 
 export default function AddJobModal({
   dateISO,
@@ -30,10 +28,11 @@ export default function AddJobModal({
   const [newAddress, setNewAddress] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newNotes, setNewNotes] = useState("");
-  const [serviceType, setServiceType] = useState<(typeof SERVICE_TYPES)[number]>("MOW");
-  const [frequency, setFrequency] = useState<(typeof FREQUENCIES)[number]>("WEEKLY");
+  const [serviceType, setServiceType] = useState<ServiceType>("MOW");
+  const [customService, setCustomService] = useState("");
+  const [frequency, setFrequency] = useState<Frequency>("WEEKLY");
   const [date, setDate] = useState(dateISO);
-  const [crewId, setCrewId] = useState<string>(defaultCrewId ?? "");
+  const [crewId, setCrewId] = useState<string>(defaultCrewId ?? crews[0]?.id ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,6 +56,14 @@ export default function AddJobModal({
       setError("Select a customer.");
       return;
     }
+    if (!crewId) {
+      setError("Select a crew.");
+      return;
+    }
+    if (serviceType === "OTHER" && !customService.trim()) {
+      setError("Describe the service, or pick a different one.");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -66,9 +73,10 @@ export default function AddJobModal({
           ? { name: newName.trim(), address: newAddress.trim(), phone: newPhone.trim() || undefined, notes: newNotes.trim() || undefined }
           : undefined,
         serviceType,
+        customService: serviceType === "OTHER" ? customService.trim() : null,
         frequency,
         dateISO: date,
-        crewId: crewId || null,
+        crewId,
       });
       onCreated(job);
     } catch (err) {
@@ -165,12 +173,16 @@ export default function AddJobModal({
             <span className="mb-1 block text-black/60 dark:text-white/60">Service</span>
             <select
               value={serviceType}
-              onChange={(e) => setServiceType(e.target.value as typeof serviceType)}
+              onChange={(e) => {
+                const next = e.target.value as ServiceType;
+                setServiceType(next);
+                if (next !== "OTHER") setCustomService("");
+              }}
               className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
             >
               {SERVICE_TYPES.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {SERVICE_LABEL[s]}
                 </option>
               ))}
             </select>
@@ -179,16 +191,30 @@ export default function AddJobModal({
             <span className="mb-1 block text-black/60 dark:text-white/60">Frequency</span>
             <select
               value={frequency}
-              onChange={(e) => setFrequency(e.target.value as typeof frequency)}
+              onChange={(e) => setFrequency(e.target.value as Frequency)}
               className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
             >
               {FREQUENCIES.map((f) => (
                 <option key={f} value={f}>
-                  {f}
+                  {FREQUENCY_LABEL[f]}
                 </option>
               ))}
             </select>
           </label>
+
+          {serviceType === "OTHER" && (
+            <label className="col-span-2 text-sm">
+              <span className="mb-1 block text-black/60 dark:text-white/60">Describe the service</span>
+              <input
+                type="text"
+                autoFocus
+                placeholder="e.g. Leaf removal, hedge trimming"
+                value={customService}
+                onChange={(e) => setCustomService(e.target.value)}
+                className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+              />
+            </label>
+          )}
           <label className="text-sm">
             <span className="mb-1 block text-black/60 dark:text-white/60">Date</span>
             <input
@@ -205,7 +231,6 @@ export default function AddJobModal({
               onChange={(e) => setCrewId(e.target.value)}
               className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
             >
-              <option value="">Unassigned</option>
               {crews.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}

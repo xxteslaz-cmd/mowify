@@ -36,14 +36,14 @@ async function main() {
     { customer: customers[1], crew: crewA, service: "MOW" as const, freq: "WEEKLY" as const, offset: 0, order: 1 },
     { customer: customers[2], crew: crewB, service: "MULCH" as const, freq: "ONE_TIME" as const, offset: 0, order: 0 },
     { customer: customers[3], crew: crewC, service: "MOW" as const, freq: "BIWEEKLY" as const, offset: 1, order: 0 },
-    { customer: customers[4], crew: null, service: "CLEANUP" as const, freq: "ONE_TIME" as const, offset: 2, order: 0 },
+    { customer: customers[4], crew: crewB, service: "CLEANUP" as const, freq: "ONE_TIME" as const, offset: 2, order: 0 },
   ];
 
   for (const j of jobsData) {
     await prisma.job.create({
       data: {
         customerId: j.customer.id,
-        crewId: j.crew?.id ?? null,
+        crewId: j.crew.id,
         serviceType: j.service,
         frequency: j.freq,
         scheduledDate: addDays(today, j.offset),

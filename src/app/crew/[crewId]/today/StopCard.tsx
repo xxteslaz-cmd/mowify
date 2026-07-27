@@ -4,14 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { JobWithCustomer } from "@/lib/types";
 import { updateJobStatus } from "@/app/dashboard/actions";
-
-const SERVICE_LABEL: Record<string, string> = {
-  MOW: "Mow",
-  MULCH: "Mulch",
-  CLEANUP: "Cleanup",
-  ONE_TIME: "One-time",
-  OTHER: "Other",
-};
+import { serviceLabel } from "@/lib/labels";
 
 export default function StopCard({
   job,
@@ -51,7 +44,7 @@ export default function StopCard({
               {job.customer.phone}
             </a>
           )}
-          <p className="mt-1 text-sm text-black/60 dark:text-white/60">{SERVICE_LABEL[job.serviceType]}</p>
+          <p className="mt-1 text-sm text-black/60 dark:text-white/60">{serviceLabel(job)}</p>
           {job.customer.notes && (
             <p className="mt-1 rounded bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
               {job.customer.notes}

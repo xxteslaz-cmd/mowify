@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { CustomerWithJobs, JobWithCrew } from "@/lib/types";
+import { FREQUENCY_LABEL, serviceLabel } from "@/lib/labels";
 import { updateCustomer } from "../actions";
 
 export default function CustomerDetailClient({
@@ -129,7 +130,8 @@ function JobList({ jobs, empty }: { jobs: JobWithCrew[]; empty: string }) {
               {job.scheduledDate.toISOString().slice(0, 10)}
             </span>{" "}
             <span className="text-black/60 dark:text-white/60">
-              {job.serviceType} {job.frequency !== "ONE_TIME" ? `(${job.frequency})` : ""}
+              {serviceLabel(job)}
+              {job.frequency !== "ONE_TIME" ? ` (${FREQUENCY_LABEL[job.frequency]})` : ""}
             </span>
           </div>
           <div className="flex items-center gap-2">

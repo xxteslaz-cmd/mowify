@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Crew, Frequency, ServiceType } from "@prisma/client";
 import { todayISO } from "@/lib/date";
+import { SERVICE_TYPES, SERVICE_LABEL, FREQUENCIES, FREQUENCY_LABEL } from "@/lib/labels";
 import { createCustomer } from "./actions";
 import { createJob } from "@/app/dashboard/actions";
-
-const SERVICE_TYPES: ServiceType[] = ["MOW", "MULCH", "CLEANUP", "ONE_TIME", "OTHER"];
-const FREQUENCIES: Frequency[] = ["ONE_TIME", "WEEKLY", "BIWEEKLY", "MONTHLY"];
 
 type CustomerRow = {
   id: string;
@@ -105,9 +103,10 @@ function AddCustomerModal({
   const [notes, setNotes] = useState("");
   const [scheduleJob, setScheduleJob] = useState(false);
   const [serviceType, setServiceType] = useState<ServiceType>("MOW");
+  const [customService, setCustomService] = useState("");
   const [frequency, setFrequency] = useState<Frequency>("WEEKLY");
   const [date, setDate] = useState(todayISO());
-  const [crewId, setCrewId] = useState("");
+  const [crewId, setCrewId] = useState(crews[0]?.id ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,6 +114,14 @@ function AddCustomerModal({
     e.preventDefault();
     if (!name.trim() || !address.trim()) {
       setError("Name and address are required.");
+      return;
+    }
+    if (scheduleJob && !crewId) {
+      setError("Select a crew for the job.");
+      return;
+    }
+    if (scheduleJob && serviceType === "OTHER" && !customService.trim()) {
+      setError("Describe the service, or pick a different one.");
       return;
     }
     setSubmitting(true);
@@ -129,9 +136,10 @@ function AddCustomerModal({
         await createJob({
           newCustomer,
           serviceType,
+          customService: serviceType === "OTHER" ? customService.trim() : null,
           frequency,
           dateISO: date,
-          crewId: crewId || null,
+          crewId,
         });
       } else {
         await createCustomer(newCustomer);
@@ -186,10 +194,14 @@ function AddCustomerModal({
           <input
             type="checkbox"
             checked={scheduleJob}
+            disabled={crews.length === 0}
             onChange={(e) => setScheduleJob(e.target.checked)}
-            className="h-4 w-4"
+            className="h-4 w-4 disabled:opacity-40"
           />
           Schedule a job now
+          {crews.length === 0 && (
+            <span className="text-xs text-black/50 dark:text-white/50">(add a crew first)</span>
+          )}
         </label>
 
         {scheduleJob && (
@@ -198,12 +210,16 @@ function AddCustomerModal({
               <span className="mb-1 block text-black/60 dark:text-white/60">Service</span>
               <select
                 value={serviceType}
-                onChange={(e) => setServiceType(e.target.value as ServiceType)}
+                onChange={(e) => {
+                  const next = e.target.value as ServiceType;
+                  setServiceType(next);
+                  if (next !== "OTHER") setCustomService("");
+                }}
                 className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
               >
                 {SERVICE_TYPES.map((s) => (
                   <option key={s} value={s}>
-                    {s}
+                    {SERVICE_LABEL[s]}
                   </option>
                 ))}
               </select>
@@ -217,11 +233,24 @@ function AddCustomerModal({
               >
                 {FREQUENCIES.map((f) => (
                   <option key={f} value={f}>
-                    {f}
+                    {FREQUENCY_LABEL[f]}
                   </option>
                 ))}
               </select>
             </label>
+
+            {serviceType === "OTHER" && (
+              <label className="col-span-2 text-sm">
+                <span className="mb-1 block text-black/60 dark:text-white/60">Describe the service</span>
+                <input
+                  type="text"
+                  placeholder="e.g. Leaf removal, hedge trimming"
+                  value={customService}
+                  onChange={(e) => setCustomService(e.target.value)}
+                  className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+                />
+              </label>
+            )}
             <label className="text-sm">
               <span className="mb-1 block text-black/60 dark:text-white/60">Date</span>
               <input
@@ -238,7 +267,6 @@ function AddCustomerModal({
                 onChange={(e) => setCrewId(e.target.value)}
                 className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
               >
-                <option value="">Unassigned</option>
                 {crews.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}

@@ -16,10 +16,21 @@ export async function createJob(input: {
   customerId?: string;
   newCustomer?: { name: string; address: string; phone?: string; notes?: string };
   serviceType: ServiceType;
+  customService?: string | null;
   frequency: Frequency;
   dateISO: string;
-  crewId?: string | null;
+  crewId: string;
 }) {
+  // The forms enforce this too, but a job with no crew would be invisible on
+  // the board, so it can't be allowed to reach the database.
+  if (!input.crewId) throw new Error("A crew is required");
+
+  const customService =
+    input.serviceType === "OTHER" ? input.customService?.trim() || null : null;
+  if (input.serviceType === "OTHER" && !customService) {
+    throw new Error("Describe the service when choosing Other");
+  }
+
   let customerId = input.customerId;
 
   if (!customerId && input.newCustomer) {
@@ -29,7 +40,7 @@ export async function createJob(input: {
   if (!customerId) throw new Error("A customer is required");
 
   const date = parseISODate(input.dateISO);
-  const crewId = input.crewId ?? null;
+  const crewId = input.crewId;
 
   const columnCount = await prisma.job.count({
     where: { scheduledDate: date, crewId },
@@ -39,6 +50,7 @@ export async function createJob(input: {
     data: {
       customerId,
       serviceType: input.serviceType,
+      customService,
       frequency: input.frequency,
       crewId,
       scheduledDate: date,
@@ -59,7 +71,7 @@ export async function updateJobFrequency(
   jobId: string,
   frequency: Frequency,
   dateISO: string,
-  crewId: string | null,
+  crewId: string,
 ) {
   const current = await prisma.job.findUniqueOrThrow({ where: { id: jobId } });
 
@@ -113,7 +125,7 @@ export async function deleteCrew(id: string) {
 
 export async function reorderColumn(input: {
   dateISO: string;
-  crewId: string | null;
+  crewId: string;
   orderedJobIds: string[];
 }) {
   const date = parseISODate(input.dateISO);
@@ -160,7 +172,7 @@ export async function bulkRescheduleDay(input: {
   }
 }
 
-export async function deleteJob(jobId: string, dateISO: string, crewId: string | null) {
+export async function deleteJob(jobId: string, dateISO: string, crewId: string) {
   await prisma.job.delete({ where: { id: jobId } });
   revalidateAffected(dateISO, crewId);
 }
