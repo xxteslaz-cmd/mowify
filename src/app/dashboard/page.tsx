@@ -1,4 +1,4 @@
-import { getActiveCrews, getJobsForDate } from "@/lib/data";
+import { getActiveCrews, getAllCrews, getJobsForDate } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { todayISO } from "@/lib/date";
 import { attachNextDates } from "@/lib/recurring";
@@ -13,8 +13,9 @@ export default async function DashboardPage({
   const params = await searchParams;
   const dateISO = params.date ?? todayISO();
 
-  const [crews, jobs, customers] = await Promise.all([
+  const [crews, allCrews, jobs, customers] = await Promise.all([
     getActiveCrews(),
+    getAllCrews(),
     getJobsForDate(dateISO),
     prisma.customer.findMany({ orderBy: { name: "asc" } }),
   ]);
@@ -27,6 +28,7 @@ export default async function DashboardPage({
         key={dateISO}
         dateISO={dateISO}
         crews={crews}
+        allCrews={allCrews}
         jobs={jobsWithNextDate}
         customers={customers}
       />

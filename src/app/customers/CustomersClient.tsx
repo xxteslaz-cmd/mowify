@@ -3,7 +3,13 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import type { Crew, Frequency, ServiceType } from "@prisma/client";
+import { todayISO } from "@/lib/date";
 import { createCustomer } from "./actions";
+import { createJob } from "@/app/dashboard/actions";
+
+const SERVICE_TYPES: ServiceType[] = ["MOW", "MULCH", "CLEANUP", "ONE_TIME", "OTHER"];
+const FREQUENCIES: Frequency[] = ["ONE_TIME", "WEEKLY", "BIWEEKLY", "MONTHLY"];
 
 type CustomerRow = {
   id: string;
@@ -14,7 +20,7 @@ type CustomerRow = {
   _count: { jobs: number };
 };
 
-export default function CustomersClient({ customers }: { customers: CustomerRow[] }) {
+export default function CustomersClient({ customers, crews }: { customers: CustomerRow[]; crews: Crew[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -72,6 +78,7 @@ export default function CustomersClient({ customers }: { customers: CustomerRow[
 
       {addOpen && (
         <AddCustomerModal
+          crews={crews}
           onClose={() => setAddOpen(false)}
           onCreated={() => {
             setAddOpen(false);
@@ -83,11 +90,24 @@ export default function CustomersClient({ customers }: { customers: CustomerRow[
   );
 }
 
-function AddCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function AddCustomerModal({
+  crews,
+  onClose,
+  onCreated,
+}: {
+  crews: Crew[];
+  onClose: () => void;
+  onCreated: () => void;
+}) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [scheduleJob, setScheduleJob] = useState(false);
+  const [serviceType, setServiceType] = useState<ServiceType>("MOW");
+  const [frequency, setFrequency] = useState<Frequency>("WEEKLY");
+  const [date, setDate] = useState(todayISO());
+  const [crewId, setCrewId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -99,12 +119,23 @@ function AddCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreat
     }
     setSubmitting(true);
     try {
-      await createCustomer({
+      const newCustomer = {
         name: name.trim(),
         address: address.trim(),
         phone: phone.trim() || undefined,
         notes: notes.trim() || undefined,
-      });
+      };
+      if (scheduleJob) {
+        await createJob({
+          newCustomer,
+          serviceType,
+          frequency,
+          dateISO: date,
+          crewId: crewId || null,
+        });
+      } else {
+        await createCustomer(newCustomer);
+      }
       onCreated();
     } catch {
       setError("Something went wrong.");
@@ -150,6 +181,74 @@ function AddCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreat
             className="w-full rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-transparent"
           />
         </div>
+
+        <label className="mt-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={scheduleJob}
+            onChange={(e) => setScheduleJob(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Schedule a job now
+        </label>
+
+        {scheduleJob && (
+          <div className="mt-2 grid grid-cols-2 gap-3 rounded-md bg-black/5 p-3 dark:bg-white/10">
+            <label className="text-sm">
+              <span className="mb-1 block text-black/60 dark:text-white/60">Service</span>
+              <select
+                value={serviceType}
+                onChange={(e) => setServiceType(e.target.value as ServiceType)}
+                className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+              >
+                {SERVICE_TYPES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block text-black/60 dark:text-white/60">Frequency</span>
+              <select
+                value={frequency}
+                onChange={(e) => setFrequency(e.target.value as Frequency)}
+                className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+              >
+                {FREQUENCIES.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block text-black/60 dark:text-white/60">Date</span>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block text-black/60 dark:text-white/60">Crew</span>
+              <select
+                value={crewId}
+                onChange={(e) => setCrewId(e.target.value)}
+                className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+              >
+                <option value="">Unassigned</option>
+                {crews.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
         {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10">
@@ -160,7 +259,7 @@ function AddCustomerModal({ onClose, onCreated }: { onClose: () => void; onCreat
             disabled={submitting}
             className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
           >
-            {submitting ? "Adding..." : "Add Customer"}
+            {submitting ? "Adding..." : scheduleJob ? "Add Customer & Job" : "Add Customer"}
           </button>
         </div>
       </form>

@@ -81,6 +81,22 @@ export async function updateJobFrequency(
   return job;
 }
 
+export async function createCrew(input: { name: string; color: string }) {
+  const crew = await prisma.crew.create({ data: input });
+  revalidatePath("/dashboard");
+  return crew;
+}
+
+export async function updateCrew(
+  id: string,
+  input: { name?: string; color?: string; active?: boolean },
+) {
+  const crew = await prisma.crew.update({ where: { id }, data: input });
+  revalidatePath("/dashboard");
+  revalidatePath(`/crew/${id}/today`);
+  return crew;
+}
+
 export async function reorderColumn(input: {
   dateISO: string;
   crewId: string | null;

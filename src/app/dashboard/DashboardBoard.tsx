@@ -7,6 +7,7 @@ import type { JobWithNextDate } from "@/lib/types";
 import { toISODate, calculateNextOccurrenceDate } from "@/lib/date";
 import JobCard from "./JobCard";
 import AddJobModal from "./AddJobModal";
+import ManageCrewsModal from "./ManageCrewsModal";
 import { reorderColumn, deleteJob, bulkRescheduleDay, updateJobFrequency } from "./actions";
 
 const UNASSIGNED = "unassigned";
@@ -20,11 +21,13 @@ function columnKeyFor(crewId: string | null) {
 export default function DashboardBoard({
   dateISO,
   crews,
+  allCrews,
   jobs,
   customers,
 }: {
   dateISO: string;
   crews: Crew[];
+  allCrews: Crew[];
   jobs: JobWithNextDate[];
   customers: Customer[];
 }) {
@@ -32,6 +35,7 @@ export default function DashboardBoard({
   const [localJobs, setLocalJobs] = useState(jobs);
   const [addOpen, setAddOpen] = useState(false);
   const [addDefaultCrew, setAddDefaultCrew] = useState<string | null>(null);
+  const [manageCrewsOpen, setManageCrewsOpen] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragJobId, setDragJobId] = useState<string | null>(null);
@@ -184,6 +188,12 @@ export default function DashboardBoard({
         >
           {selectMode ? "Cancel selection" : "Select & reschedule"}
         </button>
+        <button
+          onClick={() => setManageCrewsOpen(true)}
+          className="rounded-md border border-black/10 px-3 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
+        >
+          Manage Crews
+        </button>
 
         {selectMode && selected.size > 0 && (
           <div className="flex items-center gap-2 rounded-md bg-black/5 px-3 py-2 dark:bg-white/10">
@@ -302,6 +312,14 @@ export default function DashboardBoard({
             setAddOpen(false);
             router.refresh();
           }}
+        />
+      )}
+
+      {manageCrewsOpen && (
+        <ManageCrewsModal
+          crews={allCrews}
+          onClose={() => setManageCrewsOpen(false)}
+          onChanged={() => router.refresh()}
         />
       )}
     </div>
