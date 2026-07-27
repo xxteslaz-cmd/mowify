@@ -9,7 +9,11 @@ export async function getActiveCrews() {
 }
 
 export async function getAllCrews() {
-  return prisma.crew.findMany({ orderBy: { createdAt: "asc" } });
+  // Job counts drive whether a crew can be deleted in Manage Crews.
+  return prisma.crew.findMany({
+    orderBy: { createdAt: "asc" },
+    include: { _count: { select: { jobs: true } } },
+  });
 }
 
 export async function getJobsForDate(dateISO: string) {

@@ -97,6 +97,20 @@ export async function updateCrew(
   return crew;
 }
 
+export async function deleteCrew(id: string) {
+  // The UI disables Delete for crews with jobs, but re-check here since the
+  // count the client rendered can be stale by the time the action runs.
+  const jobCount = await prisma.job.count({ where: { crewId: id } });
+  if (jobCount > 0) {
+    throw new Error(
+      `Cannot delete crew: ${jobCount} job${jobCount === 1 ? "" : "s"} still assigned to it.`,
+    );
+  }
+
+  await prisma.crew.delete({ where: { id } });
+  revalidatePath("/dashboard");
+}
+
 export async function reorderColumn(input: {
   dateISO: string;
   crewId: string | null;

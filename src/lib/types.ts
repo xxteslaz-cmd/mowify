@@ -17,3 +17,7 @@ export type JobWithCrew = Prisma.JobGetPayload<{
 export type CustomerWithJobs = Prisma.CustomerGetPayload<{
   include: { jobs: { include: { crew: true } } };
 }>;
+
+export type CrewWithJobCount = Prisma.CrewGetPayload<{
+  include: { _count: { select: { jobs: true } } };
+}>;

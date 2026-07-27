@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Crew, Customer, Frequency } from "@prisma/client";
-import type { JobWithNextDate } from "@/lib/types";
+import type { JobWithNextDate, CrewWithJobCount } from "@/lib/types";
 import { toISODate, calculateNextOccurrenceDate } from "@/lib/date";
 import JobCard from "./JobCard";
 import AddJobModal from "./AddJobModal";
@@ -27,7 +27,7 @@ export default function DashboardBoard({
 }: {
   dateISO: string;
   crews: Crew[];
-  allCrews: Crew[];
+  allCrews: CrewWithJobCount[];
   jobs: JobWithNextDate[];
   customers: Customer[];
 }) {

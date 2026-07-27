@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import type { Crew } from "@prisma/client";
-import { createCrew, updateCrew } from "./actions";
+import type { CrewWithJobCount } from "@/lib/types";
+import { createCrew, updateCrew, deleteCrew } from "./actions";
 
 export default function ManageCrewsModal({
   crews,
   onClose,
   onChanged,
 }: {
-  crews: Crew[];
+  crews: CrewWithJobCount[];
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -44,11 +44,13 @@ export default function ManageCrewsModal({
   );
 }
 
-function CrewRow({ crew, onChanged }: { crew: Crew; onChanged: () => void }) {
+function CrewRow({ crew, onChanged }: { crew: CrewWithJobCount; onChanged: () => void }) {
   const [name, setName] = useState(crew.name);
   const [color, setColor] = useState(crew.color);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const dirty = name.trim() !== crew.name || color !== crew.color;
+  const jobCount = crew._count.jobs;
 
   async function save() {
     if (!name.trim()) return;
@@ -65,37 +67,64 @@ function CrewRow({ crew, onChanged }: { crew: Crew; onChanged: () => void }) {
     onChanged();
   }
 
+  async function remove() {
+    if (!confirm(`Delete crew "${crew.name}"? This cannot be undone.`)) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await deleteCrew(crew.id);
+      onChanged();
+    } catch {
+      // The count we rendered can go stale if a job was assigned meanwhile.
+      setError("Couldn't delete this crew — it may have jobs assigned now.");
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <div className={`flex items-center gap-2 rounded-md border border-black/10 p-2 dark:border-white/10 ${!crew.active ? "opacity-50" : ""}`}>
-      <input
-        type="color"
-        value={color}
-        onChange={(e) => setColor(e.target.value)}
-        aria-label={`${crew.name} color`}
-        className="h-8 w-8 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
-      />
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="min-w-0 flex-1 rounded border border-black/10 px-2 py-1 text-sm dark:border-white/10 dark:bg-transparent"
-      />
-      {dirty && (
+    <div className={`rounded-md border border-black/10 p-2 dark:border-white/10 ${!crew.active ? "opacity-50" : ""}`}>
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          aria-label={`${crew.name} color`}
+          className="h-8 w-8 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+        />
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="min-w-0 flex-1 rounded border border-black/10 px-2 py-1 text-sm dark:border-white/10 dark:bg-transparent"
+        />
+        {dirty && (
+          <button
+            onClick={save}
+            disabled={saving}
+            className="shrink-0 rounded bg-black px-2 py-1 text-xs font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+          >
+            Save
+          </button>
+        )}
         <button
-          onClick={save}
+          onClick={toggleActive}
           disabled={saving}
-          className="shrink-0 rounded bg-black px-2 py-1 text-xs font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+          className="shrink-0 rounded border border-black/10 px-2 py-1 text-xs disabled:opacity-50 dark:border-white/10"
         >
-          Save
+          {crew.active ? "Deactivate" : "Activate"}
         </button>
-      )}
-      <button
-        onClick={toggleActive}
-        disabled={saving}
-        className="shrink-0 rounded border border-black/10 px-2 py-1 text-xs disabled:opacity-50 dark:border-white/10"
-      >
-        {crew.active ? "Deactivate" : "Activate"}
-      </button>
+        <button
+          onClick={remove}
+          disabled={saving || jobCount > 0}
+          title={jobCount > 0 ? `Can't delete: crew has ${jobCount} job${jobCount === 1 ? "" : "s"}` : `Delete ${crew.name}`}
+          className="shrink-0 rounded border border-red-500/40 px-2 py-1 text-xs text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-400/40 dark:text-red-400"
+        >
+          Delete
+        </button>
+      </div>
+      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 }
