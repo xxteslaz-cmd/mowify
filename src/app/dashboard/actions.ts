@@ -2,7 +2,12 @@
 
 import { prisma } from "@/lib/prisma";
 import { parseISODate, toISODate } from "@/lib/date";
-import { generateNextOccurrence } from "@/lib/recurring";
+import {
+  generateNextOccurrence,
+  ensureOccurrencesThrough,
+  horizonDate,
+  isRecurring,
+} from "@/lib/recurring";
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 import type { Frequency, ServiceType } from "@prisma/client";
@@ -55,13 +60,16 @@ export async function createJob(input: {
       crewId,
       scheduledDate: date,
       orderInDay: columnCount,
-      seriesId:
-        input.frequency === "WEEKLY" || input.frequency === "BIWEEKLY"
-          ? randomUUID()
-          : null,
+      seriesId: isRecurring(input.frequency) ? randomUUID() : null,
     },
     include: { customer: true, crew: true },
   });
+
+  // Fill in the upcoming visits straight away so they're on the board the
+  // moment the job is created, not only once this one is completed.
+  if (isRecurring(input.frequency)) {
+    await ensureOccurrencesThrough(horizonDate());
+  }
 
   revalidateAffected(input.dateISO, crewId);
   return job;
@@ -78,7 +86,7 @@ export async function updateJobFrequency(
   // Only wire up a series if this job is becoming auto-generated and isn't
   // already part of one; existing past/future occurrences in an existing
   // series are untouched since we only ever update this one row.
-  const needsSeries = (frequency === "WEEKLY" || frequency === "BIWEEKLY") && !current.seriesId;
+  const needsSeries = isRecurring(frequency) && !current.seriesId;
 
   const job = await prisma.job.update({
     where: { id: jobId },
@@ -88,6 +96,10 @@ export async function updateJobFrequency(
     },
     include: { customer: true, crew: true },
   });
+
+  if (isRecurring(frequency)) {
+    await ensureOccurrencesThrough(horizonDate());
+  }
 
   revalidateAffected(dateISO, crewId);
   return job;

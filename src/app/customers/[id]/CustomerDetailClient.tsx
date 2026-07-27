@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { CustomerWithJobs, JobWithCrew } from "@/lib/types";
+import { toISODate } from "@/lib/date";
 import { FREQUENCY_LABEL, serviceLabel } from "@/lib/labels";
 import { updateCustomer } from "../actions";
 
@@ -127,7 +128,7 @@ function JobList({ jobs, empty }: { jobs: JobWithCrew[]; empty: string }) {
         <div key={job.id} className="flex items-center justify-between p-3 text-sm">
           <div>
             <span className="font-medium">
-              {job.scheduledDate.toISOString().slice(0, 10)}
+              {toISODate(job.scheduledDate)}
             </span>{" "}
             <span className="text-black/60 dark:text-white/60">
               {serviceLabel(job)}

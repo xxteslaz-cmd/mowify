@@ -2,6 +2,7 @@
 
 import type { Frequency } from "@prisma/client";
 import type { JobWithNextDate } from "@/lib/types";
+import { formatShortDate } from "@/lib/date";
 import { FREQUENCIES, FREQUENCY_LABEL, serviceLabel } from "@/lib/labels";
 
 const STATUS_STYLE: Record<string, string> = {
@@ -98,7 +99,7 @@ export default function JobCard({
           </div>
           {job.frequency !== "ONE_TIME" && job.nextDate && (
             <p className="mt-0.5 text-xs text-black/50 dark:text-white/50">
-              Next: {job.nextDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              Next: {formatShortDate(job.nextDate)}
             </p>
           )}
           {job.notes && (

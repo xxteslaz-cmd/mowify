@@ -1,11 +1,6 @@
 import "dotenv/config";
 import { prisma } from "../src/lib/prisma";
-
-function addDays(base: Date, days: number) {
-  const d = new Date(base);
-  d.setDate(d.getDate() + days);
-  return d;
-}
+import { addDays, todayDate } from "../src/lib/date";
 
 async function main() {
   await prisma.job.deleteMany();
@@ -28,8 +23,7 @@ async function main() {
     ].map((c) => prisma.customer.create({ data: c })),
   );
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayDate();
 
   const jobsData = [
     { customer: customers[0], crew: crewA, service: "MOW" as const, freq: "WEEKLY" as const, offset: 0, order: 0 },

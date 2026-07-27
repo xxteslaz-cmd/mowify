@@ -1,5 +1,36 @@
 import { prisma } from "./prisma";
-import { parseISODate } from "./date";
+import { parseISODate, toISODate } from "./date";
+
+export type DaySummary = { count: number; colors: string[] };
+
+/**
+ * Per-day job counts and crew colours for the calendar, so a day shows whether
+ * work is scheduled without having to be clicked.
+ */
+export async function getDaySummaries(
+  days: Date[],
+): Promise<Record<string, DaySummary>> {
+  if (days.length === 0) return {};
+
+  const jobs = await prisma.job.findMany({
+    where: {
+      scheduledDate: { gte: days[0], lte: days[days.length - 1] },
+      status: { not: "SKIPPED" },
+    },
+    select: { scheduledDate: true, crew: { select: { color: true } } },
+  });
+
+  const summaries: Record<string, DaySummary> = {};
+  for (const job of jobs) {
+    const key = toISODate(job.scheduledDate);
+    const entry = (summaries[key] ??= { count: 0, colors: [] });
+    entry.count++;
+    if (job.crew && !entry.colors.includes(job.crew.color)) {
+      entry.colors.push(job.crew.color);
+    }
+  }
+  return summaries;
+}
 
 export async function getActiveCrews() {
   return prisma.crew.findMany({
