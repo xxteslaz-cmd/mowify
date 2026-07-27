@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Crew, Customer, Frequency } from "@prisma/client";
@@ -12,7 +12,7 @@ import JobCard from "./JobCard";
 import AddJobModal from "./AddJobModal";
 import EditJobModal from "./EditJobModal";
 import ManageCrewsModal from "./ManageCrewsModal";
-import { reorderColumn, deleteJob, bulkRescheduleDay, updateJobFrequency } from "./actions";
+import { deleteJob, bulkRescheduleDay, updateJobFrequency } from "./actions";
 
 type ColumnKey = string;
 
@@ -52,28 +52,8 @@ export default function DashboardBoard({
   const [manageCrewsOpen, setManageCrewsOpen] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [dragJobId, setDragJobId] = useState<string | null>(null);
-  const [dragOverKey, setDragOverKey] = useState<{ col: ColumnKey; index: number } | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState(dateISO);
   const [pending, setPending] = useState(false);
-
-  // A drop reorders localJobs, which remounts the dragged card, so a guard held
-  // inside JobCard would be reset by the time the trailing click arrives. Keep
-  // it here, above the cards, where a remount can't clear it.
-  //
-  // Set when a drag finishes and cleared on the next mousedown, which always
-  // precedes a genuine click — so only the click a browser emits after a drop
-  // is swallowed, never a real one.
-  const justDraggedRef = useRef(false);
-
-  function noteDragEnded() {
-    justDraggedRef.current = true;
-  }
-
-  function openEditor(job: JobWithNextDate) {
-    if (justDraggedRef.current) return;
-    setEditJob(job);
-  }
 
   // Polled refreshes hand down a new `jobs` prop, which plain useState would
   // ignore. Adopting it during render keeps the board live without a remount.
@@ -94,60 +74,6 @@ export default function DashboardBoard({
     for (const list of map.values()) list.sort((a, b) => a.orderInDay - b.orderInDay);
     return map;
   }, [localJobs, crews]);
-
-  async function persistColumn(crewId: string, jobIds: string[]) {
-    setPending(true);
-    await reorderColumn({ dateISO, crewId, orderedJobIds: jobIds });
-    router.refresh();
-    setPending(false);
-  }
-
-  function handleDrop(targetCol: ColumnKey) {
-    noteDragEnded();
-    if (!dragJobId) return;
-    const job = localJobs.find((j) => j.id === dragJobId);
-    if (!job) return;
-    const sourceCol = job.crewId;
-    const insertIndex =
-      dragOverKey?.col === targetCol ? dragOverKey.index : columns.get(targetCol)?.length ?? 0;
-
-    const next = [...localJobs];
-    const withoutDragged = next.filter((j) => j.id !== dragJobId);
-
-    const destList = withoutDragged
-      .filter((j) => j.crewId === targetCol)
-      .sort((a, b) => a.orderInDay - b.orderInDay);
-    destList.splice(insertIndex, 0, job);
-
-    const updatedDest = destList.map((j, i) => ({
-      ...j,
-      crewId: targetCol,
-      orderInDay: i,
-    }));
-
-    const untouched = withoutDragged.filter((j) => j.crewId !== targetCol);
-    const merged = [...untouched, ...updatedDest];
-
-    setLocalJobs(merged);
-    setDragJobId(null);
-    setDragOverKey(null);
-
-    void persistColumn(
-      targetCol,
-      updatedDest.map((j) => j.id),
-    );
-    if (sourceCol !== targetCol) {
-      const remainingSource = untouched
-        .filter((j) => j.crewId === sourceCol)
-        .sort((a, b) => a.orderInDay - b.orderInDay);
-      if (remainingSource.length) {
-        void persistColumn(
-          sourceCol,
-          remainingSource.map((j) => j.id),
-        );
-      }
-    }
-  }
 
   function toggleSelected(id: string) {
     setSelected((prev) => {
@@ -196,11 +122,9 @@ export default function DashboardBoard({
 
   return (
     <div>
-      {/* A refresh landing mid-drag, mid-save or under an open dialog would
-          yank the card out from under the user. */}
-      <AutoRefresh
-        paused={pending || dragJobId !== null || addOpen || editJob !== null || manageCrewsOpen}
-      />
+      {/* A refresh landing mid-save or under an open dialog would yank the
+          card out from under the user. */}
+      <AutoRefresh paused={pending || addOpen || editJob !== null || manageCrewsOpen} />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
@@ -268,27 +192,12 @@ export default function DashboardBoard({
           </button>
         </div>
       ) : (
-        <div
-          onMouseDownCapture={() => {
-            justDraggedRef.current = false;
-          }}
-          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-        >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {crews.map(({ id: key, name, color }) => {
             const list = columns.get(key) ?? [];
             return (
               <div
                 key={key}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOverKey((prev) =>
-                    prev && prev.col === key ? prev : { col: key, index: list.length },
-                  );
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  handleDrop(key);
-                }}
                 className="flex min-h-[120px] flex-col gap-2 rounded-lg bg-black/[.03] p-2 dark:bg-white/[.04]"
               >
                 <div className="flex items-center justify-between px-1">
@@ -322,36 +231,18 @@ export default function DashboardBoard({
                   </p>
                 )}
 
-                {list.map((job, index) => (
-                  <div
+                {list.map((job) => (
+                  <JobCard
                     key={job.id}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDragOverKey({ col: key, index });
-                    }}
-                  >
-                    <JobCard
-                      job={job}
-                      crewColor={color}
-                      selectMode={selectMode}
-                      selected={selected.has(job.id)}
-                      onToggleSelect={() => toggleSelected(job.id)}
-                      onDelete={() => handleDelete(job)}
-                      onEdit={() => openEditor(job)}
-                      onFrequencyChange={(frequency) => handleFrequencyChange(job, frequency)}
-                      onDragStart={() => setDragJobId(job.id)}
-                      onDragEnd={noteDragEnded}
-                      onDragOverCard={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDragOverKey({ col: key, index });
-                      }}
-                      isDragOver={
-                        dragOverKey?.col === key && dragOverKey.index === index && dragJobId !== job.id
-                      }
-                    />
-                  </div>
+                    job={job}
+                    crewColor={color}
+                    selectMode={selectMode}
+                    selected={selected.has(job.id)}
+                    onToggleSelect={() => toggleSelected(job.id)}
+                    onDelete={() => handleDelete(job)}
+                    onEdit={() => setEditJob(job)}
+                    onFrequencyChange={(frequency) => handleFrequencyChange(job, frequency)}
+                  />
                 ))}
               </div>
             );

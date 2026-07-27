@@ -211,23 +211,6 @@ export async function deleteCrew(id: string) {
   revalidatePath("/dashboard");
 }
 
-export async function reorderColumn(input: {
-  dateISO: string;
-  crewId: string;
-  orderedJobIds: string[];
-}) {
-  const date = parseISODate(input.dateISO);
-  await prisma.$transaction(
-    input.orderedJobIds.map((id, index) =>
-      prisma.job.update({
-        where: { id },
-        data: { crewId: input.crewId, orderInDay: index, scheduledDate: date },
-      }),
-    ),
-  );
-  revalidateAffected(input.dateISO, input.crewId);
-}
-
 export async function updateJobStatus(jobId: string, status: "COMPLETED" | "SKIPPED") {
   const job = await prisma.job.update({
     where: { id: jobId },

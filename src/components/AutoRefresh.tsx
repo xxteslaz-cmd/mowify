@@ -22,7 +22,7 @@ export default function AutoRefresh({
 }) {
   const router = useRouter();
 
-  // Held in a ref so toggling `paused` mid-drag doesn't tear down and restart
+  // Held in a ref so toggling `paused` mid-edit doesn't tear down and restart
   // the interval on every render.
   const pausedRef = useRef(paused);
   useEffect(() => {

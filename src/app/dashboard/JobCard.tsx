@@ -27,10 +27,6 @@ export default function JobCard({
   onDelete,
   onEdit,
   onFrequencyChange,
-  onDragStart,
-  onDragEnd,
-  onDragOverCard,
-  isDragOver,
 }: {
   job: JobWithNextDate;
   crewColor?: string;
@@ -40,27 +36,20 @@ export default function JobCard({
   onDelete: () => void;
   onEdit: () => void;
   onFrequencyChange: (frequency: Frequency) => void;
-  onDragStart: (e: React.DragEvent) => void;
-  onDragEnd: () => void;
-  onDragOverCard: (e: React.DragEvent) => void;
-  isDragOver: boolean;
 }) {
   const movable = job.status === "SCHEDULED" || job.status === "RESCHEDULED";
   const editableFrequency = movable;
 
   return (
     <div
-      draggable={!selectMode}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      onDragOver={onDragOverCard}
       onClick={() => {
         if (selectMode) return;
         onEdit();
       }}
-      className={`group rounded-lg border bg-white p-3 shadow-sm dark:bg-zinc-900 ${
-        isDragOver ? "border-blue-400 ring-2 ring-blue-300" : "border-black/10 dark:border-white/10"
-      } ${STATUS_STYLE[job.status]} ${selectMode ? "" : "cursor-grab active:cursor-grabbing"}`}
+      title={selectMode ? undefined : "Click to edit"}
+      className={`group rounded-lg border border-black/10 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-zinc-900 ${
+        STATUS_STYLE[job.status]
+      } ${selectMode ? "" : "cursor-pointer hover:border-black/25 dark:hover:border-white/25"}`}
       style={crewColor ? { borderLeftColor: crewColor, borderLeftWidth: 4 } : undefined}
     >
       <div className="flex items-start gap-2">

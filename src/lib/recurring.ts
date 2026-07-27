@@ -56,8 +56,8 @@ export async function generateNextOccurrence(job: Job) {
  *
  * Occurrences used to be created only when the previous one was completed, so
  * every future date on the board looked empty even though the card advertised a
- * "Next" date. Real rows mean drag, reorder, delete and per-visit edits all keep
- * working untouched.
+ * "Next" date. Real rows mean editing, deleting and per-visit changes all work
+ * on a future visit exactly as they do on today's.
  *
  * Idempotent: it skips dates a series already occupies, so repeated dashboard
  * renders (including the 10s auto-refresh poll) write nothing once caught up.
