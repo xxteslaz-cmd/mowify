@@ -55,6 +55,32 @@ export async function createJob(input: {
   return job;
 }
 
+export async function updateJobFrequency(
+  jobId: string,
+  frequency: Frequency,
+  dateISO: string,
+  crewId: string | null,
+) {
+  const current = await prisma.job.findUniqueOrThrow({ where: { id: jobId } });
+
+  // Only wire up a series if this job is becoming auto-generated and isn't
+  // already part of one; existing past/future occurrences in an existing
+  // series are untouched since we only ever update this one row.
+  const needsSeries = (frequency === "WEEKLY" || frequency === "BIWEEKLY") && !current.seriesId;
+
+  const job = await prisma.job.update({
+    where: { id: jobId },
+    data: {
+      frequency,
+      ...(needsSeries ? { seriesId: randomUUID() } : {}),
+    },
+    include: { customer: true, crew: true },
+  });
+
+  revalidateAffected(dateISO, crewId);
+  return job;
+}
+
 export async function reorderColumn(input: {
   dateISO: string;
   crewId: string | null;

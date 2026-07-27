@@ -1,6 +1,7 @@
 "use client";
 
-import type { JobWithRelations } from "@/lib/types";
+import type { Frequency } from "@prisma/client";
+import type { JobWithNextDate } from "@/lib/types";
 
 const SERVICE_LABEL: Record<string, string> = {
   MOW: "Mow",
@@ -8,6 +9,15 @@ const SERVICE_LABEL: Record<string, string> = {
   CLEANUP: "Cleanup",
   ONE_TIME: "One-time",
   OTHER: "Other",
+};
+
+const FREQUENCIES: Frequency[] = ["ONE_TIME", "WEEKLY", "BIWEEKLY", "MONTHLY"];
+
+const FREQUENCY_LABEL: Record<Frequency, string> = {
+  ONE_TIME: "One-time",
+  WEEKLY: "Weekly",
+  BIWEEKLY: "Biweekly",
+  MONTHLY: "Monthly",
 };
 
 const STATUS_STYLE: Record<string, string> = {
@@ -30,21 +40,24 @@ export default function JobCard({
   selected,
   onToggleSelect,
   onDelete,
+  onFrequencyChange,
   onDragStart,
   onDragOverCard,
   isDragOver,
 }: {
-  job: JobWithRelations;
+  job: JobWithNextDate;
   crewColor?: string;
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: () => void;
   onDelete: () => void;
+  onFrequencyChange: (frequency: Frequency) => void;
   onDragStart: (e: React.DragEvent) => void;
   onDragOverCard: (e: React.DragEvent) => void;
   isDragOver: boolean;
 }) {
   const movable = job.status === "SCHEDULED" || job.status === "RESCHEDULED";
+  const editableFrequency = movable;
   return (
     <div
       draggable={!selectMode}
@@ -78,10 +91,32 @@ export default function JobCard({
           <p className="truncate text-xs text-black/60 dark:text-white/60">{job.customer.address}</p>
           <div className="mt-1 flex items-center gap-2 text-xs text-black/70 dark:text-white/70">
             <span>{SERVICE_LABEL[job.serviceType]}</span>
-            {job.frequency !== "ONE_TIME" && (
-              <span className="rounded bg-black/5 px-1.5 py-0.5 dark:bg-white/10">{job.frequency}</span>
+            {editableFrequency && !selectMode ? (
+              <select
+                value={job.frequency}
+                onChange={(e) => onFrequencyChange(e.target.value as Frequency)}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                aria-label="Frequency"
+                className="rounded bg-black/5 px-1 py-0.5 text-xs dark:bg-white/10"
+              >
+                {FREQUENCIES.map((f) => (
+                  <option key={f} value={f}>
+                    {FREQUENCY_LABEL[f]}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              job.frequency !== "ONE_TIME" && (
+                <span className="rounded bg-black/5 px-1.5 py-0.5 dark:bg-white/10">{FREQUENCY_LABEL[job.frequency]}</span>
+              )
             )}
           </div>
+          {job.frequency !== "ONE_TIME" && job.nextDate && (
+            <p className="mt-0.5 text-xs text-black/50 dark:text-white/50">
+              Next: {job.nextDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            </p>
+          )}
           {job.notes && (
             <p className="mt-1 truncate text-xs italic text-black/50 dark:text-white/50">{job.notes}</p>
           )}

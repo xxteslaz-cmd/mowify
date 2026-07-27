@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Crew, Customer } from "@prisma/client";
-import type { JobWithRelations } from "@/lib/types";
-import { toISODate } from "@/lib/date";
+import type { Crew, Customer, Frequency } from "@prisma/client";
+import type { JobWithNextDate } from "@/lib/types";
+import { toISODate, calculateNextOccurrenceDate } from "@/lib/date";
 import JobCard from "./JobCard";
 import AddJobModal from "./AddJobModal";
-import { reorderColumn, deleteJob, bulkRescheduleDay } from "./actions";
+import { reorderColumn, deleteJob, bulkRescheduleDay, updateJobFrequency } from "./actions";
 
 const UNASSIGNED = "unassigned";
 
@@ -25,7 +25,7 @@ export default function DashboardBoard({
 }: {
   dateISO: string;
   crews: Crew[];
-  jobs: JobWithRelations[];
+  jobs: JobWithNextDate[];
   customers: Customer[];
 }) {
   const router = useRouter();
@@ -40,7 +40,7 @@ export default function DashboardBoard({
   const [pending, setPending] = useState(false);
 
   const columns = useMemo(() => {
-    const map = new Map<ColumnKey, JobWithRelations[]>();
+    const map = new Map<ColumnKey, JobWithNextDate[]>();
     map.set(UNASSIGNED, []);
     for (const crew of crews) map.set(crew.id, []);
     for (const job of localJobs) {
@@ -118,10 +118,25 @@ export default function DashboardBoard({
     });
   }
 
-  async function handleDelete(job: JobWithRelations) {
+  async function handleDelete(job: JobWithNextDate) {
     if (!confirm(`Remove ${job.customer.name}'s ${job.serviceType} job from the schedule?`)) return;
     setLocalJobs((prev) => prev.filter((j) => j.id !== job.id));
     await deleteJob(job.id, dateISO, job.crewId);
+    router.refresh();
+  }
+
+  async function handleFrequencyChange(job: JobWithNextDate, frequency: Frequency) {
+    // This job hasn't produced a next occurrence yet (that only happens once
+    // it's completed/skipped), so recalculating from the new frequency is
+    // accurate here and can't drift from what generation will later produce.
+    const nextDate = calculateNextOccurrenceDate(job.scheduledDate, frequency);
+    setLocalJobs((prev) =>
+      prev.map((j) => (j.id === job.id ? { ...j, frequency, nextDate } : j)),
+    );
+    const updated = await updateJobFrequency(job.id, frequency, dateISO, job.crewId);
+    setLocalJobs((prev) =>
+      prev.map((j) => (j.id === job.id ? { ...updated, nextDate } : j)),
+    );
     router.refresh();
   }
 
@@ -256,6 +271,7 @@ export default function DashboardBoard({
                     selected={selected.has(job.id)}
                     onToggleSelect={() => toggleSelected(job.id)}
                     onDelete={() => handleDelete(job)}
+                    onFrequencyChange={(frequency) => handleFrequencyChange(job, frequency)}
                     onDragStart={() => setDragJobId(job.id)}
                     onDragOverCard={(e) => {
                       e.preventDefault();
@@ -280,7 +296,8 @@ export default function DashboardBoard({
           onClose={() => setAddOpen(false)}
           onCreated={(job) => {
             if (toISODate(job.scheduledDate) === dateISO) {
-              setLocalJobs((prev) => [...prev, job]);
+              const nextDate = calculateNextOccurrenceDate(job.scheduledDate, job.frequency);
+              setLocalJobs((prev) => [...prev, { ...job, nextDate }]);
             }
             setAddOpen(false);
             router.refresh();

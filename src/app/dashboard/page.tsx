@@ -1,6 +1,7 @@
 import { getActiveCrews, getJobsForDate } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { todayISO } from "@/lib/date";
+import { attachNextDates } from "@/lib/recurring";
 import DateNav from "./DateNav";
 import DashboardBoard from "./DashboardBoard";
 
@@ -17,6 +18,7 @@ export default async function DashboardPage({
     getJobsForDate(dateISO),
     prisma.customer.findMany({ orderBy: { name: "asc" } }),
   ]);
+  const jobsWithNextDate = await attachNextDates(jobs);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
@@ -25,7 +27,7 @@ export default async function DashboardPage({
         key={dateISO}
         dateISO={dateISO}
         crews={crews}
-        jobs={jobs}
+        jobs={jobsWithNextDate}
         customers={customers}
       />
     </div>

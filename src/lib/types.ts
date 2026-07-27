@@ -4,6 +4,8 @@ export type JobWithRelations = Prisma.JobGetPayload<{
   include: { customer: true; crew: true };
 }>;
 
+export type JobWithNextDate = JobWithRelations & { nextDate: Date | null };
+
 export type JobWithCustomer = Prisma.JobGetPayload<{
   include: { customer: true };
 }>;
