@@ -76,6 +76,10 @@ export async function ensureOccurrencesThrough(through: Date): Promise<number> {
     });
   }
 
+  // Repair any column whose positions have drifted before handing out new ones,
+  // so generated visits append after a clean 0..n-1 sequence.
+  const nextPosition = await normalizeColumns();
+
   const rows = await prisma.job.findMany({
     where: { frequency: { in: AUTO_GENERATED_FREQUENCIES }, seriesId: { not: null } },
     orderBy: { scheduledDate: "asc" },
@@ -104,6 +108,13 @@ export async function ensureOccurrencesThrough(through: Date): Promise<number> {
       const nextISO = toISODate(next);
       if (!taken.has(nextISO)) {
         taken.add(nextISO);
+
+        // Position within the day it lands on, not the template's position —
+        // inheriting that made every series in a series collide on one number.
+        const key = `${nextISO}|${template.crewId}`;
+        const position = nextPosition.get(key) ?? 0;
+        nextPosition.set(key, position + 1);
+
         toCreate.push({
           customerId: template.customerId,
           crewId: template.crewId,
@@ -111,7 +122,7 @@ export async function ensureOccurrencesThrough(through: Date): Promise<number> {
           customService: template.customService,
           frequency: template.frequency,
           scheduledDate: next,
-          orderInDay: template.orderInDay,
+          orderInDay: position,
           seriesId,
           status: "SCHEDULED",
         });
@@ -123,6 +134,58 @@ export async function ensureOccurrencesThrough(through: Date): Promise<number> {
   if (toCreate.length === 0) return 0;
   await prisma.job.createMany({ data: toCreate });
   return toCreate.length;
+}
+
+/**
+ * Rewrites any crew-day whose orderInDay values aren't a clean 0..n-1 run.
+ *
+ * Generated visits used to inherit their template's position, so every series
+ * landing on the same day claimed the same number and the crew's stop order was
+ * decided by an arbitrary tie-break.
+ *
+ * Covers every column from today onwards rather than stopping at the generation
+ * horizon, because paging the calendar further out leaves rows beyond it that
+ * would otherwise never be repaired. Past days are left alone — their stop order
+ * is history and rewriting it serves no one.
+ *
+ * Returns the next free position per `dateISO|crewId`, so the caller can append
+ * to columns without colliding. Writes nothing when every column is already
+ * sequential, which is the steady state.
+ */
+async function normalizeColumns(): Promise<Map<string, number>> {
+  const rows = await prisma.job.findMany({
+    where: { scheduledDate: { gte: todayDate() } },
+    orderBy: [{ orderInDay: "asc" }, { createdAt: "asc" }],
+    select: { id: true, scheduledDate: true, crewId: true, orderInDay: true },
+  });
+
+  const columns = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const key = `${toISODate(row.scheduledDate)}|${row.crewId}`;
+    const list = columns.get(key) ?? [];
+    list.push(row);
+    columns.set(key, list);
+  }
+
+  const nextPosition = new Map<string, number>();
+  const fixes: { id: string; orderInDay: number }[] = [];
+
+  for (const [key, list] of columns) {
+    list.forEach((row, index) => {
+      if (row.orderInDay !== index) fixes.push({ id: row.id, orderInDay: index });
+    });
+    nextPosition.set(key, list.length);
+  }
+
+  if (fixes.length > 0) {
+    await prisma.$transaction(
+      fixes.map((f) =>
+        prisma.job.update({ where: { id: f.id }, data: { orderInDay: f.orderInDay } }),
+      ),
+    );
+  }
+
+  return nextPosition;
 }
 
 /**
