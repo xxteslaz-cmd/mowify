@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import MainNav from "@/components/MainNav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,17 +30,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <header className="border-b border-black/10 dark:border-white/10">
-          <nav className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
-            <Link href="/dashboard" className="text-lg font-semibold">
-              Mowify
-            </Link>
-            <Link href="/dashboard" className="text-sm text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white">
-              Dashboard
-            </Link>
-            <Link href="/customers" className="text-sm text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white">
-              Customers
-            </Link>
-          </nav>
+          <MainNav />
         </header>
         <main className="flex-1">{children}</main>
       </body>
