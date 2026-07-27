@@ -16,7 +16,7 @@ import {
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** Crew colours shown per day before collapsing into a "+n" count. */
-const MAX_DOTS = 4;
+const MAX_DOTS = 3;
 
 export default function CalendarNav({
   dateISO,
@@ -45,8 +45,8 @@ export default function CalendarNav({
   }
 
   return (
-    <div className="mb-6">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+    <div className="mb-4">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{formatDisplayDate(selected)}</h1>
         <div className="flex items-center gap-2">
           <button
@@ -72,30 +72,30 @@ export default function CalendarNav({
         </div>
       </div>
 
-      <div className="rounded-xl border border-black/10 p-3 dark:border-white/10">
-        <div className="mb-2 flex items-center justify-between px-1">
+      <div className="rounded-lg border border-black/10 p-2 dark:border-white/10">
+        <div className="mb-1 flex items-center justify-between px-1">
           <button
             onClick={() => goMonth(-1)}
-            className="rounded-md px-2 py-1 text-sm hover:bg-black/5 dark:hover:bg-white/10"
+            className="rounded px-1.5 py-0.5 text-xs hover:bg-black/5 dark:hover:bg-white/10"
             aria-label="Previous month"
           >
             ←
           </button>
-          <h2 className="text-base font-semibold">{formatMonthLabel(monthAnchor)}</h2>
+          <h2 className="text-sm font-semibold">{formatMonthLabel(monthAnchor)}</h2>
           <button
             onClick={() => goMonth(1)}
-            className="rounded-md px-2 py-1 text-sm hover:bg-black/5 dark:hover:bg-white/10"
+            className="rounded px-1.5 py-0.5 text-xs hover:bg-black/5 dark:hover:bg-white/10"
             aria-label="Next month"
           >
             →
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-0.5">
           {WEEKDAYS.map((w) => (
             <div
               key={w}
-              className="pb-1 text-center text-xs font-medium text-black/40 dark:text-white/40"
+              className="text-center text-[10px] font-medium text-black/40 dark:text-white/40"
             >
               {w}
             </div>
@@ -114,17 +114,22 @@ export default function CalendarNav({
                 key={iso}
                 onClick={() => selectDay(iso)}
                 aria-current={isSelected ? "date" : undefined}
+                title={
+                  summary
+                    ? `${summary.count} job${summary.count === 1 ? "" : "s"}`
+                    : "No jobs"
+                }
                 aria-label={`${formatDisplayDate(day)}${
                   summary ? `, ${summary.count} job${summary.count === 1 ? "" : "s"}` : ", no jobs"
                 }`}
-                className={`flex min-h-[72px] flex-col items-start gap-1 rounded-lg border p-1.5 text-left transition ${
+                className={`flex min-h-[42px] flex-col items-center justify-start gap-0.5 rounded-md border px-0.5 py-1 transition ${
                   isSelected
-                    ? "border-blue-500 bg-blue-50 ring-1 ring-blue-400 dark:bg-blue-900/30"
-                    : "border-transparent hover:border-black/15 hover:bg-black/[.03] dark:hover:border-white/15 dark:hover:bg-white/[.05]"
+                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
+                    : "border-transparent hover:bg-black/[.04] dark:hover:bg-white/[.06]"
                 } ${inMonth ? "" : "opacity-35"}`}
               >
                 <span
-                  className={`flex h-6 w-6 items-center justify-center rounded-full text-sm ${
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] leading-none ${
                     isToday
                       ? "bg-black font-semibold text-white dark:bg-white dark:text-black"
                       : "font-medium"
@@ -134,22 +139,19 @@ export default function CalendarNav({
                 </span>
 
                 {summary && (
-                  <span className="mt-auto flex w-full flex-wrap items-center gap-1">
+                  <span className="flex items-center gap-0.5">
                     {summary.colors.slice(0, MAX_DOTS).map((c) => (
                       <span
                         key={c}
-                        className="h-2 w-2 rounded-full"
+                        className="h-1.5 w-1.5 rounded-full"
                         style={{ backgroundColor: c }}
                       />
                     ))}
                     {extra > 0 && (
-                      <span className="text-[10px] leading-none text-black/50 dark:text-white/50">
+                      <span className="text-[9px] leading-none text-black/50 dark:text-white/50">
                         +{extra}
                       </span>
                     )}
-                    <span className="ml-auto text-[11px] font-medium tabular-nums text-black/55 dark:text-white/55">
-                      {summary.count}
-                    </span>
                   </span>
                 )}
               </button>

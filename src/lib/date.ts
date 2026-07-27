@@ -78,14 +78,24 @@ export function endOfMonth(d: Date): Date {
 }
 
 /**
- * The Sunday-aligned 6x7 block of days a month calendar renders, including the
- * neighbouring-month days that pad the first and last rows. Always 42 days so
- * the grid's height doesn't jump between months.
+ * The Sunday-aligned weeks a month calendar renders, including the
+ * neighbouring-month days that pad the first and last rows. Trailing weeks that
+ * fall entirely outside the month are dropped, so a month needing five rows
+ * doesn't render an empty sixth.
  */
 export function monthGridDays(monthAnchor: Date): Date[] {
   const first = startOfMonth(monthAnchor);
   const gridStart = addDays(first, -first.getUTCDay());
-  return Array.from({ length: 42 }, (_, i) => addDays(gridStart, i));
+  const last = endOfMonth(monthAnchor);
+
+  const weeks: Date[] = [];
+  for (let i = 0; i < 42; i++) {
+    const day = addDays(gridStart, i);
+    // Stop once a whole week starts past the month's final day.
+    if (i % 7 === 0 && day.getTime() > last.getTime()) break;
+    weeks.push(day);
+  }
+  return weeks;
 }
 
 export function formatDisplayDate(d: Date): string {
