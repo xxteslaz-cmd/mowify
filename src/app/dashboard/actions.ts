@@ -1,0 +1,110 @@
+"use server";
+
+import { prisma } from "@/lib/prisma";
+import { parseISODate, toISODate } from "@/lib/date";
+import { generateNextOccurrence } from "@/lib/recurring";
+import { revalidatePath } from "next/cache";
+import { randomUUID } from "crypto";
+import type { Frequency, ServiceType } from "@prisma/client";
+
+function revalidateAffected(dateISO: string, crewId?: string | null) {
+  revalidatePath("/dashboard");
+  if (crewId) revalidatePath(`/crew/${crewId}/today`);
+}
+
+export async function createJob(input: {
+  customerId?: string;
+  newCustomer?: { name: string; address: string; phone?: string; notes?: string };
+  serviceType: ServiceType;
+  frequency: Frequency;
+  dateISO: string;
+  crewId?: string | null;
+}) {
+  let customerId = input.customerId;
+
+  if (!customerId && input.newCustomer) {
+    const customer = await prisma.customer.create({ data: input.newCustomer });
+    customerId = customer.id;
+  }
+  if (!customerId) throw new Error("A customer is required");
+
+  const date = parseISODate(input.dateISO);
+  const crewId = input.crewId ?? null;
+
+  const columnCount = await prisma.job.count({
+    where: { scheduledDate: date, crewId },
+  });
+
+  const job = await prisma.job.create({
+    data: {
+      customerId,
+      serviceType: input.serviceType,
+      frequency: input.frequency,
+      crewId,
+      scheduledDate: date,
+      orderInDay: columnCount,
+      seriesId:
+        input.frequency === "WEEKLY" || input.frequency === "BIWEEKLY"
+          ? randomUUID()
+          : null,
+    },
+    include: { customer: true, crew: true },
+  });
+
+  revalidateAffected(input.dateISO, crewId);
+  return job;
+}
+
+export async function reorderColumn(input: {
+  dateISO: string;
+  crewId: string | null;
+  orderedJobIds: string[];
+}) {
+  const date = parseISODate(input.dateISO);
+  await prisma.$transaction(
+    input.orderedJobIds.map((id, index) =>
+      prisma.job.update({
+        where: { id },
+        data: { crewId: input.crewId, orderInDay: index, scheduledDate: date },
+      }),
+    ),
+  );
+  revalidateAffected(input.dateISO, input.crewId);
+}
+
+export async function updateJobStatus(jobId: string, status: "COMPLETED" | "SKIPPED") {
+  const job = await prisma.job.update({
+    where: { id: jobId },
+    data: { status },
+  });
+
+  await generateNextOccurrence(job);
+
+  revalidateAffected(toISODate(job.scheduledDate), job.crewId);
+}
+
+export async function bulkRescheduleDay(input: {
+  dateISO: string;
+  newDateISO: string;
+  jobIds: string[];
+}) {
+  const newDate = parseISODate(input.newDateISO);
+  await prisma.job.updateMany({
+    where: { id: { in: input.jobIds }, status: { in: ["SCHEDULED", "RESCHEDULED"] } },
+    data: { scheduledDate: newDate, status: "RESCHEDULED" },
+  });
+  revalidatePath("/dashboard");
+  const crews = await prisma.job.findMany({
+    where: { id: { in: input.jobIds } },
+    select: { crewId: true },
+    distinct: ["crewId"],
+  });
+  for (const c of crews) {
+    if (c.crewId) revalidatePath(`/crew/${c.crewId}/today`);
+  }
+}
+
+export async function deleteJob(jobId: string, dateISO: string, crewId: string | null) {
+  await prisma.job.delete({ where: { id: jobId } });
+  revalidateAffected(dateISO, crewId);
+}

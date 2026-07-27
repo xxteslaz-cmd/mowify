@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Crew {
+  id     String  @id @default(cuid())
+  name   String
+  color  String
+  active Boolean @default(true)
+  jobs   Job[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id      String  @id @default(cuid())
+  name    String
+  address String
+  phone   String?
+  notes   String?
+  jobs    Job[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ServiceType {
+  MOW
+  MULCH
+  CLEANUP
+  ONE_TIME
+  OTHER
+}
+
+enum Frequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  ONE_TIME
+}
+
+enum JobStatus {
+  SCHEDULED
+  COMPLETED
+  SKIPPED
+  RESCHEDULED
+}
+
+model Job {
+  id            String      @id @default(cuid())
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id])
+  serviceType   ServiceType
+  frequency     Frequency
+  crewId        String?
+  crew          Crew?       @relation(fields: [crewId], references: [id])
+  scheduledDate DateTime    @db.Date
+  orderInDay    Int         @default(0)
+  status        JobStatus   @default(SCHEDULED)
+  notes         String?
+
+  // Groups occurrences generated from the same recurring job so a series
+  // can keep producing future visits without a separate template table.
+  // Null for ONE_TIME jobs, which have no series to belong to.
+  seriesId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scheduledDate])
+  @@index([crewId, scheduledDate])
+  @@index([customerId])
+  @@index([seriesId])
+}
