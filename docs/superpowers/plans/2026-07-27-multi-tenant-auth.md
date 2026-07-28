@@ -704,19 +704,36 @@ async function refreshIfStale(
   if (remaining > duration / 2) return;
 
   const next = new Date(Date.now() + duration);
-  await prisma.session.update({
-    where: { id: sessionId },
-    data: { expiresAt: next },
-  });
 
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    expires: next,
-    path: "/",
-  });
+  try {
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: { expiresAt: next },
+    });
+  } catch {
+    // The session can be deleted concurrently — a second tab, or a sign-out on
+    // another device — between the lookup above and this write. Losing a
+    // refresh is harmless; throwing here would 500 an otherwise fine page.
+    return;
+  }
+
+  // Only Server Actions and Route Handlers may write cookies. During a page
+  // render cookies() is read-only and set() throws, so this has to be allowed
+  // to fail. The database row is the authority on whether a session is still
+  // valid, so extending it is the part that matters; the cookie catches up the
+  // next time the user performs a mutation, which in this app is constant.
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      expires: next,
+      path: "/",
+    });
+  } catch {
+    // Rendering a page cannot refresh the cookie. Not an error.
+  }
 }
 
 export async function verifySession(): Promise<SessionUser> {
