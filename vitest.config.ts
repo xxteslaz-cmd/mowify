@@ -13,7 +13,6 @@ export default defineConfig({
     env: { DATABASE_URL: process.env.TEST_DATABASE_URL ?? "" },
     // These tests share one Postgres database, so they must not run in
     // parallel against each other.
-    pool: "forks",
-    poolOptions: { forks: { singleFork: true } },
+    fileParallelism: false,
   },
 });

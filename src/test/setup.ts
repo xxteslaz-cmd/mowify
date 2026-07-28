@@ -10,12 +10,11 @@ if (!process.env.DATABASE_URL?.includes("test")) {
 
 export async function resetDb() {
   // Order matters: children before parents, since foreign keys are enforced.
-  await prisma.session.deleteMany();
+  // Task 2 adds the Session, User and Org deletes when those models exist —
+  // referencing them before then would not typecheck.
   await prisma.job.deleteMany();
-  await prisma.user.deleteMany();
   await prisma.customer.deleteMany();
   await prisma.crew.deleteMany();
-  await prisma.org.deleteMany();
 }
 
 beforeEach(async () => {
