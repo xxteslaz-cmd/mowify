@@ -2,10 +2,12 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/auth/dal";
 import { hashSecret } from "@/lib/auth/password";
 import { deleteAllSessionsForUser } from "@/lib/auth/session";
+import { p2002Fields } from "@/lib/prisma-errors";
 
 const PIN = z.string().regex(/^\d{6}$/, "PIN must be exactly 6 digits");
 
@@ -45,16 +47,33 @@ export async function createCrewLogin(input: {
   });
   if (taken > 0) throw new Error("That username is already in use.");
 
-  await prisma.user.create({
-    data: {
-      orgId,
-      role: "CREW",
-      name: parsed.data.name,
-      username: parsed.data.username,
-      pinHash: await hashSecret(parsed.data.pin),
-      crewId: parsed.data.crewId,
-    },
-  });
+  try {
+    await prisma.user.create({
+      data: {
+        orgId,
+        role: "CREW",
+        name: parsed.data.name,
+        username: parsed.data.username,
+        pinHash: await hashSecret(parsed.data.pin),
+        crewId: parsed.data.crewId,
+      },
+    });
+  } catch (err) {
+    // The count() above only rules out the common case. Two owners (or two
+    // tabs) submitting the same username for this org at the same instant can
+    // both pass that check and race to the insert; the loser hits User's
+    // unique constraint instead of a friendly error. Only collapse that
+    // specific race into the same message users already see from the
+    // pre-check — anything else should surface as-is.
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002" &&
+      p2002Fields(err).includes("username")
+    ) {
+      throw new Error("That username is already in use.");
+    }
+    throw err;
+  }
 
   revalidatePath("/team");
 }
