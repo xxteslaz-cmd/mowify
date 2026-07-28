@@ -11,7 +11,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 import type { Frequency, ServiceType } from "@prisma/client";
-import { requireOwner } from "@/lib/auth/dal";
+import { requireOwner, verifySession } from "@/lib/auth/dal";
 
 function revalidateAffected(dateISO: string, crewId?: string | null) {
   revalidatePath("/dashboard");
@@ -306,15 +306,40 @@ export async function moveJobInColumn(input: {
   revalidateAffected(toISODate(job.scheduledDate), job.crewId);
 }
 
+/**
+ * The only action both owners and crew members call: an owner closes out any
+ * stop in their org, a crew member only the stops on their own board. The
+ * lookup and the write are split on purpose — findFirst is what lets the role
+ * check be expressed, and the update that follows runs on the id it returned,
+ * not the client-supplied one, so it's still scoped even though it isn't the
+ * updateMany pattern used elsewhere in this file.
+ */
 export async function updateJobStatus(jobId: string, status: "COMPLETED" | "SKIPPED") {
-  const job = await prisma.job.update({
-    where: { id: jobId },
+  const user = await verifySession();
+
+  const job = await prisma.job.findFirst({
+    where: {
+      id: jobId,
+      orgId: user.orgId,
+      // A crew member may only close out stops on their own board. Job.crewId
+      // is non-nullable, so a crew session with no crewId (shouldn't happen,
+      // but the column allows it) falls back to a value no job ever has,
+      // rather than a type error or an accidental match-everything.
+      ...(user.role === "CREW" ? { crewId: user.crewId ?? "" } : {}),
+    },
+  });
+  // Deliberately the same message regardless of why the lookup missed — a
+  // wrong org and a wrong crew must look identical to the caller.
+  if (!job) throw new Error("Job not found");
+
+  const updated = await prisma.job.update({
+    where: { id: job.id },
     data: { status },
   });
 
-  await generateNextOccurrence(job);
+  await generateNextOccurrence(updated);
 
-  revalidateAffected(toISODate(job.scheduledDate), job.crewId);
+  revalidateAffected(toISODate(updated.scheduledDate), updated.crewId);
 }
 
 export async function bulkRescheduleDay(input: {
