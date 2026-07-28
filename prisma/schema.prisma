@@ -88,10 +88,10 @@ model Job {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([scheduledDate])
-  @@index([crewId, scheduledDate])
-  @@index([customerId])
-  @@index([seriesId])
+  @@index([orgId, scheduledDate])
+  @@index([orgId, crewId, scheduledDate])
+  @@index([orgId, customerId])
+  @@index([orgId, seriesId])
 }
 
 enum Role {
