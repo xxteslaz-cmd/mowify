@@ -1,5 +1,4 @@
-import { getActiveCrews, getAllCrews, getDaySummaries, getJobsForDate } from "@/lib/data";
-import { prisma } from "@/lib/prisma";
+import { getActiveCrews, getAllCrews, getCustomers, getDaySummaries, getJobsForDate } from "@/lib/data";
 import { monthGridDays, parseISODate, todayISO } from "@/lib/date";
 import { attachNextDates, ensureOccurrencesThrough, horizonDate } from "@/lib/recurring";
 import CalendarNav from "./CalendarNav";
@@ -29,7 +28,7 @@ export default async function DashboardPage({
     getActiveCrews(),
     getAllCrews(),
     getJobsForDate(dateISO),
-    prisma.customer.findMany({ orderBy: { name: "asc" } }),
+    getCustomers(),
     getDaySummaries(gridDays),
   ]);
   const jobsWithNextDate = await attachNextDates(jobs);

@@ -1,15 +1,11 @@
-import { prisma } from "@/lib/prisma";
-import { getActiveCrews } from "@/lib/data";
+import { getActiveCrews, getCustomersWithJobCounts } from "@/lib/data";
 import CustomersClient from "./CustomersClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomersPage() {
   const [customers, crews] = await Promise.all([
-    prisma.customer.findMany({
-      orderBy: { name: "asc" },
-      include: { _count: { select: { jobs: true } } },
-    }),
+    getCustomersWithJobCounts(),
     getActiveCrews(),
   ]);
 

@@ -89,6 +89,20 @@ export async function searchCustomers(query: string) {
   });
 }
 
+export async function getCustomers() {
+  const { orgId } = await requireOwner();
+  return prisma.customer.findMany({ where: { orgId }, orderBy: { name: "asc" } });
+}
+
+export async function getCustomersWithJobCounts() {
+  const { orgId } = await requireOwner();
+  return prisma.customer.findMany({
+    where: { orgId },
+    orderBy: { name: "asc" },
+    include: { _count: { select: { jobs: true } } },
+  });
+}
+
 export async function getCustomerWithJobs(customerId: string) {
   const { orgId } = await requireOwner();
   // findUnique can't take a compound id-plus-orgId filter, since orgId isn't
