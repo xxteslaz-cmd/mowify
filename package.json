@@ -10,7 +10,7 @@
     "postinstall": "prisma generate",
     "db:backfill": "tsx prisma/backfill.ts",
     "db:push": "prisma db push",
-    "db:push:test": "prisma db push --url $TEST_DATABASE_URL",
+    "db:push:test": "tsx prisma/push-test.ts",
     "db:seed": "tsx prisma/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest"
