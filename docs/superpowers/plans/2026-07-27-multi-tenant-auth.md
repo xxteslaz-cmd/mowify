@@ -1972,15 +1972,49 @@ export async function getCrewTodayJobs(crewId: string, dateISO: string) {
 }
 ```
 
-- [ ] **Step 4: Verify it typechecks**
+- [ ] **Step 4: Close the page-level leaks**
+
+`data.ts` is not the only place that reads. Two pages query Prisma directly and
+bypass it entirely — this was missed in the original inventory and is a real
+cross-tenant leak of customer names, addresses and phone numbers:
+
+- `src/app/customers/page.tsx:9` — `prisma.customer.findMany` with job counts
+- `src/app/dashboard/page.tsx:32` — `prisma.customer.findMany` for the job form's picker
+
+Add two scoped functions to `src/lib/data.ts` and use them instead:
+
+```ts
+export async function getCustomers() {
+  const { orgId } = await requireOwner();
+  return prisma.customer.findMany({ where: { orgId }, orderBy: { name: "asc" } });
+}
+
+export async function getCustomersWithJobCounts() {
+  const { orgId } = await requireOwner();
+  return prisma.customer.findMany({
+    where: { orgId },
+    orderBy: { name: "asc" },
+    include: { _count: { select: { jobs: true } } },
+  });
+}
+```
+
+Then drop the now-unused `prisma` import from both pages, so nothing in a page
+can reach the database unscoped again.
+
+`src/app/c/[slug]/page.tsx` also queries Prisma directly, resolving an org by
+its slug. That one is correct and must stay: it is the public crew login page,
+it runs before anyone is authenticated, and the slug is public by design.
+
+- [ ] **Step 5: Verify it typechecks**
 
 Run: `npx tsc --noEmit`
 Expected: no new errors in `src/lib/data.ts`. Errors elsewhere are expected until Tasks 11–13 land.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/lib/data.ts
+git add src/lib/data.ts src/app/customers/page.tsx src/app/dashboard/page.tsx
 git commit -m "feat: scope all data access to the signed-in org"
 ```
 
