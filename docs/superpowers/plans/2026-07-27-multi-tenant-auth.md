@@ -413,10 +413,27 @@ describe("password hashing", () => {
 Run: `npx vitest run src/lib/auth/password.test.ts`
 Expected: FAIL — cannot resolve `./password`.
 
-- [ ] **Step 3: Implement `src/lib/auth/password.ts`**
+- [ ] **Step 3: Implement `src/lib/auth/hash.ts` and `src/lib/auth/password.ts`**
+
+The implementation lives in `hash.ts`, with no `server-only` guard, because
+standalone `tsx` scripts — the org backfill in Task 6 — need to hash, and
+`server-only` throws outside a bundler that understands it. `password.ts` keeps
+the guard and re-exports, so application code importing from there is still
+protected against an accidental client import.
 
 ```ts
+// src/lib/auth/password.ts
 import "server-only";
+
+// The implementation lives in ./hash so that standalone scripts — the org
+// backfill, for one — can hash without tripping the server-only guard, which
+// throws outside a bundler that understands it. Application code should keep
+// importing from here, so the guard still catches an accidental client import.
+export { hashSecret, verifySecret } from "./hash";
+```
+
+```ts
+// src/lib/auth/hash.ts
 import { hash, verify } from "@node-rs/argon2";
 
 /**
@@ -881,7 +898,9 @@ Expected: PASS, 7 tests.
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { hashSecret } from "../src/lib/auth/password";
+// From hash, not password: password.ts carries a server-only guard that throws
+// in a standalone script like this one.
+import { hashSecret } from "../src/lib/auth/hash";
 import { slugify } from "../src/lib/auth/slug";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
