@@ -1463,8 +1463,8 @@ export type SignupFormState =
   | undefined;
 
 const SignupSchema = z.object({
-  name: z.string().min(1, "Enter your name").trim(),
-  companyName: z.string().min(1, "Enter your company name").trim(),
+  name: z.string().trim().min(1, "Enter your name"),
+  companyName: z.string().trim().min(1, "Enter your company name"),
   email: z.string().email("Enter a valid email").trim().toLowerCase(),
   password: z.string().min(8, "Use at least 8 characters"),
 });
@@ -2555,13 +2555,15 @@ import { deleteAllSessionsForUser } from "@/lib/auth/session";
 const PIN = z.string().regex(/^\d{6}$/, "PIN must be exactly 6 digits");
 
 const CreateSchema = z.object({
-  name: z.string().min(1, "Enter a name").trim(),
+  name: z.string().trim().min(1, "Enter a name"),
   username: z
     .string()
-    .min(2, "Username must be at least 2 characters")
-    .regex(/^[a-z0-9._-]+$/, "Use letters, numbers, dots, dashes only")
     .trim()
-    .toLowerCase(),
+    .toLowerCase()
+    // Order matters: trim and lowercase run before the checks, or "  AB  "
+    // would pass a length check it should fail.
+    .min(2, "Username must be at least 2 characters")
+    .regex(/^[a-z0-9._-]+$/, "Use letters, numbers, dots, dashes only"),
   pin: PIN,
   crewId: z.string().min(1, "Pick a crew"),
 });
