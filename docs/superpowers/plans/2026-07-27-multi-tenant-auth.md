@@ -142,11 +142,32 @@ Add to `"scripts"`:
 ```json
 "test": "vitest run",
 "test:watch": "vitest",
-"db:push:test": "prisma db push --url $TEST_DATABASE_URL"
+"db:push:test": "tsx prisma/push-test.ts"
 ```
 
 `db:push:test` matters because there are now two databases. Every schema change
 has to reach both, or the tests run against a stale shape.
+
+It runs through a script rather than `prisma db push --url $TEST_DATABASE_URL`
+because that form relies on *shell* substitution: the variable lives in `.env`,
+which only `dotenv` reads inside a Node process, so the shell expands it to an
+empty string and the command fails. Create `prisma/push-test.ts`:
+
+```ts
+import "dotenv/config";
+import { execFileSync } from "child_process";
+
+const url = process.env.TEST_DATABASE_URL;
+if (!url) throw new Error("TEST_DATABASE_URL is not set in .env");
+if (!url.includes("test")) {
+  // The whole point of this script is to target the throwaway database.
+  throw new Error("TEST_DATABASE_URL does not look like a test database");
+}
+
+execFileSync("npx", ["prisma", "db", "push", "--url", url], {
+  stdio: "inherit",
+});
+```
 
 - [ ] **Step 6: Document the test database in `.env.example`**
 
