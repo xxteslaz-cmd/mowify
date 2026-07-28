@@ -71,7 +71,10 @@ npm install @node-rs/argon2 zod
 
 Tests touch the database and Node APIs, so they run in the `node` environment, single-threaded — parallel workers sharing one Postgres database cause flaky cross-test interference.
 
+The `env` block is what points tests at the test database. `TEST_DATABASE_URL` is already provisioned in `.env` (a separate `mowify_test` database on the same Neon project), so nobody has to remember to swap `DATABASE_URL` by hand before running tests.
+
 ```ts
+import "dotenv/config";
 import { defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
 
@@ -80,6 +83,10 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["src/test/setup.ts"],
+    // Tests truncate every table, so they must never see the development
+    // database. This override is the only thing standing between a test run
+    // and real data.
+    env: { DATABASE_URL: process.env.TEST_DATABASE_URL ?? "" },
     // These tests share one Postgres database, so they must not run in
     // parallel against each other.
     pool: "forks",
@@ -132,23 +139,36 @@ Add to `"scripts"`:
 
 ```json
 "test": "vitest run",
-"test:watch": "vitest"
+"test:watch": "vitest",
+"db:push:test": "prisma db push --url $TEST_DATABASE_URL"
 ```
 
+`db:push:test` matters because there are now two databases. Every schema change
+has to reach both, or the tests run against a stale shape.
+
 - [ ] **Step 6: Document the test database in `.env.example`**
+
+The real `TEST_DATABASE_URL` is already set in `.env`. This documents it for
+anyone setting the project up fresh.
 
 ```bash
 DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
 
 # Must contain "test" in the name. Tests truncate every table on this database
 # before each test, so it must never point at development or production data.
+# vitest.config.ts injects this as DATABASE_URL for test runs.
 TEST_DATABASE_URL="postgresql://user:password@host/mowify_test?sslmode=require"
 ```
 
 - [ ] **Step 7: Verify the setup guard works**
 
 Run: `npm test`
-Expected: exits reporting no test files found — and does **not** throw the DATABASE_URL error if your `.env` points at a test database. If it throws the guard error, that is also correct behaviour; create a test database and set `DATABASE_URL` to it before continuing.
+Expected: exits reporting no test files found, with no DATABASE_URL guard error —
+`TEST_DATABASE_URL` already points at `mowify_test`, which contains "test".
+
+To confirm the guard is real rather than vacuous, temporarily change the `env`
+line in `vitest.config.ts` to `process.env.DATABASE_URL` and run `npm test`
+again. Expected: it throws "Refusing to run tests". **Change it back.**
 
 - [ ] **Step 8: Commit**
 
@@ -274,10 +294,12 @@ Add inside `model Job`:
 
 Leave `Job`'s existing indexes alone for now — Task 6 rewrites them once `orgId` is non-null.
 
-- [ ] **Step 5: Push the schema and regenerate the client**
+- [ ] **Step 5: Push the schema to both databases and regenerate the client**
 
-Run: `npm run db:push && npx prisma generate`
-Expected: succeeds with no data loss warnings. Every added column is nullable, so no existing row is rejected.
+Run: `npm run db:push && npm run db:push:test && npx prisma generate`
+Expected: both succeed with no data loss warnings. Every added column is nullable, so no existing row is rejected.
+
+The test database needs the same schema or Task 17's suite fails against a stale shape.
 
 - [ ] **Step 6: Verify the client has the new types**
 
@@ -918,10 +940,12 @@ Replace `Job`'s index block with org-leading indexes, since every query is now s
   @@index([orgId, seriesId])
 ```
 
-- [ ] **Step 11: Push and regenerate**
+- [ ] **Step 11: Push to both databases and regenerate**
 
-Run: `npm run db:push && npx prisma generate && npx tsc --noEmit`
-Expected: succeeds. Typecheck errors in `data.ts`, `recurring.ts`, and the action files are **not** expected yet — `orgId` becoming required affects creates, which Tasks 10–13 fix. If `prisma create` calls now fail to typecheck, that is correct and those tasks resolve it.
+Run: `npm run db:push && npm run db:push:test && npx prisma generate && npx tsc --noEmit`
+Expected: succeeds.
+
+The test database has no rows, so making `orgId` required needs no backfill there. Typecheck errors in `data.ts`, `recurring.ts`, and the action files are **not** expected yet — `orgId` becoming required affects creates, which Tasks 10–13 fix. If `prisma create` calls now fail to typecheck, that is correct and those tasks resolve it.
 
 - [ ] **Step 12: Write the test factories**
 
