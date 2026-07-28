@@ -13,11 +13,36 @@ export type SignupFormState =
   | undefined;
 
 const SignupSchema = z.object({
-  name: z.string().min(1, "Enter your name").trim(),
-  companyName: z.string().min(1, "Enter your company name").trim(),
+  // trim() must run before min(1): otherwise an all-whitespace value passes
+  // the length check on the untrimmed string, then gets trimmed down to "".
+  name: z.string().trim().min(1, "Enter your name"),
+  companyName: z.string().trim().min(1, "Enter your company name"),
   email: z.string().email("Enter a valid email").trim().toLowerCase(),
   password: z.string().min(8, "Use at least 8 characters"),
 });
+
+// Reads the column list off a unique-constraint violation. With the query
+// engine Prisma normally ships, that list lives at error.meta.target. This
+// project's client is built on the @prisma/adapter-pg driver adapter (see
+// src/lib/prisma.ts), and under that adapter Prisma 7.9.0 does not populate
+// meta.target at all — the raw Postgres error (with its column list) is
+// nested instead at meta.driverAdapterError.cause.constraint.fields.
+// Confirmed empirically against this project's own database: a forced
+// unique violation on Org.slug produced meta = { modelName, driverAdapterError:
+// { cause: { originalCode: "23505", constraint: { fields: ["slug"] } } } },
+// with no target key present. Checking target first keeps this correct if a
+// future Prisma version (or a non-adapter setup) restores it.
+function p2002Fields(err: Prisma.PrismaClientKnownRequestError): string[] {
+  const target = err.meta?.target;
+  if (Array.isArray(target)) return target as string[];
+  if (typeof target === "string") return [target];
+
+  const meta = err.meta as
+    | { driverAdapterError?: { cause?: { constraint?: { fields?: unknown } } } }
+    | undefined;
+  const driverFields = meta?.driverAdapterError?.cause?.constraint?.fields;
+  return Array.isArray(driverFields) ? (driverFields as string[]) : [];
+}
 
 // uniqueSlug checks availability and signup inserts in two separate steps, so
 // two people signing up with the same company name at the same moment can
@@ -88,8 +113,7 @@ export async function signup(
         throw err;
       }
 
-      const target = err.meta?.target;
-      const fields = Array.isArray(target) ? target : typeof target === "string" ? [target] : [];
+      const fields = p2002Fields(err);
 
       if (fields.includes("email")) {
         // A second signup for the same email landed between our lookup above
@@ -98,8 +122,16 @@ export async function signup(
         return { errors: { email: "That email is already registered." } };
       }
 
-      if (!fields.includes("slug") || attempt === MAX_SIGNUP_ATTEMPTS) {
+      if (!fields.includes("slug")) {
         throw err;
+      }
+
+      if (attempt === MAX_SIGNUP_ATTEMPTS) {
+        // Exhausted every retry and still losing the slug race — an
+        // extremely unlikely pile-up of concurrent signups for the same
+        // company name. Break out to the friendly fallback below instead of
+        // rethrowing a raw database error with no error.tsx to catch it.
+        break;
       }
 
       // Slug lost the race — loop again and recompute against the row that
@@ -108,8 +140,8 @@ export async function signup(
   }
 
   if (!user) {
-    // Unreachable in practice: the loop above only exits without a user by
-    // throwing. Kept as a type-safe fallback rather than a non-null assertion.
+    // Reached only when every retry attempt lost the slug race (see the
+    // `break` above) — genuinely rare, but a real path, not dead code.
     return { error: "Something went wrong. Please try again." };
   }
 
