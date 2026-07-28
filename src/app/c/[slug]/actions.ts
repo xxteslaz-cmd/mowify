@@ -46,7 +46,16 @@ export async function crewLogin(
     },
   });
 
-  if (!user || user.role !== "CREW" || !user.pinHash || !user.active) {
+  // crewId is checked here too: the column is nullable, and a CREW row without
+  // one would otherwise authenticate and then land on /crew/null/today. A data
+  // anomaly should fail closed, not sign someone into a dead end.
+  if (
+    !user ||
+    user.role !== "CREW" ||
+    !user.pinHash ||
+    !user.active ||
+    !user.crewId
+  ) {
     await verifySecret(DUMMY_HASH, parsed.data.pin);
     return { error: GENERIC_ERROR };
   }
