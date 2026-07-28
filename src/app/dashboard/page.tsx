@@ -1,4 +1,5 @@
 import { getActiveCrews, getAllCrews, getCustomers, getDaySummaries, getJobsForDate } from "@/lib/data";
+import { requireOwner } from "@/lib/auth/dal";
 import { monthGridDays, parseISODate, todayISO } from "@/lib/date";
 import { attachNextDates, ensureOccurrencesThrough, horizonDate } from "@/lib/recurring";
 import CalendarNav from "./CalendarNav";
@@ -9,6 +10,11 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ date?: string; month?: string }>;
 }) {
+  // Cached alongside the identical check each data.ts function below performs,
+  // so this costs no extra query — it just gets orgId into this scope so the
+  // recurring-job writer can be scoped to this company alone.
+  const { orgId } = await requireOwner();
+
   const params = await searchParams;
   const dateISO = params.date ?? todayISO();
   const monthISO = params.month ?? dateISO.slice(0, 7);
@@ -21,6 +27,7 @@ export default async function DashboardPage({
   const lastVisible = gridDays[gridDays.length - 1];
   const target = horizonDate();
   await ensureOccurrencesThrough(
+    orgId,
     lastVisible.getTime() > target.getTime() ? lastVisible : target,
   );
 
@@ -31,7 +38,7 @@ export default async function DashboardPage({
     getCustomers(),
     getDaySummaries(gridDays),
   ]);
-  const jobsWithNextDate = await attachNextDates(jobs);
+  const jobsWithNextDate = await attachNextDates(orgId, jobs);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">

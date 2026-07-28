@@ -31,13 +31,17 @@ export async function generateNextOccurrence(job: Job) {
 
   const nextDate = calculateNextOccurrenceDate(job.scheduledDate, job.frequency)!;
 
+  // Scoped by orgId so a series id colliding across two companies (it can't in
+  // practice, but nothing enforces that at the database level) never matches a
+  // row that belongs to someone else.
   const existing = await prisma.job.findFirst({
-    where: { seriesId: job.seriesId, scheduledDate: nextDate },
+    where: { orgId: job.orgId, seriesId: job.seriesId, scheduledDate: nextDate },
   });
   if (existing) return existing;
 
   return prisma.job.create({
     data: {
+      orgId: job.orgId,
       customerId: job.customerId,
       crewId: job.crewId,
       serviceType: job.serviceType,
@@ -62,11 +66,14 @@ export async function generateNextOccurrence(job: Job) {
  * Idempotent: it skips dates a series already occupies, so repeated dashboard
  * renders (including the 10s auto-refresh poll) write nothing once caught up.
  */
-export async function ensureOccurrencesThrough(through: Date): Promise<number> {
+export async function ensureOccurrencesThrough(
+  orgId: string,
+  through: Date,
+): Promise<number> {
   // A recurring job with no seriesId can never generate a successor. MONTHLY
   // jobs were created that way before monthly recurrence was supported.
   const orphans = await prisma.job.findMany({
-    where: { frequency: { in: AUTO_GENERATED_FREQUENCIES }, seriesId: null },
+    where: { orgId, frequency: { in: AUTO_GENERATED_FREQUENCIES }, seriesId: null },
     select: { id: true },
   });
   for (const orphan of orphans) {
@@ -78,10 +85,14 @@ export async function ensureOccurrencesThrough(through: Date): Promise<number> {
 
   // Repair any column whose positions have drifted before handing out new ones,
   // so generated visits append after a clean 0..n-1 sequence.
-  const nextPosition = await normalizeColumns();
+  const nextPosition = await normalizeColumns(orgId);
 
   const rows = await prisma.job.findMany({
-    where: { frequency: { in: AUTO_GENERATED_FREQUENCIES }, seriesId: { not: null } },
+    where: {
+      orgId,
+      frequency: { in: AUTO_GENERATED_FREQUENCIES },
+      seriesId: { not: null },
+    },
     orderBy: { scheduledDate: "asc" },
   });
 
@@ -116,6 +127,7 @@ export async function ensureOccurrencesThrough(through: Date): Promise<number> {
         nextPosition.set(key, position + 1);
 
         toCreate.push({
+          orgId,
           customerId: template.customerId,
           crewId: template.crewId,
           serviceType: template.serviceType,
@@ -152,9 +164,9 @@ export async function ensureOccurrencesThrough(through: Date): Promise<number> {
  * to columns without colliding. Writes nothing when every column is already
  * sequential, which is the steady state.
  */
-async function normalizeColumns(): Promise<Map<string, number>> {
+async function normalizeColumns(orgId: string): Promise<Map<string, number>> {
   const rows = await prisma.job.findMany({
-    where: { scheduledDate: { gte: todayDate() } },
+    where: { orgId, scheduledDate: { gte: todayDate() } },
     orderBy: [{ orderInDay: "asc" }, { createdAt: "asc" }],
     select: { id: true, scheduledDate: true, crewId: true, orderInDay: true },
   });
@@ -194,12 +206,15 @@ async function normalizeColumns(): Promise<Map<string, number>> {
  * the displayed date can't drift from what auto-scheduling actually produces;
  * falls back to a calculated date when no such row exists yet.
  */
-export async function attachNextDates(jobs: JobWithRelations[]): Promise<JobWithNextDate[]> {
+export async function attachNextDates(
+  orgId: string,
+  jobs: JobWithRelations[],
+): Promise<JobWithNextDate[]> {
   const seriesIds = [...new Set(jobs.map((j) => j.seriesId).filter((s): s is string => Boolean(s)))];
 
   const futureJobs = seriesIds.length
     ? await prisma.job.findMany({
-        where: { seriesId: { in: seriesIds } },
+        where: { orgId, seriesId: { in: seriesIds } },
         orderBy: { scheduledDate: "asc" },
         select: { seriesId: true, scheduledDate: true },
       })
