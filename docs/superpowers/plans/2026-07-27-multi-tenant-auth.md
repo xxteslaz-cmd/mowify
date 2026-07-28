@@ -1009,11 +1009,17 @@ npx tsx -e 'import{PrismaClient}from"@prisma/client";import{PrismaPg}from"@prism
 ```
 Expected: `orphans: [ 0, 0, 0 ]`. **Do not proceed unless all three are zero** — the next step would fail against orphan rows.
 
-- [ ] **Step 10: Make `orgId` required and rewrite the indexes**
+- [ ] **Step 10: Rewrite `Job`'s indexes to be org-leading**
 
-In `prisma/schema.prisma`, change `orgId String?` to `orgId String` and `org Org?` to `org Org` on `Crew`, `Customer`, and `Job`.
+`orgId` stays NULLABLE for now. Tightening it here would break `data.ts`,
+`recurring.ts` and both action files — which are exactly what Tasks 10–13 fix —
+so the column is tightened in **Task 18**, after nothing creates a record
+without an org. Everything in the intervening tasks typechecks fine against a
+nullable column.
 
-Replace `Job`'s index block with org-leading indexes, since every query is now scoped by org:
+Replace `Job`'s index block with org-leading indexes, since every query is about
+to be org-scoped. These are correct whether or not the column is nullable, so
+there is no reason to churn them twice:
 
 ```prisma
   @@index([orgId, scheduledDate])
@@ -1022,12 +1028,15 @@ Replace `Job`'s index block with org-leading indexes, since every query is now s
   @@index([orgId, seriesId])
 ```
 
-- [ ] **Step 11: Push to both databases and regenerate**
+- [ ] **Step 11: Fix `prisma/seed.ts` and push to both databases**
+
+`seed.ts` creates crews, customers and jobs, so it must attach an `orgId` or it
+seeds org-less rows that no signed-in user can ever see. Have it resolve the
+existing Org and reuse it, creating one only if the database is empty — the same
+lookup shape `backfill-org.ts` uses.
 
 Run: `npm run db:push && npm run db:push:test && npx prisma generate && npx tsc --noEmit`
-Expected: succeeds.
-
-The test database has no rows, so making `orgId` required needs no backfill there. Typecheck errors in `data.ts`, `recurring.ts`, and the action files are **not** expected yet — `orgId` becoming required affects creates, which Tasks 10–13 fix. If `prisma create` calls now fail to typecheck, that is correct and those tasks resolve it.
+Expected: all clean. Typecheck errors in `data.ts`, `recurring.ts`, and the action files are **not** expected yet — `orgId` becoming required affects creates, which Tasks 10–13 fix. If `prisma create` calls now fail to typecheck, that is correct and those tasks resolve it.
 
 - [ ] **Step 12: Write the test factories**
 
@@ -3115,6 +3124,68 @@ git commit -m "test: prove data cannot leak between orgs"
 ```
 
 ---
+
+---
+
+### Task 18: Make `orgId` required
+
+**Files:**
+- Modify: `prisma/schema.prisma`
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: non-nullable `orgId` on `Crew`, `Customer`, `Job`.
+
+This runs LAST, after every create path supplies an `orgId`. Tightening it
+earlier breaks Tasks 10–13, which are what fix the files it breaks — a circular
+dependency that cost one wasted round when the plan tried it in Task 6.
+
+- [ ] **Step 1: Confirm nothing creates a record without an org**
+
+Run: `grep -rn "prisma.\(job\|crew\|customer\).create" src/ prisma/`
+Expected: every hit passes `orgId`. If any does not, fix that first — this step
+is the gate, and a miss here becomes a runtime failure after the column tightens.
+
+- [ ] **Step 2: Verify zero orphan rows in the live database**
+
+```bash
+npx tsx -e 'import"dotenv/config";import{PrismaClient}from"@prisma/client";import{PrismaPg}from"@prisma/adapter-pg";const p=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL})});Promise.all([p.crew.count({where:{orgId:null}}),p.customer.count({where:{orgId:null}}),p.job.count({where:{orgId:null}})]).then(r=>console.log("orphans:",r)).finally(()=>p.$disconnect())'
+```
+
+Expected: `orphans: [ 0, 0, 0 ]`. **Do not proceed unless all three are zero** —
+the push would fail against orphan rows, and this database holds real business
+data.
+
+- [ ] **Step 3: Make the column required**
+
+In `prisma/schema.prisma`, change `orgId String?` to `orgId String` and
+`org Org?` to `org Org` on `Crew`, `Customer` and `Job`.
+
+`prisma/backfill-org.ts` will stop typechecking at this point — its
+`updateMany({ where: { orgId: null } })` calls query a column that can no longer
+be null. Delete those three blocks and leave a comment saying the migration is
+complete and the column is now required. Keep the Org and owner creation, which
+still bootstraps a fresh environment.
+
+- [ ] **Step 4: Push to both databases**
+
+Run: `npm run db:push && npm run db:push:test && npx prisma generate`
+
+Expected: succeeds with no data-loss warning. Making a fully-populated column
+NOT NULL is safe. **If anything warns about dropping or truncating, stop** — do
+not pass `--accept-data-loss`.
+
+- [ ] **Step 5: Verify green**
+
+Run: `npx tsc --noEmit && npm run lint && npm test && npm run build`
+Expected: all four clean.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add prisma/schema.prisma prisma/backfill-org.ts
+git commit -m "feat: require orgId now that every create path supplies one"
+```
 
 ## Post-implementation verification
 
