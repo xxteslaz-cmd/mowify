@@ -33,6 +33,13 @@ export async function createJob(input: {
   // the board, so it can't be allowed to reach the database.
   if (!input.crewId) throw new Error("A crew is required");
 
+  // The client picked this crew, so confirm it's actually this org's before
+  // attaching it — otherwise a forged id from another company would leak
+  // that crew's name and colour onto this board, and leave the other
+  // company unable to delete a crew it believes has no jobs on it.
+  const ownedCrew = await prisma.crew.count({ where: { id: input.crewId, orgId } });
+  if (ownedCrew === 0) throw new Error("A crew is required");
+
   const customService =
     input.serviceType === "OTHER" ? input.customService?.trim() || null : null;
   if (input.serviceType === "OTHER" && !customService) {
@@ -145,6 +152,13 @@ export async function updateJob(input: {
   const { orgId } = await requireOwner();
 
   if (!input.crewId) throw new Error("A crew is required");
+
+  // The client picked this crew, so confirm it's actually this org's before
+  // moving the job onto it — otherwise a forged id from another company
+  // would leak that crew's name and colour onto this board, and leave the
+  // other company unable to delete a crew it believes has no jobs on it.
+  const ownedCrew = await prisma.crew.count({ where: { id: input.crewId, orgId } });
+  if (ownedCrew === 0) throw new Error("A crew is required");
 
   const current = await prisma.job.findFirst({ where: { id: input.jobId, orgId } });
   if (!current) throw new Error("Job not found");
