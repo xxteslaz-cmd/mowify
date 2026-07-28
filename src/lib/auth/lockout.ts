@@ -22,6 +22,16 @@ export function nextLockoutState(failedAttempts: number): {
   };
 }
 
+export function priorFailures(user: {
+  failedAttempts: number;
+  lockedUntil: Date | null;
+}): number {
+  // A lock that has already expired starts the count over. Otherwise one wrong
+  // password long after a previous lockout would re-lock the account instantly.
+  if (user.lockedUntil && user.lockedUntil.getTime() <= Date.now()) return 0;
+  return user.failedAttempts;
+}
+
 export function lockoutMessage(lockedUntil: Date): string {
   const minutes = Math.max(
     1,

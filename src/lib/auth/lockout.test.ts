@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isLocked,
   nextLockoutState,
+  priorFailures,
   MAX_FAILED_ATTEMPTS,
   LOCKOUT_MS,
 } from "./lockout";
@@ -42,5 +43,21 @@ describe("nextLockoutState", () => {
 
   it("does not lock at one attempt below the threshold", () => {
     expect(nextLockoutState(MAX_FAILED_ATTEMPTS - 2).lockedUntil).toBeNull();
+  });
+});
+
+describe("priorFailures", () => {
+  it("returns failedAttempts when never locked", () => {
+    expect(priorFailures({ failedAttempts: 3, lockedUntil: null })).toBe(3);
+  });
+
+  it("returns failedAttempts when the lock is still active", () => {
+    const lockedUntil = new Date(Date.now() + 60_000);
+    expect(priorFailures({ failedAttempts: 5, lockedUntil })).toBe(5);
+  });
+
+  it("returns 0 when the lock has expired", () => {
+    const lockedUntil = new Date(Date.now() - 1);
+    expect(priorFailures({ failedAttempts: 5, lockedUntil })).toBe(0);
   });
 });
