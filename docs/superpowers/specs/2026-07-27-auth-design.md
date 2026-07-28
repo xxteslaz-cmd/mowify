@@ -233,6 +233,27 @@ All seven exported functions are converted: `getDaySummaries`, `getActiveCrews`,
 pass any `crewId` within their org. Anything else returns no crew, which the page
 renders as a 404.
 
+### Recurring job generation
+
+`src/lib/recurring.ts` needs the same treatment, and is easy to overlook because
+no page calls it directly for data — it writes.
+
+- `ensureOccurrencesThrough(through)` scans every recurring job in the database
+  and creates successor visits. Unscoped, one company's dashboard render
+  generates jobs for every other company. It gains a required `orgId` parameter,
+  applied to the orphan-repair query, the series query, and the `createMany`.
+- `normalizeColumns()` rewrites `orderInDay` across every crew-day it finds. It
+  gains the same `orgId` parameter, so one company's render cannot reorder
+  another's board.
+- `attachNextDates(jobs)` looks up future visits by `seriesId`. It gains `orgId`
+  in its `where` clause.
+- `generateNextOccurrence(job)` derives everything from the job it is given, so
+  it needs no new parameter — but it must copy that job's `orgId` onto the
+  visit it creates.
+
+Callers (`dashboard/page.tsx` and `dashboard/actions.ts`) pass the `orgId` they
+already hold from the DAL.
+
 ### Server actions
 
 There are twelve actions across `dashboard/actions.ts` and
