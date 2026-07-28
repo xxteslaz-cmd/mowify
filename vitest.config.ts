@@ -14,5 +14,6 @@ export default defineConfig({
     // These tests share one Postgres database, so they must not run in
     // parallel against each other.
     fileParallelism: false,
+    alias: { "server-only": "/src/test/empty.ts" },
   },
 });
