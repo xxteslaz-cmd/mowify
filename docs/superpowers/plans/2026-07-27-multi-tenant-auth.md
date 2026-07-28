@@ -2174,9 +2174,17 @@ Add `const { orgId } = await requireOwner();` as the first line. Then:
     const owned = await prisma.customer.count({ where: { id: customerId, orgId } });
     if (owned === 0) throw new Error("A customer is required");
   }
+
+  // The same check for the crew. Without it an owner can attach another
+  // company's crew to their own job, which leaks that crew's name and colour
+  // onto their board and leaves the other company unable to delete it.
+  const ownedCrew = await prisma.crew.count({ where: { id: crewId, orgId } });
+  if (ownedCrew === 0) throw new Error("A crew is required");
 ```
 
-Without that check an owner could attach another company's customer to their own job.
+Without those checks an owner could attach another company's customer or crew to
+their own job. Both IDs arrive from the client and must be proven to belong to
+the caller's org before use — `updateJob` needs the identical pair of checks.
 
 - [ ] **Step 4: Scope `createCrew`, `updateCrew`, `deleteCrew`**
 
