@@ -8,14 +8,23 @@ const LINKS = [
   { href: "/customers", label: "Customers" },
 ];
 
-export default function MainNav() {
+export default function MainNav({
+  role,
+  children,
+}: {
+  role?: "OWNER" | "CREW" | null;
+  children?: React.ReactNode;
+}) {
   const pathname = usePathname();
+  // Crew can't reach Dashboard or Customers — those routes reject them — so
+  // there is nothing useful to link to from their nav.
+  const links = role === "OWNER" ? LINKS : [];
 
   return (
     <nav className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3">
       <span className="text-lg font-semibold">Mowify</span>
 
-      {LINKS.map(({ href, label }) => {
+      {links.map(({ href, label }) => {
         // Detail routes such as /customers/[id] should keep their section lit.
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
@@ -33,6 +42,8 @@ export default function MainNav() {
           </Link>
         );
       })}
+
+      {children}
     </nav>
   );
 }
