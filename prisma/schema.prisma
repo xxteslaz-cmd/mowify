@@ -13,8 +13,8 @@ model Crew {
   active Boolean @default(true)
   jobs   Job[]
 
-  orgId String?
-  org   Org?    @relation(fields: [orgId], references: [id])
+  orgId String
+  org   Org    @relation(fields: [orgId], references: [id])
   users User[]
 
   createdAt DateTime @default(now())
@@ -31,8 +31,8 @@ model Customer {
   notes   String?
   jobs    Job[]
 
-  orgId String?
-  org   Org?    @relation(fields: [orgId], references: [id])
+  orgId String
+  org   Org    @relation(fields: [orgId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -82,8 +82,8 @@ model Job {
   // Null for ONE_TIME jobs, which have no series to belong to.
   seriesId String?
 
-  orgId String?
-  org   Org?    @relation(fields: [orgId], references: [id])
+  orgId String
+  org   Org    @relation(fields: [orgId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

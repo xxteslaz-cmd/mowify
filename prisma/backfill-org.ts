@@ -46,23 +46,12 @@ async function main() {
     },
   });
 
-  const crews = await prisma.crew.updateMany({
-    where: { orgId: null },
-    data: { orgId: org.id },
-  });
-  const customers = await prisma.customer.updateMany({
-    where: { orgId: null },
-    data: { orgId: org.id },
-  });
-  const jobs = await prisma.job.updateMany({
-    where: { orgId: null },
-    data: { orgId: org.id },
-  });
-
-  console.log(
-    `Backfilled into "${org.name}" (/c/${org.slug}): ` +
-      `${crews.count} crews, ${customers.count} customers, ${jobs.count} jobs.`,
-  );
+  // The one-time move of pre-auth Crew/Customer/Job rows into this Org is
+  // done: orgId is now a required column, so there is nothing left with a
+  // null orgId for updateMany to catch, and Prisma would refuse to typecheck
+  // a `where: { orgId: null }` against a non-nullable column anyway. This
+  // script now only bootstraps the Org and its owner for a fresh environment.
+  console.log(`Created "${org.name}" (/c/${org.slug}) and its owner.`);
 }
 
 main()
