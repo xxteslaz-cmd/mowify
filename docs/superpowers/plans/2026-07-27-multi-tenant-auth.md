@@ -89,11 +89,14 @@ export default defineConfig({
     env: { DATABASE_URL: process.env.TEST_DATABASE_URL ?? "" },
     // These tests share one Postgres database, so they must not run in
     // parallel against each other.
-    pool: "forks",
-    poolOptions: { forks: { singleFork: true } },
+    fileParallelism: false,
   },
 });
 ```
+
+`fileParallelism: false` is how Vitest 4 serializes test files. The older
+`poolOptions: { forks: { singleFork: true } }` no longer typechecks against
+Vitest 4's config type.
 
 - [ ] **Step 3: Create `src/test/setup.ts`**
 
@@ -110,12 +113,11 @@ if (!process.env.DATABASE_URL?.includes("test")) {
 
 export async function resetDb() {
   // Order matters: children before parents, since foreign keys are enforced.
-  await prisma.session.deleteMany();
+  // Task 2 adds the Session, User and Org deletes when those models exist —
+  // referencing them before then would not typecheck.
   await prisma.job.deleteMany();
-  await prisma.user.deleteMany();
   await prisma.customer.deleteMany();
   await prisma.crew.deleteMany();
-  await prisma.org.deleteMany();
 }
 
 beforeEach(async () => {
@@ -294,19 +296,39 @@ Add inside `model Job`:
 
 Leave `Job`'s existing indexes alone for now — Task 6 rewrites them once `orgId` is non-null.
 
-- [ ] **Step 5: Push the schema to both databases and regenerate the client**
+- [ ] **Step 5: Extend the test reset to the new models**
+
+Now that `Org`, `User` and `Session` exist, `src/test/setup.ts` can clear them.
+Replace the body of `resetDb`:
+
+```ts
+export async function resetDb() {
+  // Order matters: children before parents, since foreign keys are enforced.
+  await prisma.session.deleteMany();
+  await prisma.job.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.customer.deleteMany();
+  await prisma.crew.deleteMany();
+  await prisma.org.deleteMany();
+}
+```
+
+Do this after `prisma generate` in the next step, or the new model properties
+will not exist on the client yet.
+
+- [ ] **Step 6: Push the schema to both databases and regenerate the client**
 
 Run: `npm run db:push && npm run db:push:test && npx prisma generate`
 Expected: both succeed with no data loss warnings. Every added column is nullable, so no existing row is rejected.
 
 The test database needs the same schema or Task 17's suite fails against a stale shape.
 
-- [ ] **Step 6: Verify the client has the new types**
+- [ ] **Step 7: Verify the client has the new types**
 
 Run: `npx tsc --noEmit`
 Expected: no errors.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 8: Commit**
 
 ```bash
 git add prisma/schema.prisma
