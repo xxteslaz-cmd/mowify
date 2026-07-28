@@ -845,6 +845,9 @@ export function slugify(name: string): string {
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
+    // Apostrophes should disappear rather than become a separator, so
+    // "Bob's" reads as "bobs", not "bob-s".
+    .replace(/['’]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   // A name of pure punctuation would otherwise produce an empty URL segment.
