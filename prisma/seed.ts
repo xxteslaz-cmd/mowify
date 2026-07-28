@@ -1,23 +1,37 @@
 import "dotenv/config";
 import { prisma } from "../src/lib/prisma";
 import { addDays, todayDate } from "../src/lib/date";
-import { slugify } from "../src/lib/auth/slug";
 
 async function main() {
+  // Every crew, customer and job now belongs to an Org, so seeding needs one
+  // to attach to. This script deliberately never creates one: backfill-org.ts
+  // decides it has nothing to do as soon as ANY Org exists, so a seed script
+  // that made its own Org on an empty database would leave a company with
+  // seeded data and no login, permanently convincing the backfill its job is
+  // done. Requiring an Org to already exist removes that ordering hazard
+  // instead of papering over it.
+  const org = await prisma.org.findFirst();
+  if (!org) {
+    throw new Error(
+      "No company exists yet. Run `npm run db:backfill-org`, or sign up in the app, before seeding.",
+    );
+  }
+
+  // This database has held one real company's data (and its real owner
+  // login) since the auth backfill ran. Seeding deletes every crew, customer
+  // and job unconditionally, and there is no backup — so refuse unless the
+  // operator explicitly overrides, rather than silently wiping a live business.
+  const userCount = await prisma.user.count({ where: { orgId: org.id } });
+  if (userCount > 0 && process.env.SEED_FORCE !== "1") {
+    throw new Error(
+      `"${org.name}" has ${userCount} real login(s). Seeding deletes every crew, ` +
+        `customer and job. Re-run with SEED_FORCE=1 if you are certain.`,
+    );
+  }
+
   await prisma.job.deleteMany();
   await prisma.customer.deleteMany();
   await prisma.crew.deleteMany();
-
-  // Every crew, customer and job now belongs to an Org, so seeding needs one
-  // to attach to. Reuse whichever Org is already there (the real backfilled
-  // company in a dev database that's been through the auth backfill) instead
-  // of creating a second one; only make a fresh Org when the database is
-  // completely empty, so this script still works from scratch too.
-  const org =
-    (await prisma.org.findFirst()) ??
-    (await prisma.org.create({
-      data: { name: "Seed Company", slug: slugify("Seed Company") },
-    }));
 
   const [crewA, crewB, crewC] = await Promise.all([
     prisma.crew.create({ data: { orgId: org.id, name: "Crew 1", color: "#2563eb" } }),
