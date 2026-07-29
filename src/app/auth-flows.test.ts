@@ -139,13 +139,35 @@ describe("requesting a reset", () => {
     expect(await consumeToken(first, "PASSWORD_RESET")).not.toBeNull();
   });
 
-  it("does not issue a reset token for a crew member's account", async () => {
+  it("does not issue a reset token for a crew member's account, even if one somehow has an email set", async () => {
     const org = await makeOrg();
     const crew = await makeCrew(org.id);
-    await makeCrewUser(org.id, crew.id);
-    // Crew have no email and sign in with a PIN their owner sets, so this
-    // flow is owner-only by construction.
+    const crewUser = await makeCrewUser(org.id, crew.id);
+    // Crew normally have no email and sign in with a PIN their owner sets, so
+    // this flow is owner-only by construction. This seeds an email onto a
+    // CREW row anyway, so the assertion below is actually exercising the
+    // `role === "OWNER"` check rather than passing vacuously because
+    // findUnique never found a row.
+    await prisma.user.update({
+      where: { id: crewUser.id },
+      data: { email: "crew@example.com" },
+    });
+
     await requestReset(undefined, form({ email: "crew@example.com" }));
+
+    expect(await prisma.token.count()).toBe(0);
+    expect(sent.calls).toHaveLength(0);
+  });
+
+  it("does not issue a reset token for a deactivated owner's account", async () => {
+    const { user } = await seedOwner();
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { active: false },
+    });
+
+    await requestReset(undefined, form({ email: user.email! }));
+
     expect(await prisma.token.count()).toBe(0);
     expect(sent.calls).toHaveLength(0);
   });
@@ -254,16 +276,40 @@ describe("changing a password while signed in", () => {
     const user = await signedIn();
     const before = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
 
-    await expect(
-      changePassword({
-        currentPassword: "not-the-password",
-        newPassword: "attacker-chosen",
-      }),
-    ).rejects.toThrow();
+    // changePassword returns its error rather than throwing: a production
+    // build redacts thrown Server Action errors down to an opaque digest, so
+    // the real message has to travel back as a value instead.
+    const result = await changePassword({
+      currentPassword: "not-the-password",
+      newPassword: "attacker-chosen",
+    });
 
+    expect(result?.error).toBeTruthy();
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     // A stolen session must not be enough to lock the real owner out.
     expect(after.passwordHash).toBe(before.passwordHash);
+  });
+
+  it("locks out after repeated wrong current-password guesses", async () => {
+    const user = await signedIn();
+
+    for (let i = 0; i < 5; i++) {
+      await changePassword({
+        currentPassword: "not-the-password",
+        newPassword: "attacker-chosen",
+      });
+    }
+
+    // A stolen session must not be able to guess the current password
+    // unthrottled: a correct guess is a permanent takeover.
+    const result = await changePassword({
+      currentPassword: "original-password",
+      newPassword: "attacker-chosen",
+    });
+    expect(result?.error).toMatch(/too many attempts/i);
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(await verifySecret(after.passwordHash!, "original-password")).toBe(true);
   });
 
   it("changes the password and signs out other devices only", async () => {

@@ -1,7 +1,7 @@
 import "server-only";
 import { randomBytes, createHash } from "crypto";
 import { cookies } from "next/headers";
-import type { Role } from "@prisma/client";
+import type { Role, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { SESSION_COOKIE } from "./cookie";
 
@@ -58,9 +58,16 @@ export async function deleteSession(): Promise<void> {
  * Used when an owner deactivates a crew login or resets a PIN, so the change
  * takes effect on the crew member's phone immediately rather than whenever
  * their session happens to expire.
+ *
+ * Accepts an optional client so a caller running inside `prisma.$transaction`
+ * can pass its `tx` and have the deletion commit or roll back with the rest
+ * of that unit of work, instead of always running on its own connection.
  */
-export async function deleteAllSessionsForUser(userId: string): Promise<void> {
-  await prisma.session.deleteMany({ where: { userId } });
+export async function deleteAllSessionsForUser(
+  userId: string,
+  client: Pick<typeof prisma, "session"> | Prisma.TransactionClient = prisma,
+): Promise<void> {
+  await client.session.deleteMany({ where: { userId } });
 }
 
 /**

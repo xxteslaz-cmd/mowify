@@ -30,21 +30,31 @@ export async function completeReset(
     return { error: parsed.error.issues[0].message };
   }
 
+  // consumeToken's own compare-and-swap (it stamps consumedAt only while the
+  // row is still null) is what makes redemption atomic against a second
+  // simultaneous submission of the same link; that guarantee doesn't need
+  // re-deriving here.
   const claimed = await consumeToken(parsed.data.token, "PASSWORD_RESET");
   if (!claimed) return { error: EXPIRED };
 
   const passwordHash = await hashSecret(parsed.data.password);
 
-  await prisma.user.update({
-    where: { id: claimed.userId },
-    // Clearing the lockout is part of recovery: someone who forgot their
-    // password has usually locked themselves out guessing at it.
-    data: { passwordHash, failedAttempts: 0, lockedUntil: null },
-  });
+  // The password write, the lockout clear, and dropping every session happen
+  // in one transaction so a crash partway through can never leave the account
+  // with a new password but still locked, or with a new password but the
+  // attacker's session still alive.
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: claimed.userId },
+      // Clearing the lockout is part of recovery: someone who forgot their
+      // password has usually locked themselves out guessing at it.
+      data: { passwordHash, failedAttempts: 0, lockedUntil: null },
+    });
 
-  // If the reset happened because the account was compromised, leaving the
-  // attacker's session alive would defeat the whole operation.
-  await deleteAllSessionsForUser(claimed.userId);
+    // If the reset happened because the account was compromised, leaving the
+    // attacker's session alive would defeat the whole operation.
+    await deleteAllSessionsForUser(claimed.userId, tx);
+  });
 
   redirect("/login?reset=1");
 }

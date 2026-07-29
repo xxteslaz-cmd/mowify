@@ -22,7 +22,7 @@
 - **`orgId` never comes from client input.**
 - Comment style explains *why*, not *what*, in full sentences.
 - This is Next.js 16: `middleware.ts` is `proxy.ts` (at `src/proxy.ts`), and route `params` are async.
-- **Database safety:** `DATABASE_URL` holds a real business's live data — company "GroundsRoute", 3 crews, 5 customers, 105 jobs, owner `landenslaughter1109@gmail.com`. Never write to it. `TEST_DATABASE_URL` (`mowify_test`) is disposable. Never run `npm run db:seed`.
+- **Database safety:** `DATABASE_URL` points at live production data. Never write to it. `TEST_DATABASE_URL` is a disposable test database. Never run `npm run db:seed`.
 
 ---
 

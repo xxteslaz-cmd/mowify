@@ -11,7 +11,7 @@ gaps were deliberate — no email provider was configured — and both are now t
 sharpest edges in the product:
 
 - **A forgotten owner password is unrecoverable.** The only fix is editing the
-  database by hand. That is tolerable while GroundsRoute is the only company and
+  database by hand. That is tolerable while there is only one company and
   its owner has database access. It is not tolerable for a customer.
 - **No email address is ever verified.** A typo at signup produces an account
   whose password can never be reset, because the reset would be sent to an

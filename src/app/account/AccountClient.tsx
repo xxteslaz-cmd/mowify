@@ -27,17 +27,18 @@ export default function AccountClient({
     setBusy(true);
     setError(null);
     setDone(false);
-    try {
-      await changePassword({ currentPassword, newPassword });
+    // changePassword returns its error rather than throwing, so a production
+    // build still shows the real message instead of React's redacted digest.
+    const result = await changePassword({ currentPassword, newPassword });
+    if (result?.error) {
+      setError(result.error);
+    } else {
       setCurrent("");
       setNew("");
       setDone(true);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
   }
 
   return (
@@ -61,9 +62,12 @@ export default function AccountClient({
               disabled={busy || sent}
               onClick={async () => {
                 setBusy(true);
-                await resendVerification();
-                setSent(true);
-                setBusy(false);
+                try {
+                  await resendVerification();
+                  setSent(true);
+                } finally {
+                  setBusy(false);
+                }
               }}
               className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
             >

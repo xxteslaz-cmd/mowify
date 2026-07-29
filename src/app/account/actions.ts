@@ -9,6 +9,12 @@ import { readSessionToken, deleteOtherSessionsForUser } from "@/lib/auth/session
 import { issueToken } from "@/lib/auth/token";
 import { sendEmail, appUrl } from "@/lib/email/client";
 import { verifyEmailEmail } from "@/lib/email/templates";
+import {
+  isLocked,
+  lockoutMessage,
+  nextLockoutState,
+  priorFailures,
+} from "@/lib/auth/lockout";
 
 const ChangeSchema = z
   .object({
@@ -17,26 +23,46 @@ const ChangeSchema = z
   })
   .strict();
 
+// A Server Component/Action error thrown in a production build reaches the
+// client only as an opaque digest — React redacts the real message. Expected
+// failures (wrong password, weak password) are therefore modeled as a return
+// value, the same shape login/signup/completeReset already use, not a throw.
+export type ChangePasswordState = { error?: string } | undefined;
+
 export async function changePassword(input: {
   currentPassword: string;
   newPassword: string;
-}) {
+}): Promise<ChangePasswordState> {
   const { userId } = await requireOwner();
   const parsed = ChangeSchema.safeParse(input);
-  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
-  if (!user.passwordHash) throw new Error("Current password is incorrect");
 
-  // Proving you know the current password matters: a stolen session should not
-  // be enough to lock the real owner out of their own account.
-  if (!(await verifySecret(user.passwordHash, parsed.data.currentPassword))) {
-    throw new Error("Current password is incorrect");
+  if (isLocked(user)) return { error: lockoutMessage(user.lockedUntil!) };
+
+  // A stolen session should not be enough to guess the current password
+  // unthrottled: a correct guess is a permanent takeover, since it lets the
+  // attacker set a new password and evict the real owner's other sessions.
+  // Throttled the same way login throttles a wrong password.
+  if (
+    !user.passwordHash ||
+    !(await verifySecret(user.passwordHash, parsed.data.currentPassword))
+  ) {
+    const next = nextLockoutState(priorFailures(user));
+    await prisma.user.update({ where: { id: userId }, data: next });
+    return next.lockedUntil
+      ? { error: lockoutMessage(next.lockedUntil) }
+      : { error: "Current password is incorrect" };
   }
 
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: await hashSecret(parsed.data.newPassword) },
+    data: {
+      passwordHash: await hashSecret(parsed.data.newPassword),
+      failedAttempts: 0,
+      lockedUntil: null,
+    },
   });
 
   // Sign out everywhere else, but not the tab doing the changing.

@@ -46,7 +46,13 @@ export async function sendEmail(input: {
     }
     return true;
   } catch (err) {
-    console.error("Email not sent:", err);
+    // Narrowed rather than logging the whole error object: an unknown future
+    // error shape (e.g. one that echoes the request body) could otherwise put
+    // a reset or verification token into the logs.
+    console.error(
+      "Email not sent:",
+      err instanceof Error ? err.message : String(err),
+    );
     return false;
   }
 }
