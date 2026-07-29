@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { addDays, parseISODate, toISODate } from "@/lib/date";
 import {
@@ -11,11 +12,41 @@ import {
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 import type { Frequency, ServiceType } from "@prisma/client";
+import { requireOwner, verifySession } from "@/lib/auth/dal";
 
 function revalidateAffected(dateISO: string, crewId?: string | null) {
   revalidatePath("/dashboard");
   if (crewId) revalidatePath(`/crew/${crewId}/today`);
 }
+
+// These Server Actions are public HTTP endpoints; see the matching comment in
+// src/app/customers/actions.ts for why raw client input is never allowed to
+// reach Prisma's `data` even though the parameter type looks like it enforces
+// the shape. .strict() rejects an unexpected key (e.g. an injected `orgId`)
+// instead of silently dropping it.
+const NewCustomerInput = z
+  .object({
+    name: z.string().trim().min(1, "Enter a name"),
+    address: z.string().trim().min(1, "Enter an address"),
+    phone: z.string().trim().optional(),
+    notes: z.string().trim().optional(),
+  })
+  .strict();
+
+const CrewCreateInput = z
+  .object({
+    name: z.string().trim().min(1, "Enter a name"),
+    color: z.string().trim().min(1, "Pick a color"),
+  })
+  .strict();
+
+const CrewUpdateInput = z
+  .object({
+    name: z.string().trim().min(1, "Enter a name").optional(),
+    color: z.string().trim().min(1, "Pick a color").optional(),
+    active: z.boolean().optional(),
+  })
+  .strict();
 
 export async function createJob(input: {
   customerId?: string;
@@ -26,9 +57,18 @@ export async function createJob(input: {
   dateISO: string;
   crewId: string;
 }) {
+  const { orgId } = await requireOwner();
+
   // The forms enforce this too, but a job with no crew would be invisible on
   // the board, so it can't be allowed to reach the database.
   if (!input.crewId) throw new Error("A crew is required");
+
+  // The client picked this crew, so confirm it's actually this org's before
+  // attaching it — otherwise a forged id from another company would leak
+  // that crew's name and colour onto this board, and leave the other
+  // company unable to delete a crew it believes has no jobs on it.
+  const ownedCrew = await prisma.crew.count({ where: { id: input.crewId, orgId } });
+  if (ownedCrew === 0) throw new Error("A crew is required");
 
   const customService =
     input.serviceType === "OTHER" ? input.customService?.trim() || null : null;
@@ -38,8 +78,18 @@ export async function createJob(input: {
 
   let customerId = input.customerId;
 
+  if (customerId) {
+    // The client picked an existing customer, so confirm it's actually this
+    // org's before attaching it — otherwise a forged id from another company
+    // would leak that company's customer onto this board.
+    const owned = await prisma.customer.count({ where: { id: customerId, orgId } });
+    if (owned === 0) throw new Error("A customer is required");
+  }
+
   if (!customerId && input.newCustomer) {
-    const customer = await prisma.customer.create({ data: input.newCustomer });
+    const parsedCustomer = NewCustomerInput.safeParse(input.newCustomer);
+    if (!parsedCustomer.success) throw new Error(parsedCustomer.error.issues[0].message);
+    const customer = await prisma.customer.create({ data: { ...parsedCustomer.data, orgId } });
     customerId = customer.id;
   }
   if (!customerId) throw new Error("A customer is required");
@@ -48,11 +98,12 @@ export async function createJob(input: {
   const crewId = input.crewId;
 
   const columnCount = await prisma.job.count({
-    where: { scheduledDate: date, crewId },
+    where: { orgId, scheduledDate: date, crewId },
   });
 
   const job = await prisma.job.create({
     data: {
+      orgId,
       customerId,
       serviceType: input.serviceType,
       customService,
@@ -68,7 +119,7 @@ export async function createJob(input: {
   // Fill in the upcoming visits straight away so they're on the board the
   // moment the job is created, not only once this one is completed.
   if (isRecurring(input.frequency)) {
-    await ensureOccurrencesThrough(horizonDate());
+    await ensureOccurrencesThrough(orgId, horizonDate());
   }
 
   revalidateAffected(input.dateISO, crewId);
@@ -81,24 +132,34 @@ export async function updateJobFrequency(
   dateISO: string,
   crewId: string,
 ) {
-  const current = await prisma.job.findUniqueOrThrow({ where: { id: jobId } });
+  const { orgId } = await requireOwner();
+
+  const current = await prisma.job.findFirst({ where: { id: jobId, orgId } });
+  if (!current) throw new Error("Job not found");
 
   // Only wire up a series if this job is becoming auto-generated and isn't
   // already part of one; existing past/future occurrences in an existing
   // series are untouched since we only ever update this one row.
   const needsSeries = isRecurring(frequency) && !current.seriesId;
 
-  const job = await prisma.job.update({
-    where: { id: jobId },
+  // updateMany rather than update: it takes a non-unique where clause, so a
+  // job id from another company matches zero rows instead of updating it.
+  await prisma.job.updateMany({
+    where: { id: jobId, orgId },
     data: {
       frequency,
       ...(needsSeries ? { seriesId: randomUUID() } : {}),
     },
-    include: { customer: true, crew: true },
   });
 
+  const job = await prisma.job.findFirst({
+    where: { id: jobId, orgId },
+    include: { customer: true, crew: true },
+  });
+  if (!job) throw new Error("Job not found");
+
   if (isRecurring(frequency)) {
-    await ensureOccurrencesThrough(horizonDate());
+    await ensureOccurrencesThrough(orgId, horizonDate());
   }
 
   revalidateAffected(dateISO, crewId);
@@ -120,9 +181,19 @@ export async function updateJob(input: {
   notes?: string | null;
   scope: "this" | "future";
 }) {
+  const { orgId } = await requireOwner();
+
   if (!input.crewId) throw new Error("A crew is required");
 
-  const current = await prisma.job.findUniqueOrThrow({ where: { id: input.jobId } });
+  // The client picked this crew, so confirm it's actually this org's before
+  // moving the job onto it — otherwise a forged id from another company
+  // would leak that crew's name and colour onto this board, and leave the
+  // other company unable to delete a crew it believes has no jobs on it.
+  const ownedCrew = await prisma.crew.count({ where: { id: input.crewId, orgId } });
+  if (ownedCrew === 0) throw new Error("A crew is required");
+
+  const current = await prisma.job.findFirst({ where: { id: input.jobId, orgId } });
+  if (!current) throw new Error("Job not found");
   const newDate = parseISODate(input.dateISO);
   const notes = input.notes?.trim() || null;
 
@@ -133,8 +204,12 @@ export async function updateJob(input: {
       (newDate.getTime() - current.scheduledDate.getTime()) / 86_400_000,
     );
 
+    // Scoped by orgId so a series id colliding across two companies (it can't
+    // in practice, but nothing enforces that at the database level) never
+    // matches a row that belongs to someone else.
     const later = await prisma.job.findMany({
       where: {
+        orgId,
         seriesId: current.seriesId,
         scheduledDate: { gt: current.scheduledDate },
         status: { in: ["SCHEDULED", "RESCHEDULED"] },
@@ -145,8 +220,8 @@ export async function updateJob(input: {
     if (later.length > 0) {
       await prisma.$transaction(
         later.map((j) =>
-          prisma.job.update({
-            where: { id: j.id },
+          prisma.job.updateMany({
+            where: { id: j.id, orgId },
             data: {
               crewId: input.crewId,
               notes,
@@ -162,19 +237,26 @@ export async function updateJob(input: {
 
   // Land at the bottom of whichever column it now belongs to.
   const columnCount = await prisma.job.count({
-    where: { scheduledDate: newDate, crewId: input.crewId, id: { not: input.jobId } },
+    where: { orgId, scheduledDate: newDate, crewId: input.crewId, id: { not: input.jobId } },
   });
 
-  const job = await prisma.job.update({
-    where: { id: input.jobId },
+  // updateMany rather than update: it takes a non-unique where clause, so a
+  // job id from another company matches zero rows instead of updating it.
+  await prisma.job.updateMany({
+    where: { id: input.jobId, orgId },
     data: {
       scheduledDate: newDate,
       crewId: input.crewId,
       notes,
       orderInDay: columnCount,
     },
+  });
+
+  const job = await prisma.job.findFirst({
+    where: { id: input.jobId, orgId },
     include: { customer: true, crew: true },
   });
+  if (!job) throw new Error("Job not found");
 
   revalidateAffected(toISODate(current.scheduledDate), current.crewId);
   revalidateAffected(input.dateISO, input.crewId);
@@ -182,7 +264,10 @@ export async function updateJob(input: {
 }
 
 export async function createCrew(input: { name: string; color: string }) {
-  const crew = await prisma.crew.create({ data: input });
+  const { orgId } = await requireOwner();
+  const parsed = CrewCreateInput.safeParse(input);
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const crew = await prisma.crew.create({ data: { ...parsed.data, orgId } });
   revalidatePath("/dashboard");
   return crew;
 }
@@ -191,23 +276,45 @@ export async function updateCrew(
   id: string,
   input: { name?: string; color?: string; active?: boolean },
 ) {
-  const crew = await prisma.crew.update({ where: { id }, data: input });
+  const { orgId } = await requireOwner();
+  const parsed = CrewUpdateInput.safeParse(input);
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  // updateMany rather than update: it takes a non-unique where clause, so a
+  // crew id from another company matches zero rows instead of updating it.
+  // This means the row can no longer be returned to the caller (updateMany
+  // only reports a count), so callers must not rely on a return value here.
+  await prisma.crew.updateMany({ where: { id, orgId }, data: parsed.data });
   revalidatePath("/dashboard");
   revalidatePath(`/crew/${id}/today`);
-  return crew;
 }
 
 export async function deleteCrew(id: string) {
+  const { orgId } = await requireOwner();
   // The UI disables Delete for crews with jobs, but re-check here since the
   // count the client rendered can be stale by the time the action runs.
-  const jobCount = await prisma.job.count({ where: { crewId: id } });
+  const jobCount = await prisma.job.count({ where: { crewId: id, orgId } });
   if (jobCount > 0) {
     throw new Error(
       `Cannot delete crew: ${jobCount} job${jobCount === 1 ? "" : "s"} still assigned to it.`,
     );
   }
 
-  await prisma.crew.delete({ where: { id } });
+  // User.crewId is ON DELETE SET NULL, so the database would let this
+  // through and silently strand every login on the crew: the PIN would stop
+  // working with no explanation, and a live session would loop between
+  // "/" and "/login" forever (src/app/page.tsx breaks that loop, but it's
+  // still better for the owner never to hit it). Block it here instead, the
+  // same shape as the job-count guard above.
+  const loginCount = await prisma.user.count({
+    where: { crewId: id, orgId, role: "CREW" },
+  });
+  if (loginCount > 0) {
+    throw new Error(
+      `Cannot delete crew: ${loginCount} login${loginCount === 1 ? "" : "s"} still assigned to it. Reassign or deactivate them first.`,
+    );
+  }
+
+  await prisma.crew.deleteMany({ where: { id, orgId } });
   revalidatePath("/dashboard");
 }
 
@@ -222,10 +329,13 @@ export async function moveJobInColumn(input: {
   jobId: string;
   direction: "up" | "down";
 }) {
-  const job = await prisma.job.findUniqueOrThrow({ where: { id: input.jobId } });
+  const { orgId } = await requireOwner();
+
+  const job = await prisma.job.findFirst({ where: { id: input.jobId, orgId } });
+  if (!job) throw new Error("Job not found");
 
   const column = await prisma.job.findMany({
-    where: { scheduledDate: job.scheduledDate, crewId: job.crewId },
+    where: { orgId, scheduledDate: job.scheduledDate, crewId: job.crewId },
     // createdAt breaks ties so the order is stable when positions collide.
     orderBy: [{ orderInDay: "asc" }, { createdAt: "asc" }],
     select: { id: true },
@@ -240,22 +350,47 @@ export async function moveJobInColumn(input: {
 
   await prisma.$transaction(
     reordered.map((j, i) =>
-      prisma.job.update({ where: { id: j.id }, data: { orderInDay: i } }),
+      prisma.job.updateMany({ where: { id: j.id, orgId }, data: { orderInDay: i } }),
     ),
   );
 
   revalidateAffected(toISODate(job.scheduledDate), job.crewId);
 }
 
+/**
+ * The only action both owners and crew members call: an owner closes out any
+ * stop in their org, a crew member only the stops on their own board. The
+ * lookup and the write are split on purpose — findFirst is what lets the role
+ * check be expressed, and the update that follows runs on the id it returned,
+ * not the client-supplied one, so it's still scoped even though it isn't the
+ * updateMany pattern used elsewhere in this file.
+ */
 export async function updateJobStatus(jobId: string, status: "COMPLETED" | "SKIPPED") {
-  const job = await prisma.job.update({
-    where: { id: jobId },
+  const user = await verifySession();
+
+  const job = await prisma.job.findFirst({
+    where: {
+      id: jobId,
+      orgId: user.orgId,
+      // A crew member may only close out stops on their own board. Job.crewId
+      // is non-nullable, so a crew session with no crewId (shouldn't happen,
+      // but the column allows it) falls back to a value no job ever has,
+      // rather than a type error or an accidental match-everything.
+      ...(user.role === "CREW" ? { crewId: user.crewId ?? "" } : {}),
+    },
+  });
+  // Deliberately the same message regardless of why the lookup missed — a
+  // wrong org and a wrong crew must look identical to the caller.
+  if (!job) throw new Error("Job not found");
+
+  const updated = await prisma.job.update({
+    where: { id: job.id },
     data: { status },
   });
 
-  await generateNextOccurrence(job);
+  await generateNextOccurrence(updated);
 
-  revalidateAffected(toISODate(job.scheduledDate), job.crewId);
+  revalidateAffected(toISODate(updated.scheduledDate), updated.crewId);
 }
 
 export async function bulkRescheduleDay(input: {
@@ -263,14 +398,19 @@ export async function bulkRescheduleDay(input: {
   newDateISO: string;
   jobIds: string[];
 }) {
+  const { orgId } = await requireOwner();
   const newDate = parseISODate(input.newDateISO);
   await prisma.job.updateMany({
-    where: { id: { in: input.jobIds }, status: { in: ["SCHEDULED", "RESCHEDULED"] } },
+    where: {
+      orgId,
+      id: { in: input.jobIds },
+      status: { in: ["SCHEDULED", "RESCHEDULED"] },
+    },
     data: { scheduledDate: newDate, status: "RESCHEDULED" },
   });
   revalidatePath("/dashboard");
   const crews = await prisma.job.findMany({
-    where: { id: { in: input.jobIds } },
+    where: { orgId, id: { in: input.jobIds } },
     select: { crewId: true },
     distinct: ["crewId"],
   });
@@ -280,6 +420,9 @@ export async function bulkRescheduleDay(input: {
 }
 
 export async function deleteJob(jobId: string, dateISO: string, crewId: string) {
-  await prisma.job.delete({ where: { id: jobId } });
+  const { orgId } = await requireOwner();
+  // deleteMany rather than delete: it takes a non-unique where clause, so a
+  // job id from another company matches zero rows instead of deleting it.
+  await prisma.job.deleteMany({ where: { id: jobId, orgId } });
   revalidateAffected(dateISO, crewId);
 }
