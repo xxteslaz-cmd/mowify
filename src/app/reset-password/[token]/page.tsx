@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { hashToken } from "@/lib/auth/session";
+import { findValidToken } from "@/lib/auth/token";
 import ResetPasswordForm from "./ResetPasswordForm";
 
 export default async function ResetPasswordPage({
@@ -13,15 +12,7 @@ export default async function ResetPasswordPage({
   // Checked without consuming, so rendering the form does not burn the token.
   // Unknown, expired and already-used all render the same page, so this cannot
   // be used to probe which tokens are real.
-  const valid = await prisma.token.findFirst({
-    where: {
-      tokenHash: hashToken(token),
-      purpose: "PASSWORD_RESET",
-      consumedAt: null,
-      expiresAt: { gt: new Date() },
-    },
-    select: { id: true },
-  });
+  const valid = await findValidToken(token, "PASSWORD_RESET");
 
   if (!valid) {
     return (

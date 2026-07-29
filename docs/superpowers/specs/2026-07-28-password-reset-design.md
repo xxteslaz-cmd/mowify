@@ -122,7 +122,7 @@ same rule the ESLint restriction already enforces for `hash.ts`.
 |---|---|---|
 | `/forgot-password` | public | Email field. Always responds "If that email is registered, we've sent a link." |
 | `/reset-password/[token]` | public | Validates the token before rendering. Valid → new-password form. Invalid, expired or consumed → one page offering a fresh request. |
-| `/verify-email/[token]` | public | Consumes the token, stamps `emailVerifiedAt`, redirects to the dashboard. |
+| `/verify-email/[token]` | public | Validates the token without consuming it and renders a confirm button; the action consumes it and stamps `emailVerifiedAt`. Mail scanners fetch every URL in an inbox, so a GET must not spend the link. |
 | `/account` | owner | Change password. Also shows verification status with a resend button when unverified. |
 
 ### Requesting a reset
