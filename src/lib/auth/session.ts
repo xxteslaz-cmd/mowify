@@ -62,3 +62,18 @@ export async function deleteSession(): Promise<void> {
 export async function deleteAllSessionsForUser(userId: string): Promise<void> {
   await prisma.session.deleteMany({ where: { userId } });
 }
+
+/**
+ * Signs a user out everywhere except the session performing the action.
+ *
+ * Used when changing a password: everywhere else should stop working, but the
+ * tab doing the changing should not sign itself out mid-flow.
+ */
+export async function deleteOtherSessionsForUser(
+  userId: string,
+  keepRawToken: string,
+): Promise<void> {
+  await prisma.session.deleteMany({
+    where: { userId, tokenHash: { not: hashToken(keepRawToken) } },
+  });
+}
