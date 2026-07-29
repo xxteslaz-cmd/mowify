@@ -223,6 +223,23 @@ describe("consumeToken", () => {
   it("rejects a garbage token without throwing", async () => {
     expect(await consumeToken("not-a-real-token", "PASSWORD_RESET")).toBeNull();
   });
+
+  it("lets only one of many simultaneous redemptions succeed", async () => {
+    const user = await owner();
+    const raw = await issueToken(user.id, "PASSWORD_RESET");
+
+    // The claim step re-filters on consumedAt inside the update, which is what
+    // makes redemption atomic. Sequential reuse is caught by the initial
+    // lookup, so only a concurrent race reaches this guard — without it, every
+    // one of these calls would succeed and a forwarded link could be redeemed
+    // repeatedly.
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () => consumeToken(raw, "PASSWORD_RESET")),
+    );
+
+    expect(results.filter((r) => r !== null)).toHaveLength(1);
+    expect(results.filter((r) => r === null)).toHaveLength(19);
+  });
 });
 
 describe("isWithinCooldown", () => {
@@ -351,7 +368,7 @@ export async function isWithinCooldown(userId: string): Promise<boolean> {
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `npx vitest run src/lib/auth/token.test.ts`
-Expected: PASS, 12 tests.
+Expected: PASS, 13 tests.
 
 - [ ] **Step 5: Verify green and commit**
 
