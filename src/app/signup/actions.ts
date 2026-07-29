@@ -6,8 +6,11 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashSecret } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
+import { issueToken } from "@/lib/auth/token";
 import { uniqueSlug } from "@/lib/auth/slug";
 import { p2002Fields } from "@/lib/prisma-errors";
+import { sendEmail, appUrl } from "@/lib/email/client";
+import { verifyEmailEmail } from "@/lib/email/templates";
 
 export type SignupFormState =
   | { errors?: Record<string, string>; error?: string }
@@ -122,6 +125,13 @@ export async function signup(
     // `break` above) — genuinely rare, but a real path, not dead code.
     return { error: "Something went wrong. Please try again." };
   }
+
+  // Deliberately after the account exists and deliberately not awaited into a
+  // failure path: a Resend outage must still produce a working account. The
+  // owner can resend from /account.
+  const rawVerify = await issueToken(user.id, "EMAIL_VERIFICATION");
+  const verifyMail = verifyEmailEmail(appUrl(`/verify-email/${rawVerify}`));
+  await sendEmail({ to: email, subject: verifyMail.subject, html: verifyMail.html });
 
   await createSession(user.id, "OWNER");
   redirect("/dashboard");

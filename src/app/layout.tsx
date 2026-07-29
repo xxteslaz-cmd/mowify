@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { getSessionUser } from "@/lib/auth/dal";
 import MainNav from "@/components/MainNav";
 import UserMenu from "@/components/UserMenu";
+import VerifyBanner from "@/components/VerifyBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -49,6 +50,11 @@ export default function RootLayout({
             <Nav />
           </Suspense>
         </header>
+        {/* Own Suspense boundary so awaiting the verification status never
+            delays the nav above it or {children} below it. */}
+        <Suspense fallback={null}>
+          <VerifyBanner />
+        </Suspense>
         <main className="flex-1">{children}</main>
       </body>
     </html>

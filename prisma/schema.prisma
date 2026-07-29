@@ -94,6 +94,11 @@ model Job {
   @@index([orgId, seriesId])
 }
 
+enum TokenPurpose {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
 enum Role {
   OWNER
   CREW
@@ -136,7 +141,9 @@ model User {
   failedAttempts Int       @default(0)
   lockedUntil    DateTime?
 
-  sessions Session[]
+  emailVerifiedAt DateTime?
+  sessions        Session[]
+  tokens          Token[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -156,4 +163,21 @@ model Session {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+model Token {
+  id String @id @default(cuid())
+  // SHA-256 of the value that goes in the email link. The raw token is never
+  // stored, so a database leak yields nothing usable.
+  tokenHash  String       @unique
+  purpose    TokenPurpose
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  // Set on redemption and never cleared. Single use is the security model: an
+  // emailed link may be forwarded, archived, or sit in a mailbox for months.
+  consumedAt DateTime?
+  createdAt  DateTime     @default(now())
+
+  @@index([userId, purpose])
 }

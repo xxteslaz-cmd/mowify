@@ -5,7 +5,14 @@ import { SESSION_COOKIE } from "@/lib/auth/cookie";
 
 // Only the sign-in surfaces are reachable signed out. Everything else is
 // bounced to /login before it renders.
-const PUBLIC_PREFIXES = ["/login", "/signup", "/c/"];
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/signup",
+  "/c/",
+  "/forgot-password",
+  "/reset-password/",
+  "/verify-email/",
+];
 
 export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
