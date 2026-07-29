@@ -17,6 +17,12 @@ export default async function LoginPage() {
 
       <LoginForm />
 
+      <p className="mt-4 text-sm text-black/60 dark:text-white/60">
+        <Link href="/forgot-password" className="underline underline-offset-4">
+          Forgot your password?
+        </Link>
+      </p>
+
       <p className="mt-6 text-sm text-black/60 dark:text-white/60">
         No account yet?{" "}
         <Link href="/signup" className="underline underline-offset-4">
