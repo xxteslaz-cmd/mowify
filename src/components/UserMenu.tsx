@@ -12,12 +12,20 @@ export default async function UserMenu() {
   return (
     <div className="ml-auto flex items-center gap-4">
       {user.role === "OWNER" && (
-        <a
-          href="/team"
-          className="text-sm text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
-        >
-          Team
-        </a>
+        <>
+          <a
+            href="/team"
+            className="text-sm text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
+          >
+            Team
+          </a>
+          <a
+            href="/account"
+            className="text-sm text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
+          >
+            Account
+          </a>
+        </>
       )}
       <span className="text-sm text-black/50 dark:text-white/50">
         {user.name}
