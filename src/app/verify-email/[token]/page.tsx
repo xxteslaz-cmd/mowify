@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { consumeToken } from "@/lib/auth/token";
+import { hashToken } from "@/lib/auth/session";
+import ConfirmForm from "./ConfirmForm";
 
 export default async function VerifyEmailPage({
   params,
@@ -8,31 +9,47 @@ export default async function VerifyEmailPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
-  const claimed = await consumeToken(token, "EMAIL_VERIFICATION");
 
-  if (claimed) {
-    await prisma.user.update({
-      where: { id: claimed.userId },
-      data: { emailVerifiedAt: new Date() },
-    });
+  // Looked up without consuming, so a mail scanner fetching this URL cannot
+  // burn the link before its owner clicks it. Redemption happens in the action.
+  // Unknown, expired and already-used all render the same page, so this cannot
+  // be used to probe which tokens are real.
+  const valid = await prisma.token.findFirst({
+    where: {
+      tokenHash: hashToken(token),
+      purpose: "EMAIL_VERIFICATION",
+      consumedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    select: { id: true },
+  });
+
+  if (!valid) {
+    return (
+      <div className="mx-auto max-w-sm px-4 py-16">
+        <h1 className="mb-1 text-xl font-semibold">This link has expired</h1>
+        <p className="mb-6 text-sm text-black/60 dark:text-white/60">
+          Confirmation links work once and last seven days. Send a new one from
+          your account page.
+        </p>
+        <Link
+          href="/account"
+          className="inline-block rounded-lg bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
+        >
+          Go to account
+        </Link>
+      </div>
+    );
   }
 
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="mb-1 text-xl font-semibold">
-        {claimed ? "Email confirmed" : "This link has expired"}
-      </h1>
+      <h1 className="mb-1 text-xl font-semibold">Confirm your email</h1>
       <p className="mb-6 text-sm text-black/60 dark:text-white/60">
-        {claimed
-          ? "You can now recover your account by email if you forget your password."
-          : "Confirmation links work once and last seven days. Send a new one from your account page."}
+        This lets you recover your account by email if you ever forget your
+        password.
       </p>
-      <Link
-        href={claimed ? "/dashboard" : "/account"}
-        className="inline-block rounded-lg bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
-      >
-        {claimed ? "Go to dashboard" : "Go to account"}
-      </Link>
+      <ConfirmForm token={token} />
     </div>
   );
 }

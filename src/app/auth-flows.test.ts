@@ -69,6 +69,8 @@ const { requestReset } = await import("@/app/forgot-password/actions");
 const { completeReset } = await import("@/app/reset-password/[token]/actions");
 const { changePassword } = await import("@/app/account/actions");
 const { issueToken, consumeToken } = await import("@/lib/auth/token");
+const { confirmEmail } = await import("@/app/verify-email/[token]/actions");
+const VerifyEmailPage = (await import("@/app/verify-email/[token]/page")).default;
 
 function form(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -326,5 +328,66 @@ describe("changing a password while signed in", () => {
     const rows = await prisma.session.findMany({ where: { userId: user.id } });
     expect(rows).toHaveLength(1);
     expect(rows[0].tokenHash).toBe(hashToken("acting-session"));
+  });
+});
+
+describe("email verification", () => {
+  it("does not consume the token when the page is merely fetched", async () => {
+    // Corporate mail scanners fetch every URL they find in an inbox. If
+    // rendering burned the token, the scanner would consume it and the human
+    // would arrive to find their own link already used.
+    const { user } = await seedOwner();
+    const raw = await issueToken(user.id, "EMAIL_VERIFICATION");
+
+    await VerifyEmailPage({ params: Promise.resolve({ token: raw }) });
+
+    const row = await prisma.token.findFirstOrThrow({
+      where: { userId: user.id },
+    });
+    expect(row.consumedAt).toBeNull();
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.emailVerifiedAt).toBeNull();
+
+    // And the link still works for the person it was sent to.
+    await expect(
+      confirmEmail(undefined, form({ token: raw })),
+    ).rejects.toThrow("redirect: /dashboard");
+  });
+
+  it("stamps emailVerifiedAt when the button is submitted", async () => {
+    const { user } = await seedOwner();
+    const raw = await issueToken(user.id, "EMAIL_VERIFICATION");
+
+    await expect(
+      confirmEmail(undefined, form({ token: raw })),
+    ).rejects.toThrow("redirect: /dashboard");
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.emailVerifiedAt).not.toBeNull();
+  });
+
+  it("refuses a second submission of the same link", async () => {
+    const { user } = await seedOwner();
+    const raw = await issueToken(user.id, "EMAIL_VERIFICATION");
+    await expect(
+      confirmEmail(undefined, form({ token: raw })),
+    ).rejects.toThrow("redirect: /dashboard");
+
+    const second = await confirmEmail(undefined, form({ token: raw }));
+    expect(second?.error).toBeTruthy();
+  });
+
+  it("refuses a password-reset token", async () => {
+    // Purpose binding: a one-hour reset token must not verify an email, and a
+    // seven-day verification token must not reset a password.
+    const { user } = await seedOwner();
+    const reset = await issueToken(user.id, "PASSWORD_RESET");
+
+    const result = await confirmEmail(undefined, form({ token: reset }));
+
+    expect(result?.error).toBeTruthy();
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.emailVerifiedAt).toBeNull();
   });
 });
