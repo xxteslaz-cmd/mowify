@@ -67,6 +67,23 @@ describe("consumeToken", () => {
     expect(await consumeToken(raw, "PASSWORD_RESET")).toBeNull();
   });
 
+  it("lets only one of many simultaneous redemptions succeed", async () => {
+    const user = await owner();
+    const raw = await issueToken(user.id, "PASSWORD_RESET");
+
+    // The claim step re-filters on consumedAt inside the update, which is what
+    // makes redemption atomic. Sequential reuse is caught by the initial
+    // lookup, so only a concurrent race reaches this guard — without it, every
+    // one of these calls would succeed and a forwarded link could be redeemed
+    // repeatedly.
+    const results = await Promise.all(
+      Array.from({ length: 20 }, () => consumeToken(raw, "PASSWORD_RESET")),
+    );
+
+    expect(results.filter((r) => r !== null)).toHaveLength(1);
+    expect(results.filter((r) => r === null)).toHaveLength(19);
+  });
+
   it("rejects an expired token", async () => {
     const user = await owner();
     const raw = await issueToken(user.id, "PASSWORD_RESET");
