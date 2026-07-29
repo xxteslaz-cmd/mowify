@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { crewLogin } from "./actions";
+import PasswordField from "@/components/PasswordField";
 
 const FIELD =
   "w-full rounded-lg border border-black/15 px-4 py-3 text-base dark:border-white/15 dark:bg-transparent";
@@ -32,10 +33,9 @@ export default function CrewLoginForm({ orgId }: { orgId: string }) {
         <label htmlFor="pin" className="mb-1 block text-sm font-medium">
           PIN
         </label>
-        <input
+        <PasswordField
           id="pin"
           name="pin"
-          type="password"
           // Brings up the number pad instead of the full keyboard on a phone.
           inputMode="numeric"
           pattern="\d{6}"

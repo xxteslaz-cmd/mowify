@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { changePassword, resendVerification } from "./actions";
+import PasswordField from "@/components/PasswordField";
 
 const FIELD =
   "w-full rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-transparent";
@@ -84,8 +85,7 @@ export default function AccountClient({
         <p className="mb-3 text-sm font-medium">Change password</p>
 
         <div className="space-y-3">
-          <input
-            type="password"
+          <PasswordField
             placeholder="Current password"
             autoComplete="current-password"
             value={currentPassword}
@@ -93,8 +93,7 @@ export default function AccountClient({
             required
             className={FIELD}
           />
-          <input
-            type="password"
+          <PasswordField
             placeholder="New password"
             autoComplete="new-password"
             value={newPassword}

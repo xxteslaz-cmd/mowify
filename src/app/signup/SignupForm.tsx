@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { signup } from "./actions";
+import PasswordField from "@/components/PasswordField";
 
 const FIELD =
   "w-full rounded-lg border border-black/15 px-3 py-2 text-sm dark:border-white/15 dark:bg-transparent";
@@ -58,10 +59,9 @@ export default function SignupForm() {
         <label htmlFor="password" className="mb-1 block text-sm font-medium">
           Password
         </label>
-        <input
+        <PasswordField
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           className={FIELD}

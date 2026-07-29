@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { completeReset } from "./actions";
+import PasswordField from "@/components/PasswordField";
 
 export default function ResetPasswordForm({ token }: { token: string }) {
   const [state, action, pending] = useActionState(completeReset, undefined);
@@ -14,10 +15,9 @@ export default function ResetPasswordForm({ token }: { token: string }) {
         <label htmlFor="password" className="mb-1 block text-sm font-medium">
           New password
         </label>
-        <input
+        <PasswordField
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm dark:border-white/15 dark:bg-transparent"
