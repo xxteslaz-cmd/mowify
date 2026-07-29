@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { hashToken } from "@/lib/auth/session";
+import { findValidToken } from "@/lib/auth/token";
 import ConfirmForm from "./ConfirmForm";
 
 export default async function VerifyEmailPage({
@@ -14,15 +13,7 @@ export default async function VerifyEmailPage({
   // burn the link before its owner clicks it. Redemption happens in the action.
   // Unknown, expired and already-used all render the same page, so this cannot
   // be used to probe which tokens are real.
-  const valid = await prisma.token.findFirst({
-    where: {
-      tokenHash: hashToken(token),
-      purpose: "EMAIL_VERIFICATION",
-      consumedAt: null,
-      expiresAt: { gt: new Date() },
-    },
-    select: { id: true },
-  });
+  const valid = await findValidToken(token, "EMAIL_VERIFICATION");
 
   if (!valid) {
     return (

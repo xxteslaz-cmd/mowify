@@ -48,18 +48,37 @@ export async function issueToken(
  * The purpose is part of the lookup, not an afterthought: without it a
  * seven-day verification token would work as a password-reset token.
  */
-export async function consumeToken(
+/**
+ * The single definition of what makes a token usable.
+ *
+ * Both `consumeToken` and the two pages that render a token's form go through
+ * here, so a page can never disagree with the action about whether a link is
+ * still good. Three hand-written copies of this predicate would drift the
+ * moment anything is added to it.
+ *
+ * Read-only on purpose: a page must be able to check a token without spending
+ * it, because mail scanners fetch every URL they find in an inbox.
+ */
+export async function findValidToken(
   raw: string,
   purpose: TokenPurpose,
-): Promise<{ userId: string } | null> {
-  const token = await prisma.token.findFirst({
+): Promise<{ id: string; userId: string } | null> {
+  return prisma.token.findFirst({
     where: {
       tokenHash: hashToken(raw),
       purpose,
       consumedAt: null,
       expiresAt: { gt: new Date() },
     },
+    select: { id: true, userId: true },
   });
+}
+
+export async function consumeToken(
+  raw: string,
+  purpose: TokenPurpose,
+): Promise<{ userId: string } | null> {
+  const token = await findValidToken(raw, purpose);
   if (!token) return null;
 
   // Stamping by id with consumedAt still null makes redemption atomic: two
