@@ -52,10 +52,11 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-const { updateCustomer } = await import("@/app/customers/actions");
+const { createCustomer, updateCustomer } = await import("@/app/customers/actions");
 const {
   createJob,
   updateJob,
+  createCrew,
   updateCrew,
   deleteCrew,
   moveJobInColumn,
@@ -123,6 +124,44 @@ describe("customers/actions.ts cross-org isolation", () => {
     expect(row.address).toBe("22 New Rd");
     expect(row.orgId).toBe(a.org.id);
   });
+
+  // Regression test for the second finding: createCustomer's `data` is built
+  // from parsed.data plus a server-derived orgId, but before the .strict()
+  // allowlist existed a nested `jobs: { connect: [...] }` reached Prisma's
+  // create input untouched. Prisma's UncheckedCreateInput accepts a nested
+  // relation write there, so this reparented another company's job onto a
+  // brand-new customer row in the attacker's own org — demonstrated over
+  // HTTP. The zod schema must refuse the whole request, and org B's job must
+  // be provably untouched afterward, not merely "the call threw".
+  it("createCustomer cannot reparent another org's job via a nested jobs.connect", async () => {
+    const forged = {
+      name: "Shell Co",
+      address: "1 st",
+      jobs: { connect: [{ id: b.job.id }] },
+    } as unknown as Parameters<typeof createCustomer>[0];
+
+    await expect(createCustomer(forged)).rejects.toThrow();
+
+    const job = await prisma.job.findUniqueOrThrow({ where: { id: b.job.id } });
+    expect(job.orgId).toBe(b.org.id);
+    expect(job.customerId).toBe(b.customer.id);
+
+    // No half-created "Shell Co" row should be left behind either — the
+    // whole request must be refused, not just the nested connect.
+    const shellCo = await prisma.customer.findFirst({ where: { name: "Shell Co" } });
+    expect(shellCo).toBeNull();
+  });
+
+  // Positive control: a fix that over-tightens createCustomer (e.g. rejecting
+  // anything with extra structure, or breaking the happy path while chasing
+  // the nested-write hole) would otherwise look identical to a correct fix in
+  // every test above.
+  it("createCustomer still succeeds for a legitimate new customer", async () => {
+    const customer = await createCustomer({ name: "New Co", address: "9 Elm St" });
+    const row = await prisma.customer.findUniqueOrThrow({ where: { id: customer.id } });
+    expect(row.name).toBe("New Co");
+    expect(row.orgId).toBe(a.org.id);
+  });
 });
 
 describe("dashboard/actions.ts cross-org isolation", () => {
@@ -130,6 +169,58 @@ describe("dashboard/actions.ts cross-org isolation", () => {
     await updateCrew(b.crew.id, { name: "Hacked" });
     const row = await prisma.crew.findUniqueOrThrow({ where: { id: b.crew.id } });
     expect(row.name).toBe(b.crew.name);
+  });
+
+  // Regression test for the third finding: same shape as the updateCustomer
+  // orgId injection above, but against updateCrew's CrewUpdateInput schema.
+  // Before .strict() was added, an injected `orgId` reached
+  // Prisma's UncheckedUpdateManyInput and moved the caller's own crew — and
+  // everyone/everything scheduled on it — into org B's tenant. Scoped by
+  // where:{id, orgId} too, but that only protects *other* orgs' rows; this
+  // targets the caller's own crew id, so the where clause alone doesn't stop
+  // it and the field-level allowlist is what actually does.
+  it("updateCrew cannot move a crew to another org via an injected orgId", async () => {
+    const forged = { name: "PWNED", orgId: b.org.id } as unknown as Parameters<
+      typeof updateCrew
+    >[1];
+
+    await expect(updateCrew(a.crew.id, forged)).rejects.toThrow();
+
+    const row = await prisma.crew.findUniqueOrThrow({ where: { id: a.crew.id } });
+    expect(row.orgId).toBe(a.org.id);
+    expect(row.name).toBe(a.crew.name);
+  });
+
+  // Positive control, same rationale as updateCustomer's: an over-eager fix
+  // that rejects any updateCrew call would pass every rejection test above.
+  it("updateCrew still succeeds for the caller's own crew", async () => {
+    await updateCrew(a.crew.id, { name: "Renamed Crew" });
+    const row = await prisma.crew.findUniqueOrThrow({ where: { id: a.crew.id } });
+    expect(row.name).toBe("Renamed Crew");
+    expect(row.orgId).toBe(a.org.id);
+  });
+
+  // Regression test for the fourth finding: createCrew has the same
+  // .strict()-allowlist shape as createCustomer. Before it existed, an
+  // injected `orgId` reached Prisma's UncheckedCreateInput and created the
+  // new crew directly inside org B's tenant instead of the caller's own —
+  // planting a foothold in a company the caller doesn't belong to.
+  it("createCrew cannot plant a crew in another org via an injected orgId", async () => {
+    const forged = { name: "Planted Crew", color: "#ff0000", orgId: b.org.id } as unknown as
+      Parameters<typeof createCrew>[0];
+
+    await expect(createCrew(forged)).rejects.toThrow();
+
+    const planted = await prisma.crew.findFirst({ where: { name: "Planted Crew" } });
+    expect(planted).toBeNull();
+  });
+
+  // Positive control for createCrew, same rationale as above.
+  it("createCrew still succeeds for a legitimate new crew", async () => {
+    const crew = await createCrew({ name: "New Crew", color: "#0ea5e9" });
+    const row = await prisma.crew.findUniqueOrThrow({ where: { id: crew.id } });
+    expect(row.name).toBe("New Crew");
+    expect(row.orgId).toBe(a.org.id);
   });
 
   it("deleteCrew cannot delete another org's crew", async () => {
@@ -210,6 +301,36 @@ describe("dashboard/actions.ts cross-org isolation", () => {
     ).rejects.toThrow();
 
     expect(await prisma.job.count()).toBe(before);
+  });
+
+  // Regression test for the fifth finding: createJob's newCustomer branch
+  // parses through the same NewCustomerInput .strict() schema as
+  // createCustomer. Before that schema was applied here, an injected `orgId`
+  // on the newCustomer payload reached Prisma's UncheckedCreateInput and
+  // created the customer inside org B's tenant instead of the caller's own —
+  // the same tenant-planting hole as createCrew, but reachable from the
+  // "add job for a brand-new customer" form flow.
+  it("createJob rejects a newCustomer payload with an injected orgId", async () => {
+    const beforeJobs = await prisma.job.count();
+    const forged = {
+      name: "Shell Co",
+      address: "1 st",
+      orgId: b.org.id,
+    } as unknown as { name: string; address: string };
+
+    await expect(
+      createJob({
+        newCustomer: forged,
+        serviceType: "MOW",
+        frequency: "ONE_TIME",
+        dateISO: DATE,
+        crewId: a.crew.id,
+      }),
+    ).rejects.toThrow();
+
+    expect(await prisma.job.count()).toBe(beforeJobs);
+    const shellCo = await prisma.customer.findFirst({ where: { name: "Shell Co" } });
+    expect(shellCo).toBeNull();
   });
 
   describe("updateJobStatus", () => {
