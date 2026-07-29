@@ -24,5 +24,8 @@ export default function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)"],
+  // Deny-list of static asset extensions actually served from public/, kept
+  // as an extension list rather than a path prefix so a new top-level route
+  // is protected by default instead of needing to be added here.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|svg)$).*)"],
 };

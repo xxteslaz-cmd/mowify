@@ -112,7 +112,12 @@ export async function getCustomerWithJobs(customerId: string) {
   return prisma.customer.findFirst({
     where: { id: customerId, orgId },
     include: {
+      // Defence in depth: the customer row above is already org-scoped, so a
+      // customer can't structurally have another org's job attached under
+      // correct data — but nothing at this line depends on that holding, in
+      // case a write path elsewhere ever lets one slip through.
       jobs: {
+        where: { orgId },
         include: { crew: true },
         orderBy: { scheduledDate: "desc" },
       },

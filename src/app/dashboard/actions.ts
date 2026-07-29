@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { addDays, parseISODate, toISODate } from "@/lib/date";
 import {
@@ -17,6 +18,35 @@ function revalidateAffected(dateISO: string, crewId?: string | null) {
   revalidatePath("/dashboard");
   if (crewId) revalidatePath(`/crew/${crewId}/today`);
 }
+
+// These Server Actions are public HTTP endpoints; see the matching comment in
+// src/app/customers/actions.ts for why raw client input is never allowed to
+// reach Prisma's `data` even though the parameter type looks like it enforces
+// the shape. .strict() rejects an unexpected key (e.g. an injected `orgId`)
+// instead of silently dropping it.
+const NewCustomerInput = z
+  .object({
+    name: z.string().trim().min(1, "Enter a name"),
+    address: z.string().trim().min(1, "Enter an address"),
+    phone: z.string().trim().optional(),
+    notes: z.string().trim().optional(),
+  })
+  .strict();
+
+const CrewCreateInput = z
+  .object({
+    name: z.string().trim().min(1, "Enter a name"),
+    color: z.string().trim().min(1, "Pick a color"),
+  })
+  .strict();
+
+const CrewUpdateInput = z
+  .object({
+    name: z.string().trim().min(1, "Enter a name").optional(),
+    color: z.string().trim().min(1, "Pick a color").optional(),
+    active: z.boolean().optional(),
+  })
+  .strict();
 
 export async function createJob(input: {
   customerId?: string;
@@ -57,7 +87,9 @@ export async function createJob(input: {
   }
 
   if (!customerId && input.newCustomer) {
-    const customer = await prisma.customer.create({ data: { ...input.newCustomer, orgId } });
+    const parsedCustomer = NewCustomerInput.safeParse(input.newCustomer);
+    if (!parsedCustomer.success) throw new Error(parsedCustomer.error.issues[0].message);
+    const customer = await prisma.customer.create({ data: { ...parsedCustomer.data, orgId } });
     customerId = customer.id;
   }
   if (!customerId) throw new Error("A customer is required");
@@ -233,7 +265,9 @@ export async function updateJob(input: {
 
 export async function createCrew(input: { name: string; color: string }) {
   const { orgId } = await requireOwner();
-  const crew = await prisma.crew.create({ data: { ...input, orgId } });
+  const parsed = CrewCreateInput.safeParse(input);
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
+  const crew = await prisma.crew.create({ data: { ...parsed.data, orgId } });
   revalidatePath("/dashboard");
   return crew;
 }
@@ -243,11 +277,13 @@ export async function updateCrew(
   input: { name?: string; color?: string; active?: boolean },
 ) {
   const { orgId } = await requireOwner();
+  const parsed = CrewUpdateInput.safeParse(input);
+  if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   // updateMany rather than update: it takes a non-unique where clause, so a
   // crew id from another company matches zero rows instead of updating it.
   // This means the row can no longer be returned to the caller (updateMany
   // only reports a count), so callers must not rely on a return value here.
-  await prisma.crew.updateMany({ where: { id, orgId }, data: input });
+  await prisma.crew.updateMany({ where: { id, orgId }, data: parsed.data });
   revalidatePath("/dashboard");
   revalidatePath(`/crew/${id}/today`);
 }
@@ -260,6 +296,21 @@ export async function deleteCrew(id: string) {
   if (jobCount > 0) {
     throw new Error(
       `Cannot delete crew: ${jobCount} job${jobCount === 1 ? "" : "s"} still assigned to it.`,
+    );
+  }
+
+  // User.crewId is ON DELETE SET NULL, so the database would let this
+  // through and silently strand every login on the crew: the PIN would stop
+  // working with no explanation, and a live session would loop between
+  // "/" and "/login" forever (src/app/page.tsx breaks that loop, but it's
+  // still better for the owner never to hit it). Block it here instead, the
+  // same shape as the job-count guard above.
+  const loginCount = await prisma.user.count({
+    where: { crewId: id, orgId, role: "CREW" },
+  });
+  if (loginCount > 0) {
+    throw new Error(
+      `Cannot delete crew: ${loginCount} login${loginCount === 1 ? "" : "s"} still assigned to it. Reassign or deactivate them first.`,
     );
   }
 
