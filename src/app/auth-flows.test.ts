@@ -74,7 +74,7 @@ vi.mock("@/lib/auth/session", async (importOriginal) => {
 
 const { requestReset } = await import("@/app/forgot-password/actions");
 const { completeReset } = await import("@/app/reset-password/[token]/actions");
-const { changePassword, requestEmailChange, cancelEmailChange } = await import(
+const { changePassword, emailMyResetLink, requestEmailChange, cancelEmailChange } = await import(
   "@/app/account/actions"
 );
 const { signup } = await import("@/app/signup/actions");
@@ -770,5 +770,67 @@ describe("signup does not send email", () => {
     // Nothing mailed, and no token left lying around for one.
     expect(sent.calls).toHaveLength(0);
     expect(await prisma.token.count({ where: { userId: user.id } })).toBe(0);
+  });
+});
+
+describe("emailing yourself a reset link", () => {
+  async function signedInOwner() {
+    const { org, user } = await seedOwner();
+    currentUser.value = {
+      userId: user.id,
+      orgId: org.id,
+      role: "OWNER",
+      crewId: null,
+      name: "Owner",
+    };
+    return user;
+  }
+
+  it("sends a usable reset link to the account's own address", async () => {
+    const user = await signedInOwner();
+
+    const result = await emailMyResetLink();
+
+    expect(result?.sent).toBe(true);
+    // The recipient comes from the database, never from caller input, so this
+    // cannot be pointed at somebody else's inbox.
+    expect(sent.calls).toHaveLength(1);
+    expect(sent.calls[0].to).toBe(user.email);
+
+    const raw = linkToken(sent.calls[0].html);
+    await expect(
+      completeReset(undefined, form({ token: raw, password: "chosen-by-me" })),
+    ).rejects.toThrow("redirect: /login");
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(await verifySecret(after.passwordHash!, "chosen-by-me")).toBe(true);
+  });
+
+  it("respects the cooldown instead of mailing repeatedly", async () => {
+    await signedInOwner();
+    await emailMyResetLink();
+    sent.calls.length = 0;
+
+    const second = await emailMyResetLink();
+
+    expect(second?.sent).toBeUndefined();
+    expect(second?.error).toBeTruthy();
+    expect(sent.calls).toHaveLength(0);
+  });
+
+  it("cannot be called by a crew member", async () => {
+    const org = await makeOrg();
+    const crew = await makeCrew(org.id);
+    const crewUser = await makeCrewUser(org.id, crew.id);
+    currentUser.value = {
+      userId: crewUser.id,
+      orgId: org.id,
+      role: "CREW",
+      crewId: crew.id,
+      name: "Crew",
+    };
+
+    await expect(emailMyResetLink()).rejects.toThrow();
+    expect(sent.calls).toHaveLength(0);
   });
 });

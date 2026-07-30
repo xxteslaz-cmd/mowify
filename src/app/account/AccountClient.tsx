@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   changePassword,
+  emailMyResetLink,
   resendVerification,
   requestEmailChange,
   cancelEmailChange,
@@ -28,6 +29,8 @@ export default function AccountClient({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [sent, setSent] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
+  const [linkMsg, setLinkMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [newEmail, setNewEmail] = useState("");
@@ -97,8 +100,15 @@ export default function AccountClient({
       <div className="mb-6 rounded-lg border border-black/10 p-4 dark:border-white/10">
         <p className="mb-2 text-sm font-medium">Email</p>
         {verified ? (
-          <p className="text-sm text-black/60 dark:text-white/60">
-            Confirmed.
+          <p className="flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400">
+            <svg
+              viewBox="0 0 16 16"
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 fill-current"
+            >
+              <path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3.7 6.1l-4.2 4.2a.8.8 0 01-1.1 0L4.3 8.2a.8.8 0 111.1-1.1l1.5 1.5 3.7-3.6a.8.8 0 011.1 1.1z" />
+            </svg>
+            Confirmed
           </p>
         ) : (
           <>
@@ -232,6 +242,37 @@ export default function AccountClient({
         >
           Change password
         </button>
+
+        <p className="mt-4 border-t border-black/10 pt-3 text-sm text-black/60 dark:border-white/10 dark:text-white/60">
+          Don&apos;t know your current password?{" "}
+          <button
+            type="button"
+            disabled={busy || linkSent}
+            onClick={async () => {
+              setBusy(true);
+              setLinkMsg(null);
+              try {
+                const result = await emailMyResetLink();
+                if (result?.sent) {
+                  setLinkSent(true);
+                  setLinkMsg("Sent. Check your email for the link.");
+                } else {
+                  setLinkMsg(result?.error ?? "Something went wrong.");
+                }
+              } finally {
+                setBusy(false);
+              }
+            }}
+            className="underline underline-offset-4 hover:text-black disabled:opacity-50 dark:hover:text-white"
+          >
+            Email me a reset link
+          </button>
+        </p>
+        {linkMsg && (
+          <p role="status" className="mt-2 text-sm text-black/60 dark:text-white/60">
+            {linkMsg}
+          </p>
+        )}
       </form>
     </div>
   );
