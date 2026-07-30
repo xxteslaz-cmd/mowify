@@ -62,7 +62,14 @@ vi.mock("next/navigation", () => ({
 // so the acting session's raw token is supplied here instead.
 vi.mock("@/lib/auth/session", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth/session")>();
-  return { ...actual, readSessionToken: async () => currentToken.value };
+  return {
+    ...actual,
+    readSessionToken: async () => currentToken.value,
+    // createSession writes a cookie, which needs a request scope Vitest has
+    // no way to provide. Signup's account creation is what these tests are
+    // about, not the cookie write.
+    createSession: async () => {},
+  };
 });
 
 const { requestReset } = await import("@/app/forgot-password/actions");
@@ -70,6 +77,7 @@ const { completeReset } = await import("@/app/reset-password/[token]/actions");
 const { changePassword, requestEmailChange, cancelEmailChange } = await import(
   "@/app/account/actions"
 );
+const { signup } = await import("@/app/signup/actions");
 const { issueToken, consumeToken } = await import("@/lib/auth/token");
 const { confirmEmail } = await import("@/app/verify-email/[token]/actions");
 const VerifyEmailPage = (await import("@/app/verify-email/[token]/page")).default;
@@ -734,5 +742,33 @@ describe("changing the account email", () => {
 
       expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0);
     });
+  });
+});
+
+describe("signup does not send email", () => {
+  it("creates the account without mailing anyone", async () => {
+    // Signup is unauthenticated. Mailing from it let anyone script an
+    // arbitrary recipient list and burn the sending domain's reputation, so
+    // verification is started from /account instead.
+    await expect(
+      signup(
+        undefined,
+        form({
+          name: "New Owner",
+          companyName: "Fresh Yard Co",
+          email: "fresh-owner@example.com",
+          password: "a-good-password",
+        }),
+      ),
+    ).rejects.toThrow("redirect: /dashboard");
+
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { email: "fresh-owner@example.com" },
+    });
+    expect(user.emailVerifiedAt).toBeNull();
+
+    // Nothing mailed, and no token left lying around for one.
+    expect(sent.calls).toHaveLength(0);
+    expect(await prisma.token.count({ where: { userId: user.id } })).toBe(0);
   });
 });
