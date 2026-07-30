@@ -14,7 +14,8 @@ const PUBLIC_PREFIXES = [
   "/verify-email/",
   // The confirm link is emailed to the NEW address, which the owner may open
   // on a device or browser that has no session cookie for this account at
-  // all — unlike /account/change-email itself, which does require one.
+  // all — unlike the request form, which lives on /account itself and so is
+  // already protected by the default case below.
   "/account/change-email/",
 ];
 

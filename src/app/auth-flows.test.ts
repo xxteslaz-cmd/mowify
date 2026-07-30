@@ -603,6 +603,10 @@ describe("changing the account email", () => {
     // The write that would have moved the address is exactly the one that hit
     // the unique constraint, so the original account must still be unmoved.
     expect(after.email).not.toBe("new-address@example.com");
+    // And pendingEmail must not be left pointing at an address that can never
+    // be confirmed with this (now-consumed) token — otherwise /account would
+    // show a stale "confirm to finish" banner forever.
+    expect(after.pendingEmail).toBeNull();
   });
 
   it("cancelling clears the pending address and the outstanding token", async () => {
@@ -617,5 +621,118 @@ describe("changing the account email", () => {
     // The link from before the cancellation must no longer work.
     const result = await confirmEmailChange(undefined, form({ token: raw }));
     expect(result?.error).toBeTruthy();
+  });
+
+  it("suppresses a second request inside the cooldown, without touching the first link", async () => {
+    // Without this, any owner account (free to create via signup) could mail
+    // an arbitrary attacker-chosen inbox as fast as this action is invoked.
+    const user = await signedIn();
+    const raw = await requestChange("new-address@example.com");
+    sent.calls.length = 0;
+
+    const result = await requestEmailChange({
+      newEmail: "second-address@example.com",
+      currentPassword: "original-password",
+    });
+
+    expect(result?.error).toBeTruthy();
+    expect(sent.calls).toHaveLength(0);
+
+    // The cooldown suppresses a second send; it must not invalidate the link
+    // already issued.
+    await expect(
+      confirmEmailChange(undefined, form({ token: raw })),
+    ).rejects.toThrow("redirect: /account");
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toBe("new-address@example.com");
+  });
+
+  // Reviewer-supplied attack probes. The scenario: an attacker with a stolen
+  // session AND the current password (the request-time check alone cannot
+  // stop someone who has both) requests a move to their own address. The
+  // token reaches their inbox. The warning email tells the real owner to
+  // change their password — or, for a full compromise, to reset it — "if
+  // this wasn't you." Both of those remedies are worthless if the attacker's
+  // already-issued link still works afterwards.
+  describe("attack probes: reacting to the warning email must actually stop the move", () => {
+    it("PROBE A — a password change cancels an in-flight email change", async () => {
+      const user = await signedIn();
+      const oldEmail = user.email!;
+      const raw = await requestChange("attacker@evil.example");
+
+      // The owner reacts to the warning email exactly as it instructs.
+      await changePassword({
+        currentPassword: "original-password",
+        newPassword: "a-brand-new-password",
+      });
+
+      const afterPasswordChange = await prisma.user.findUniqueOrThrow({
+        where: { id: user.id },
+      });
+      expect(afterPasswordChange.pendingEmail).toBeNull();
+
+      // The attacker, who already holds the confirmation link, must not
+      // still be able to move the account after the owner "fixed" things.
+      const result = await confirmEmailChange(undefined, form({ token: raw }));
+      expect(result?.error).toBeTruthy();
+
+      const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(after.email).toBe(oldEmail);
+    });
+
+    it("PROBE B — a completed password reset cancels an in-flight email change", async () => {
+      const user = await signedIn();
+      const oldEmail = user.email!;
+      const raw = await requestChange("attacker@evil.example");
+
+      // The owner reacts to a full compromise the way the warning email's
+      // advice implies: requesting and completing a password reset, which
+      // normally drops every session.
+      await requestReset(undefined, form({ email: oldEmail }));
+      const resetMail = sent.calls.find(
+        (c) => c.to === oldEmail && c.html.includes("/reset-password/"),
+      );
+      if (!resetMail) throw new Error("no reset email sent");
+      const resetToken = linkToken(resetMail.html);
+
+      await expect(
+        completeReset(
+          undefined,
+          form({ token: resetToken, password: "recovered-password" }),
+        ),
+      ).rejects.toThrow("redirect: /login");
+
+      const afterReset = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(afterReset.pendingEmail).toBeNull();
+      expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0);
+
+      // The attacker's already-held confirmation link must not still work
+      // after this recovery — the worst case from the review, since a full
+      // reset that still lets the account move afterwards is worse than no
+      // warning at all.
+      const result = await confirmEmailChange(undefined, form({ token: raw }));
+      expect(result?.error).toBeTruthy();
+
+      const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(after.email).toBe(oldEmail);
+    });
+
+    it("PROBE C — the confirming request with no session of its own drops every session", async () => {
+      // The realistic case: the confirm link is emailed to the NEW address
+      // and normally opened on a device or browser with no cookie for this
+      // account at all — which is also why the route is public. A test that
+      // only exercises the acting-session path (as the earlier "drops other
+      // sessions" test does) never proves anything about production, where
+      // there usually is no acting session.
+      const user = await signedIn();
+      const raw = await requestChange("new-address@example.com");
+      currentToken.value = null;
+
+      await expect(
+        confirmEmailChange(undefined, form({ token: raw })),
+      ).rejects.toThrow("redirect: /account");
+
+      expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0);
+    });
   });
 });

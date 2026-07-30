@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/auth/dal";
 import { hashSecret, verifySecret } from "@/lib/auth/password";
 import { readSessionToken, deleteOtherSessionsForUser } from "@/lib/auth/session";
-import { issueToken } from "@/lib/auth/token";
+import { issueToken, isWithinCooldown } from "@/lib/auth/token";
 import { sendEmail, appUrl } from "@/lib/email/client";
 import {
   verifyEmailEmail,
@@ -60,14 +60,29 @@ export async function changePassword(input: {
       : { error: "Current password is incorrect" };
   }
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      passwordHash: await hashSecret(parsed.data.newPassword),
-      failedAttempts: 0,
-      lockedUntil: null,
-    },
-  });
+  const passwordHash = await hashSecret(parsed.data.newPassword);
+
+  // A password change is exactly the moment the email-change warning tells a
+  // real owner to act if it wasn't them. That advice only works if it
+  // actually stops the in-flight move: an attacker who requested a change and
+  // already holds the new address's confirmation link must not be able to
+  // use it after the owner "fixes" things this way. Clearing pendingEmail and
+  // burning any outstanding EMAIL_CHANGE token here closes that window.
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash,
+        failedAttempts: 0,
+        lockedUntil: null,
+        pendingEmail: null,
+      },
+    }),
+    prisma.token.updateMany({
+      where: { userId, purpose: "EMAIL_CHANGE", consumedAt: null },
+      data: { consumedAt: new Date() },
+    }),
+  ]);
 
   // Sign out everywhere else, but not the tab doing the changing.
   const current = await readSessionToken();
@@ -128,6 +143,17 @@ export async function requestEmailChange(input: {
   });
   if (taken) return { error: "That email is already registered" };
 
+  // The same abuse the reset-request cooldown exists for, aimed at an
+  // attacker-chosen address instead of an unknown one: any owner account
+  // (free to create via signup) could otherwise mail an arbitrary inbox as
+  // fast as this action is invoked. Checked before pendingEmail is touched,
+  // so a request inside the cooldown leaves no half-set state behind.
+  if (await isWithinCooldown(userId, "EMAIL_CHANGE")) {
+    return {
+      error: "You already requested a change recently. Wait a minute and try again.",
+    };
+  }
+
   await prisma.user.update({
     where: { id: userId },
     data: {
@@ -176,6 +202,12 @@ export async function resendVerification() {
   const { userId } = await requireOwner();
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
   if (!user.email || user.emailVerifiedAt) return;
+
+  // Lower risk than the email-change cooldown, since this only ever mails the
+  // account's own address rather than one an attacker picks — but the same
+  // shape of abuse (a button mashed as fast as the click handler allows)
+  // applies, so it gets the same throttle.
+  if (await isWithinCooldown(userId, "EMAIL_VERIFICATION")) return;
 
   const raw = await issueToken(userId, "EMAIL_VERIFICATION");
   const { subject, html } = verifyEmailEmail(appUrl(`/verify-email/${raw}`));

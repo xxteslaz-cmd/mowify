@@ -47,8 +47,21 @@ export async function completeReset(
     await tx.user.update({
       where: { id: claimed.userId },
       // Clearing the lockout is part of recovery: someone who forgot their
-      // password has usually locked themselves out guessing at it.
-      data: { passwordHash, failedAttempts: 0, lockedUntil: null },
+      // password has usually locked themselves out guessing at it. Clearing
+      // pendingEmail is part of the same recovery: a reset is exactly the
+      // "fix the account" step an email-change warning tells a real owner to
+      // take, and that advice is worthless if an attacker who already holds a
+      // confirmation link can still use it afterwards.
+      data: { passwordHash, failedAttempts: 0, lockedUntil: null, pendingEmail: null },
+    });
+
+    // Same reasoning as clearing pendingEmail above: burn any outstanding
+    // EMAIL_CHANGE token so the link an attacker already holds stops working
+    // the moment the owner recovers the account, not just the address it was
+    // pointed at.
+    await tx.token.updateMany({
+      where: { userId: claimed.userId, purpose: "EMAIL_CHANGE", consumedAt: null },
+      data: { consumedAt: new Date() },
     });
 
     // If the reset happened because the account was compromised, leaving the

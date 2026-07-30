@@ -5,7 +5,11 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { consumeToken } from "@/lib/auth/token";
-import { readSessionToken, deleteOtherSessionsForUser } from "@/lib/auth/session";
+import {
+  readSessionToken,
+  deleteOtherSessionsForUser,
+  deleteAllSessionsForUser,
+} from "@/lib/auth/session";
 import { p2002Fields } from "@/lib/prisma-errors";
 
 export type ConfirmState = { error?: string } | undefined;
@@ -52,10 +56,10 @@ export async function confirmEmailChange(
       // writing null over whatever email the account already has.
       if (!user.pendingEmail) throw new NoPendingChangeError();
 
-      // Re-checked here, inside the transaction, rather than trusted from
-      // request time: another signup could have taken this address in the
-      // hour since. The unique constraint on `email` is the real backstop —
-      // this update is what exercises it.
+      // Not re-checked with a separate SELECT — the unique constraint on
+      // `email` is what actually guards this. If another signup claimed the
+      // address in the hour since the request, this update is the write that
+      // hits it, and the resulting P2002 is caught below.
       await tx.user.update({
         where: { id: claimed.userId },
         data: {
@@ -76,6 +80,14 @@ export async function confirmEmailChange(
       err.code === "P2002" &&
       p2002Fields(err).includes("email")
     ) {
+      // The transaction above rolled back entirely, so pendingEmail is still
+      // set to the address that just lost the uniqueness race. Left alone,
+      // /account would keep showing a "confirm to finish" banner for a change
+      // that can never complete with this (now-consumed) token.
+      await prisma.user.update({
+        where: { id: claimed.userId },
+        data: { pendingEmail: null },
+      });
       return { error: TAKEN };
     }
 
@@ -84,11 +96,18 @@ export async function confirmEmailChange(
 
   // If the change was made by an attacker who guessed or leaked the current
   // password, the owner's other sessions should not survive it — same
-  // reasoning and same pattern as changePassword. When the confirming browser
-  // has no session of its own (the common case: the link is opened from the
-  // new address's inbox on a different device), there is no "other" to spare.
+  // reasoning as changePassword. Unlike changePassword, though, the
+  // confirming request usually has no session of its own: this link is
+  // emailed to the NEW address, normally opened on a different device than
+  // the one signed in as the owner (the same reason this route is public).
+  // With no acting session to spare, every session is dropped instead of
+  // none — a stolen-session attacker's own session included.
   const current = await readSessionToken();
-  if (current) await deleteOtherSessionsForUser(claimed.userId, current);
+  if (current) {
+    await deleteOtherSessionsForUser(claimed.userId, current);
+  } else {
+    await deleteAllSessionsForUser(claimed.userId);
+  }
 
   redirect("/account");
 }
