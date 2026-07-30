@@ -15,26 +15,23 @@ export default async function UserMenu() {
         <>
           <a
             href="/team"
-            className="text-sm text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
+            className="text-sm text-muted hover:text-foreground"
           >
             Team
           </a>
           <a
             href="/account"
-            className="text-sm text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
+            className="text-sm text-muted hover:text-foreground"
           >
             Account
           </a>
         </>
       )}
-      <span className="text-sm text-black/50 dark:text-white/50">
+      <span className="text-sm text-muted">
         {user.name}
       </span>
       <form action={logout}>
-        <button
-          type="submit"
-          className="text-sm text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
-        >
+        <button type="submit" className="btn btn-ghost">
           Sign out
         </button>
       </form>

@@ -1,20 +1,19 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { getSessionUser } from "@/lib/auth/dal";
 import MainNav from "@/components/MainNav";
 import UserMenu from "@/components/UserMenu";
 import VerifyBanner from "@/components/VerifyBanner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Plus Jakarta Sans over Geist: it keeps the geometric clarity a dense
+// scheduling board needs, but its slightly humanist shapes stop the app
+// reading like a developer tool.
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -41,10 +40,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${jakarta.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <header className="border-b border-black/10 dark:border-white/10">
+        <header className="border-b border-border">
           {/* Fixed height so nothing shifts once the nav resolves. */}
           <Suspense fallback={<div className="h-[49px]" />}>
             <Nav />

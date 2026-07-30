@@ -12,6 +12,7 @@ import {
   verifyEmailEmail,
   changeEmailEmail,
   emailChangeWarningEmail,
+  resetPasswordEmail,
 } from "@/lib/email/templates";
 import {
   isLocked,
@@ -213,4 +214,35 @@ export async function resendVerification() {
   const { subject, html } = verifyEmailEmail(appUrl(`/verify-email/${raw}`));
   await sendEmail({ to: user.email, subject, html });
   revalidatePath("/account");
+}
+
+export type ResetLinkState = { error?: string; sent?: boolean } | undefined;
+
+/**
+ * Emails the signed-in owner a password reset link.
+ *
+ * This is how someone who has forgotten their current password changes it
+ * without knowing it. It deliberately goes through the inbox rather than
+ * letting a session set a new password directly: a stolen session must not be
+ * enough to take the account, which is the same reason changePassword demands
+ * the current password.
+ */
+export async function emailMyResetLink(): Promise<ResetLinkState> {
+  const { userId } = await requireOwner();
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+  if (!user.email) return { error: "This account has no email address." };
+
+  if (await isWithinCooldown(userId, "PASSWORD_RESET")) {
+    // Report it plainly here, unlike the public form: the caller is already
+    // authenticated, so there is no account to reveal the existence of.
+    return { error: "A link was just sent. Check your inbox, or try again in a minute." };
+  }
+
+  const raw = await issueToken(userId, "PASSWORD_RESET");
+  const { subject, html } = resetPasswordEmail(appUrl(`/reset-password/${raw}`));
+  const ok = await sendEmail({ to: user.email, subject, html });
+
+  return ok
+    ? { sent: true }
+    : { error: "We could not send the email just now. Try again shortly." };
 }

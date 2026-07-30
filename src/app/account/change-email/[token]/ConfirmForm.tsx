@@ -11,16 +11,12 @@ export default function ConfirmForm({ token }: { token: string }) {
       <input type="hidden" name="token" value={token} />
 
       {state?.error && (
-        <p role="alert" className="mb-3 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mb-3 text-sm text-danger">
           {state.error}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="inline-block rounded-lg bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-      >
+      <button type="submit" disabled={pending} className="btn btn-primary">
         {pending ? "Confirming…" : "Confirm my new email"}
       </button>
     </form>

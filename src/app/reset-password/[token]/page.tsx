@@ -18,13 +18,10 @@ export default async function ResetPasswordPage({
     return (
       <div className="mx-auto max-w-sm px-4 py-16">
         <h1 className="mb-1 text-xl font-semibold">This link has expired</h1>
-        <p className="mb-6 text-sm text-black/60 dark:text-white/60">
+        <p className="mb-6 text-sm text-muted">
           Reset links work once and last an hour.
         </p>
-        <Link
-          href="/forgot-password"
-          className="inline-block rounded-lg bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
-        >
+        <Link href="/forgot-password" className="btn btn-primary">
           Request a new link
         </Link>
       </div>

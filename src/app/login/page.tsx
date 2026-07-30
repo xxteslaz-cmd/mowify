@@ -11,19 +11,19 @@ export default async function LoginPage() {
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
       <h1 className="mb-1 text-xl font-semibold">Sign in to Mowify</h1>
-      <p className="mb-6 text-sm text-black/60 dark:text-white/60">
+      <p className="mb-6 text-sm text-muted">
         For owners and office staff.
       </p>
 
       <LoginForm />
 
-      <p className="mt-4 text-sm text-black/60 dark:text-white/60">
+      <p className="mt-4 text-sm text-muted">
         <Link href="/forgot-password" className="underline underline-offset-4">
           Forgot your password?
         </Link>
       </p>
 
-      <p className="mt-6 text-sm text-black/60 dark:text-white/60">
+      <p className="mt-6 text-sm text-muted">
         No account yet?{" "}
         <Link href="/signup" className="underline underline-offset-4">
           Create your company

@@ -25,12 +25,12 @@ export default async function CrewTodayPage({
         <span className="h-4 w-4 rounded-full" style={{ backgroundColor: crew.color }} />
         <div>
           <h1 className="text-lg font-semibold leading-tight">{crew.name}</h1>
-          <p className="text-sm text-black/50 dark:text-white/50">{formatDisplayDate(parseISODate(dateISO))}</p>
+          <p className="text-sm text-muted">{formatDisplayDate(parseISODate(dateISO))}</p>
         </div>
       </div>
 
       {jobs.length === 0 ? (
-        <p className="rounded-lg border border-black/10 p-6 text-center text-sm text-black/40 dark:border-white/10 dark:text-white/40">
+        <p className="card p-6 text-center text-sm text-muted">
           No stops scheduled.
         </p>
       ) : (

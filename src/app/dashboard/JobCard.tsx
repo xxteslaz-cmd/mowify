@@ -7,7 +7,7 @@ import { FREQUENCIES, FREQUENCY_LABEL, serviceLabel } from "@/lib/labels";
 
 const STATUS_STYLE: Record<string, string> = {
   SCHEDULED: "",
-  COMPLETED: "opacity-60 line-through decoration-black/40",
+  COMPLETED: "opacity-60 line-through decoration-muted",
   SKIPPED: "opacity-50",
   RESCHEDULED: "",
 };
@@ -55,9 +55,9 @@ export default function JobCard({
         onEdit();
       }}
       title={selectMode ? undefined : "Click to edit"}
-      className={`group rounded-lg border border-black/10 bg-white p-3 shadow-sm dark:border-white/10 dark:bg-zinc-900 ${
+      className={`group card p-3 shadow-sm ${
         STATUS_STYLE[job.status]
-      } ${selectMode ? "" : "cursor-pointer hover:border-black/25 dark:hover:border-white/25"}`}
+      } ${selectMode ? "" : "cursor-pointer hover:border-foreground/25"}`}
       style={crewColor ? { borderLeftColor: crewColor, borderLeftWidth: 4 } : undefined}
     >
       <div className="flex items-start gap-2">
@@ -81,8 +81,8 @@ export default function JobCard({
               </span>
             )}
           </div>
-          <p className="truncate text-xs text-black/60 dark:text-white/60">{job.customer.address}</p>
-          <div className="mt-1 flex items-center gap-2 text-xs text-black/70 dark:text-white/70">
+          <p className="truncate text-xs text-muted">{job.customer.address}</p>
+          <div className="mt-1 flex items-center gap-2 text-xs text-muted">
             <span className="truncate">{serviceLabel(job)}</span>
             {editableFrequency && !selectMode ? (
               <select
@@ -91,7 +91,7 @@ export default function JobCard({
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
                 aria-label="Frequency"
-                className="rounded bg-black/5 px-1 py-0.5 text-xs dark:bg-white/10"
+                className="rounded bg-foreground/5 px-1 py-0.5 text-xs"
               >
                 {FREQUENCIES.map((f) => (
                   <option key={f} value={f}>
@@ -101,17 +101,17 @@ export default function JobCard({
               </select>
             ) : (
               job.frequency !== "ONE_TIME" && (
-                <span className="rounded bg-black/5 px-1.5 py-0.5 dark:bg-white/10">{FREQUENCY_LABEL[job.frequency]}</span>
+                <span className="rounded bg-foreground/5 px-1.5 py-0.5">{FREQUENCY_LABEL[job.frequency]}</span>
               )
             )}
           </div>
           {job.frequency !== "ONE_TIME" && job.nextDate && (
-            <p className="mt-0.5 text-xs text-black/50 dark:text-white/50">
+            <p className="mt-0.5 text-xs text-muted">
               Next: {formatShortDate(job.nextDate)}
             </p>
           )}
           {job.notes && (
-            <p className="mt-1 truncate text-xs italic text-black/50 dark:text-white/50">{job.notes}</p>
+            <p className="mt-1 truncate text-xs italic text-muted">{job.notes}</p>
           )}
         </div>
         {!selectMode && (
@@ -124,7 +124,7 @@ export default function JobCard({
               disabled={isFirst}
               aria-label="Move stop earlier"
               title="Move stop earlier"
-              className="rounded px-1 text-xs leading-none text-black/35 hover:bg-black/5 hover:text-black/70 disabled:pointer-events-none disabled:opacity-20 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
+              className="rounded px-1 text-xs leading-none text-muted hover:bg-foreground/5 hover:text-foreground disabled:pointer-events-none disabled:opacity-20"
             >
               ▲
             </button>
@@ -136,7 +136,7 @@ export default function JobCard({
               disabled={isLast}
               aria-label="Move stop later"
               title="Move stop later"
-              className="rounded px-1 text-xs leading-none text-black/35 hover:bg-black/5 hover:text-black/70 disabled:pointer-events-none disabled:opacity-20 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
+              className="rounded px-1 text-xs leading-none text-muted hover:bg-foreground/5 hover:text-foreground disabled:pointer-events-none disabled:opacity-20"
             >
               ▼
             </button>
@@ -146,7 +146,7 @@ export default function JobCard({
                 onDelete();
               }}
               aria-label="Delete job"
-              className="rounded px-1 text-black/30 hover:bg-black/5 hover:text-black/70 dark:text-white/30 dark:hover:bg-white/10 dark:hover:text-white/70"
+              className="rounded px-1 text-muted hover:bg-foreground/5 hover:text-foreground"
             >
               ×
             </button>

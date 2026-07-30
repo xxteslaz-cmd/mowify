@@ -34,8 +34,8 @@ export default function MainNav({
             aria-current={active ? "page" : undefined}
             className={`text-sm transition ${
               active
-                ? "font-semibold text-black underline decoration-2 underline-offset-8 dark:text-white"
-                : "text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
+                ? "font-semibold text-foreground underline decoration-2 underline-offset-8"
+                : "text-muted hover:text-foreground"
             }`}
           >
             {label}
