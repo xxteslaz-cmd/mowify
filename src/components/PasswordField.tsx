@@ -38,7 +38,7 @@ export default function PasswordField({
         aria-pressed={revealed}
         aria-label={revealed ? "Hide password" : "Show password"}
         id={labelId}
-        className="absolute inset-y-0 right-0 px-3 text-xs font-medium text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white"
+        className="absolute inset-y-0 right-0 px-3 text-xs font-medium text-muted hover:text-foreground"
       >
         {revealed ? "Hide" : "Show"}
       </button>

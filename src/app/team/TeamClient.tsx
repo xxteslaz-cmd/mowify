@@ -18,8 +18,7 @@ type Member = {
   crew: { id: string; name: string; color: string } | null;
 };
 
-const FIELD =
-  "w-full rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-transparent";
+const FIELD = "field";
 
 export default function TeamClient({
   members,
@@ -78,13 +77,13 @@ export default function TeamClient({
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <h1 className="mb-1 text-xl font-semibold">Team</h1>
-      <p className="mb-6 text-sm text-black/60 dark:text-white/60">
+      <p className="mb-6 text-sm text-muted">
         Logins for your crew. Each person sees only their own day.
       </p>
 
-      <div className="mb-6 rounded-lg border border-black/10 p-4 dark:border-white/10">
+      <div className="mb-6 card p-4">
         <p className="mb-2 text-sm font-medium">Crew sign-in link</p>
-        <p className="mb-3 text-sm text-black/60 dark:text-white/60">
+        <p className="mb-3 text-sm text-muted">
           Text this to your crew once. They bookmark it and sign in with their
           username and PIN.
         </p>
@@ -96,7 +95,7 @@ export default function TeamClient({
               setCopied(true);
               setTimeout(() => setCopied(false), 2000);
             }}
-            className="shrink-0 rounded-md bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
+            className="shrink-0 btn btn-primary"
           >
             {copied ? "Copied" : "Copy"}
           </button>
@@ -104,17 +103,14 @@ export default function TeamClient({
       </div>
 
       {error && (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-red-500/30 bg-red-500/5 p-3 text-sm text-red-600 dark:text-red-400"
-        >
+        <p role="alert" className="mb-4 card border-danger/30 bg-danger/5 p-3 text-sm text-danger">
           {error}
         </p>
       )}
 
-      <div className="mb-6 divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/10 dark:border-white/10">
+      <div className="mb-6 divide-y divide-border card">
         {members.length === 0 && (
-          <p className="p-4 text-sm text-black/50 dark:text-white/50">
+          <p className="p-4 text-sm text-muted">
             No crew logins yet.
           </p>
         )}
@@ -128,7 +124,7 @@ export default function TeamClient({
                 <p className="font-medium">
                   {m.name}
                   {!m.active && (
-                    <span className="ml-2 text-xs text-black/40 dark:text-white/40">
+                    <span className="ml-2 text-xs text-muted">
                       deactivated
                     </span>
                   )}
@@ -138,7 +134,7 @@ export default function TeamClient({
                     </span>
                   )}
                 </p>
-                <p className="text-sm text-black/60 dark:text-white/60">
+                <p className="text-sm text-muted">
                   <span className="font-mono">{m.username}</span>
                   {m.crew && (
                     <>
@@ -157,14 +153,14 @@ export default function TeamClient({
                 <button
                   disabled={busy}
                   onClick={() => handleResetPin(m.id)}
-                  className="text-black/70 hover:text-black disabled:opacity-50 dark:text-white/70 dark:hover:text-white"
+                  className="btn btn-ghost"
                 >
                   Reset PIN
                 </button>
                 <button
                   disabled={busy}
                   onClick={() => run(() => setCrewLoginActive(m.id, !m.active))}
-                  className="text-black/70 hover:text-black disabled:opacity-50 dark:text-white/70 dark:hover:text-white"
+                  className="btn btn-ghost"
                 >
                   {m.active ? "Deactivate" : "Reactivate"}
                 </button>
@@ -174,10 +170,7 @@ export default function TeamClient({
         })}
       </div>
 
-      <form
-        onSubmit={handleAdd}
-        className="rounded-lg border border-black/10 p-4 dark:border-white/10"
-      >
+      <form onSubmit={handleAdd} className="card p-4">
         <p className="mb-3 text-sm font-medium">Add a crew login</p>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -223,13 +216,13 @@ export default function TeamClient({
         <button
           type="submit"
           disabled={busy || crews.length === 0}
-          className="mt-3 rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+          className="mt-3 btn btn-primary"
         >
           Add crew login
         </button>
 
         {crews.length === 0 && (
-          <p className="mt-2 text-sm text-black/50 dark:text-white/50">
+          <p className="mt-2 text-sm text-muted">
             Create a crew on the dashboard first.
           </p>
         )}

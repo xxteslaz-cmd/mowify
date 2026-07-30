@@ -4,8 +4,7 @@ import { useActionState } from "react";
 import { crewLogin } from "./actions";
 import PasswordField from "@/components/PasswordField";
 
-const FIELD =
-  "w-full rounded-lg border border-black/15 px-4 py-3 text-base dark:border-white/15 dark:bg-transparent";
+const FIELD = "field px-4 py-3 text-base";
 
 export default function CrewLoginForm({ orgId }: { orgId: string }) {
   const [state, action, pending] = useActionState(crewLogin, undefined);
@@ -47,7 +46,7 @@ export default function CrewLoginForm({ orgId }: { orgId: string }) {
       </div>
 
       {state?.error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {state.error}
         </p>
       )}
@@ -55,7 +54,7 @@ export default function CrewLoginForm({ orgId }: { orgId: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-black px-4 py-3 text-base font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        className="w-full btn btn-primary btn-lg"
       >
         {pending ? "Signing in…" : "Sign in"}
       </button>

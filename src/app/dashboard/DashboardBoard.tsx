@@ -154,7 +154,7 @@ export default function DashboardBoard({
           }}
           disabled={crews.length === 0}
           title={crews.length === 0 ? "Create a crew before adding jobs" : undefined}
-          className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-black/80 disabled:opacity-40 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          className="btn btn-primary disabled:opacity-40"
         >
           + Add Job
         </button>
@@ -163,36 +163,29 @@ export default function DashboardBoard({
             setSelectMode((s) => !s);
             setSelected(new Set());
           }}
-          className={`rounded-md border px-3 py-2 text-sm font-medium ${
+          className={
             selectMode
-              ? "border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-              : "border-black/10 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
-          }`}
+              ? "btn border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+              : "btn btn-secondary"
+          }
         >
           {selectMode ? "Cancel selection" : "Select & reschedule"}
         </button>
-        <button
-          onClick={() => setManageCrewsOpen(true)}
-          className="rounded-md border border-black/10 px-3 py-2 text-sm font-medium hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
-        >
+        <button onClick={() => setManageCrewsOpen(true)} className="btn btn-secondary">
           Manage Crews
         </button>
 
         {selectMode && selected.size > 0 && (
-          <div className="flex items-center gap-2 rounded-md bg-black/5 px-3 py-2 dark:bg-white/10">
+          <div className="flex items-center gap-2 rounded-md bg-foreground/5 px-3 py-2">
             <span className="text-sm">{selected.size} selected</span>
-            <span className="text-sm text-black/60 dark:text-white/60">Move to</span>
+            <span className="text-sm text-muted">Move to</span>
             <input
               type="date"
               value={rescheduleDate}
               onChange={(e) => setRescheduleDate(e.target.value)}
-              className="rounded border border-black/10 px-2 py-1 text-sm dark:border-white/10 dark:bg-transparent"
+              className="field"
             />
-            <button
-              onClick={handleBulkReschedule}
-              disabled={pending}
-              className="rounded bg-black px-2 py-1 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-            >
+            <button onClick={handleBulkReschedule} disabled={pending} className="btn btn-primary">
               Move
             </button>
           </div>
@@ -200,14 +193,11 @@ export default function DashboardBoard({
       </div>
 
       {crews.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-black/15 p-10 text-center dark:border-white/15">
-          <p className="text-sm text-black/60 dark:text-white/60">
+        <div className="rounded-lg border border-dashed border-border p-10 text-center">
+          <p className="text-sm text-muted">
             No active crews yet. Every job belongs to a crew, so add one to start scheduling.
           </p>
-          <button
-            onClick={() => setManageCrewsOpen(true)}
-            className="mt-3 rounded-md bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
-          >
+          <button onClick={() => setManageCrewsOpen(true)} className="mt-3 btn btn-primary">
             Add a crew
           </button>
         </div>
@@ -218,7 +208,7 @@ export default function DashboardBoard({
             return (
               <div
                 key={key}
-                className="flex min-h-[120px] flex-col gap-2 rounded-lg bg-black/[.03] p-2 dark:bg-white/[.04]"
+                className="flex min-h-[120px] flex-col gap-2 rounded-lg bg-foreground/[.03] p-2"
               >
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
@@ -228,7 +218,7 @@ export default function DashboardBoard({
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/crew/${key}/today?date=${dateISO}`}
-                      className="text-xs text-black/40 hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
+                      className="text-xs text-muted hover:text-foreground"
                       title="Open this crew's phone view"
                     >
                       view
@@ -238,7 +228,7 @@ export default function DashboardBoard({
                         setAddDefaultCrew(key);
                         setAddOpen(true);
                       }}
-                      className="text-xs text-black/40 hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
+                      className="text-xs text-muted hover:text-foreground"
                     >
                       + job
                     </button>
@@ -246,7 +236,7 @@ export default function DashboardBoard({
                 </div>
 
                 {list.length === 0 && (
-                  <p className="px-1 py-6 text-center text-xs text-black/30 dark:text-white/30">
+                  <p className="px-1 py-6 text-center text-xs text-muted">
                     No jobs
                   </p>
                 )}

@@ -47,19 +47,16 @@ export default function CalendarNav({
     <div className="mb-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">{formatDisplayDate(selected)}</h1>
-        <button
-          onClick={() => selectDay(today)}
-          className="rounded-md border border-black/10 px-3 py-1.5 text-sm hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/10"
-        >
+        <button onClick={() => selectDay(today)} className="btn btn-secondary">
           Go to today
         </button>
       </div>
 
-      <div className="rounded-lg border border-black/10 p-2 dark:border-white/10">
+      <div className="card p-2">
         <div className="mb-1 flex items-center justify-between px-1">
           <button
             onClick={() => goMonth(-1)}
-            className="rounded px-1.5 py-0.5 text-xs hover:bg-black/5 dark:hover:bg-white/10"
+            className="rounded px-1.5 py-0.5 text-xs hover:bg-foreground/5"
             aria-label="Previous month"
           >
             ←
@@ -67,7 +64,7 @@ export default function CalendarNav({
           <h2 className="text-sm font-semibold">{formatMonthLabel(monthAnchor)}</h2>
           <button
             onClick={() => goMonth(1)}
-            className="rounded px-1.5 py-0.5 text-xs hover:bg-black/5 dark:hover:bg-white/10"
+            className="rounded px-1.5 py-0.5 text-xs hover:bg-foreground/5"
             aria-label="Next month"
           >
             →
@@ -78,7 +75,7 @@ export default function CalendarNav({
           {WEEKDAYS.map((w) => (
             <div
               key={w}
-              className="text-center text-[10px] font-medium text-black/40 dark:text-white/40"
+              className="text-center text-[10px] font-medium text-muted"
             >
               {w}
             </div>
@@ -108,13 +105,13 @@ export default function CalendarNav({
                 className={`flex min-h-[42px] flex-col items-center justify-start gap-0.5 rounded-md border px-0.5 py-1 transition ${
                   isSelected
                     ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30"
-                    : "border-transparent hover:bg-black/[.04] dark:hover:bg-white/[.06]"
+                    : "border-transparent hover:bg-foreground/[.05]"
                 } ${inMonth ? "" : "opacity-35"}`}
               >
                 <span
                   className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] leading-none ${
                     isToday
-                      ? "bg-black font-semibold text-white dark:bg-white dark:text-black"
+                      ? "bg-brand font-semibold text-on-brand"
                       : "font-medium"
                   }`}
                 >
@@ -131,7 +128,7 @@ export default function CalendarNav({
                       />
                     ))}
                     {extra > 0 && (
-                      <span className="text-[9px] leading-none text-black/50 dark:text-white/50">
+                      <span className="text-[9px] leading-none text-muted">
                         +{extra}
                       </span>
                     )}

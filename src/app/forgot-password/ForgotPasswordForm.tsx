@@ -18,21 +18,17 @@ export default function ForgotPasswordForm() {
           type="email"
           autoComplete="email"
           required
-          className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm dark:border-white/15 dark:bg-transparent"
+          className="field"
         />
       </div>
 
       {state?.error && (
-        <p role="status" className="text-sm text-black/70 dark:text-white/70">
+        <p role="status" className="text-sm text-muted">
           {state.error}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-      >
+      <button type="submit" disabled={pending} className="w-full btn btn-primary">
         {pending ? "Sending…" : "Send reset link"}
       </button>
     </form>

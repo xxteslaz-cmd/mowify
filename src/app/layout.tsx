@@ -43,7 +43,7 @@ export default function RootLayout({
       className={`${jakarta.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <header className="border-b border-black/10 dark:border-white/10">
+        <header className="border-b border-border">
           {/* Fixed height so nothing shifts once the nav resolves. */}
           <Suspense fallback={<div className="h-[49px]" />}>
             <Nav />

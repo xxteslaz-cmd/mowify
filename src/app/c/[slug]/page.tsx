@@ -22,7 +22,7 @@ export default async function CrewLoginPage({
   return (
     <div className="mx-auto max-w-sm px-4 py-12">
       <h1 className="mb-1 text-xl font-semibold">{org.name}</h1>
-      <p className="mb-6 text-sm text-black/60 dark:text-white/60">
+      <p className="mb-6 text-sm text-muted">
         Sign in to see today&apos;s stops.
       </p>
 

@@ -11,8 +11,7 @@ import {
 } from "./actions";
 import PasswordField from "@/components/PasswordField";
 
-const FIELD =
-  "w-full rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-transparent";
+const FIELD = "field";
 
 export default function AccountClient({
   email,
@@ -95,9 +94,9 @@ export default function AccountClient({
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
       <h1 className="mb-1 text-xl font-semibold">Account</h1>
-      <p className="mb-6 text-sm text-black/60 dark:text-white/60">{email}</p>
+      <p className="mb-6 text-sm text-muted">{email}</p>
 
-      <div className="mb-6 rounded-lg border border-black/10 p-4 dark:border-white/10">
+      <div className="mb-6 card p-4">
         <p className="mb-2 text-sm font-medium">Email</p>
         {verified ? (
           <p className="flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400">
@@ -112,7 +111,7 @@ export default function AccountClient({
           </p>
         ) : (
           <>
-            <p className="mb-3 text-sm text-black/60 dark:text-white/60">
+            <p className="mb-3 text-sm text-muted">
               Not confirmed yet. Confirming means you can recover this account
               if you ever forget your password.
             </p>
@@ -127,7 +126,7 @@ export default function AccountClient({
                   setBusy(false);
                 }
               }}
-              className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+              className="btn btn-primary"
             >
               {sent ? "Sent" : "Send confirmation email"}
             </button>
@@ -136,26 +135,19 @@ export default function AccountClient({
       </div>
 
       {pendingEmail && (
-        <div className="mb-6 rounded-lg border border-black/10 p-4 dark:border-white/10">
+        <div className="mb-6 card p-4">
           <p className="mb-2 text-sm font-medium">Pending email change</p>
-          <p className="mb-3 text-sm text-black/60 dark:text-white/60">
+          <p className="mb-3 text-sm text-muted">
             Waiting for {pendingEmail} to confirm. Your email stays{" "}
             {email} until then.
           </p>
-          <button
-            disabled={cancelBusy}
-            onClick={cancelPending}
-            className="rounded-md border border-black/10 px-3 py-2 text-sm font-medium disabled:opacity-50 dark:border-white/10"
-          >
+          <button disabled={cancelBusy} onClick={cancelPending} className="btn btn-secondary">
             Cancel
           </button>
         </div>
       )}
 
-      <form
-        onSubmit={submitEmailChange}
-        className="mb-6 rounded-lg border border-black/10 p-4 dark:border-white/10"
-      >
+      <form onSubmit={submitEmailChange} className="mb-6 card p-4">
         <p className="mb-3 text-sm font-medium">Change email</p>
 
         <div className="space-y-3">
@@ -179,30 +171,23 @@ export default function AccountClient({
         </div>
 
         {emailError && (
-          <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="mt-3 text-sm text-danger">
             {emailError}
           </p>
         )}
         {emailRequested && (
-          <p role="status" className="mt-3 text-sm text-black/60 dark:text-white/60">
+          <p role="status" className="mt-3 text-sm text-muted">
             Check the new address for a confirmation link. Nothing changes
             until it confirms.
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={emailBusy}
-          className="mt-3 rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-        >
+        <button type="submit" disabled={emailBusy} className="mt-3 btn btn-primary">
           Change email
         </button>
       </form>
 
-      <form
-        onSubmit={submit}
-        className="rounded-lg border border-black/10 p-4 dark:border-white/10"
-      >
+      <form onSubmit={submit} className="card p-4">
         <p className="mb-3 text-sm font-medium">Change password</p>
 
         <div className="space-y-3">
@@ -225,25 +210,21 @@ export default function AccountClient({
         </div>
 
         {error && (
-          <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="mt-3 text-sm text-danger">
             {error}
           </p>
         )}
         {done && (
-          <p role="status" className="mt-3 text-sm text-black/60 dark:text-white/60">
+          <p role="status" className="mt-3 text-sm text-muted">
             Password changed. Other devices have been signed out.
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="mt-3 rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-        >
+        <button type="submit" disabled={busy} className="mt-3 btn btn-primary">
           Change password
         </button>
 
-        <p className="mt-4 border-t border-black/10 pt-3 text-sm text-black/60 dark:border-white/10 dark:text-white/60">
+        <p className="mt-4 border-t border-border pt-3 text-sm text-muted">
           Don&apos;t know your current password?{" "}
           <button
             type="button"
@@ -263,13 +244,13 @@ export default function AccountClient({
                 setBusy(false);
               }
             }}
-            className="underline underline-offset-4 hover:text-black disabled:opacity-50 dark:hover:text-white"
+            className="underline underline-offset-4 hover:text-foreground disabled:opacity-50"
           >
             Email me a reset link
           </button>
         </p>
         {linkMsg && (
-          <p role="status" className="mt-2 text-sm text-black/60 dark:text-white/60">
+          <p role="status" className="mt-2 text-sm text-muted">
             {linkMsg}
           </p>
         )}

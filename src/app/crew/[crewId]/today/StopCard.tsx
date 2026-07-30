@@ -29,9 +29,9 @@ export default function StopCard({
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.customer.address)}`;
 
   return (
-    <div className={`rounded-xl border border-black/10 p-4 dark:border-white/10 ${isDone ? "opacity-60" : ""}`}>
+    <div className={`card p-4 ${isDone ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/10 text-sm font-semibold dark:bg-white/10">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-border text-sm font-semibold">
           {stopNumber}
         </span>
         <div className="min-w-0 flex-1">
@@ -44,13 +44,13 @@ export default function StopCard({
               {job.customer.phone}
             </a>
           )}
-          <p className="mt-1 text-sm text-black/60 dark:text-white/60">{serviceLabel(job)}</p>
+          <p className="mt-1 text-sm text-muted">{serviceLabel(job)}</p>
           {job.customer.notes && (
             <p className="mt-1 rounded bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
               {job.customer.notes}
             </p>
           )}
-          {job.notes && <p className="mt-1 text-sm italic text-black/50 dark:text-white/50">{job.notes}</p>}
+          {job.notes && <p className="mt-1 text-sm italic text-muted">{job.notes}</p>}
         </div>
       </div>
 
@@ -65,7 +65,7 @@ export default function StopCard({
         <button
           onClick={() => setStatus("SKIPPED")}
           disabled={pending || job.status === "SKIPPED"}
-          className="rounded-lg border border-black/10 px-4 py-3 text-sm font-medium text-black/70 disabled:opacity-50 dark:border-white/10 dark:text-white/70"
+          className="btn btn-secondary btn-lg"
         >
           Skip
         </button>

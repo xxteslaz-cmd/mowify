@@ -42,32 +42,29 @@ export default function CustomersClient({ customers, crews }: { customers: Custo
           placeholder="Search by name, address, or phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+          className="flex-1 field"
         />
-        <button
-          onClick={() => setAddOpen(true)}
-          className="shrink-0 rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-black/80 dark:bg-white dark:text-black"
-        >
+        <button onClick={() => setAddOpen(true)} className="shrink-0 btn btn-primary">
           + Add Customer
         </button>
       </div>
 
-      <div className="divide-y divide-black/10 rounded-lg border border-black/10 dark:divide-white/10 dark:border-white/10">
+      <div className="divide-y divide-border card">
         {filtered.length === 0 && (
-          <p className="p-4 text-sm text-black/50 dark:text-white/50">No customers found.</p>
+          <p className="p-4 text-sm text-muted">No customers found.</p>
         )}
         {filtered.map((c) => (
           <Link
             key={c.id}
             href={`/customers/${c.id}`}
-            className="flex items-center justify-between gap-3 p-4 hover:bg-black/[.03] dark:hover:bg-white/[.05]"
+            className="flex items-center justify-between gap-3 p-4 hover:bg-foreground/[.04]"
           >
             <div className="min-w-0">
               <p className="font-medium">{c.name}</p>
-              <p className="truncate text-sm text-black/60 dark:text-white/60">{c.address}</p>
-              {c.phone && <p className="text-sm text-black/50 dark:text-white/50">{c.phone}</p>}
+              <p className="truncate text-sm text-muted">{c.address}</p>
+              {c.phone && <p className="text-sm text-muted">{c.phone}</p>}
             </div>
-            <span className="shrink-0 text-xs text-black/40 dark:text-white/40">
+            <span className="shrink-0 text-xs text-muted">
               {c._count.jobs} {c._count.jobs === 1 ? "job" : "jobs"}
             </span>
           </Link>
@@ -152,11 +149,11 @@ function AddCustomerModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-4" onClick={onClose}>
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl dark:bg-zinc-900"
+        className="w-full max-w-md card p-5 shadow-xl"
       >
         <h2 className="mb-4 text-lg font-semibold">Add Customer</h2>
         <div className="space-y-2">
@@ -165,28 +162,28 @@ function AddCustomerModal({
             placeholder="Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+            className="field"
           />
           <input
             type="text"
             placeholder="Address"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="w-full rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+            className="field"
           />
           <input
             type="text"
             placeholder="Phone (optional)"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="w-full rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+            className="field"
           />
           <textarea
             placeholder="Notes: gate code, dog on property, etc."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            className="w-full rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+            className="field"
           />
         </div>
 
@@ -200,14 +197,14 @@ function AddCustomerModal({
           />
           Schedule a job now
           {crews.length === 0 && (
-            <span className="text-xs text-black/50 dark:text-white/50">(add a crew first)</span>
+            <span className="text-xs text-muted">(add a crew first)</span>
           )}
         </label>
 
         {scheduleJob && (
-          <div className="mt-2 grid grid-cols-2 gap-3 rounded-md bg-black/5 p-3 dark:bg-white/10">
+          <div className="mt-2 grid grid-cols-2 gap-3 rounded-md bg-foreground/5 p-3">
             <label className="text-sm">
-              <span className="mb-1 block text-black/60 dark:text-white/60">Service</span>
+              <span className="mb-1 block text-muted">Service</span>
               <select
                 value={serviceType}
                 onChange={(e) => {
@@ -215,7 +212,7 @@ function AddCustomerModal({
                   setServiceType(next);
                   if (next !== "OTHER") setCustomService("");
                 }}
-                className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+                className="field"
               >
                 {SERVICE_TYPES.map((s) => (
                   <option key={s} value={s}>
@@ -225,11 +222,11 @@ function AddCustomerModal({
               </select>
             </label>
             <label className="text-sm">
-              <span className="mb-1 block text-black/60 dark:text-white/60">Frequency</span>
+              <span className="mb-1 block text-muted">Frequency</span>
               <select
                 value={frequency}
                 onChange={(e) => setFrequency(e.target.value as Frequency)}
-                className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+                className="field"
               >
                 {FREQUENCIES.map((f) => (
                   <option key={f} value={f}>
@@ -241,31 +238,31 @@ function AddCustomerModal({
 
             {serviceType === "OTHER" && (
               <label className="col-span-2 text-sm">
-                <span className="mb-1 block text-black/60 dark:text-white/60">Describe the service</span>
+                <span className="mb-1 block text-muted">Describe the service</span>
                 <input
                   type="text"
                   placeholder="e.g. Leaf removal, hedge trimming"
                   value={customService}
                   onChange={(e) => setCustomService(e.target.value)}
-                  className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+                  className="field"
                 />
               </label>
             )}
             <label className="text-sm">
-              <span className="mb-1 block text-black/60 dark:text-white/60">Date</span>
+              <span className="mb-1 block text-muted">Date</span>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+                className="field"
               />
             </label>
             <label className="text-sm">
-              <span className="mb-1 block text-black/60 dark:text-white/60">Crew</span>
+              <span className="mb-1 block text-muted">Crew</span>
               <select
                 value={crewId}
                 onChange={(e) => setCrewId(e.target.value)}
-                className="w-full rounded-md border border-black/10 px-2 py-2 text-sm dark:border-white/10 dark:bg-transparent"
+                className="field"
               >
                 {crews.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -277,16 +274,12 @@ function AddCustomerModal({
           </div>
         )}
 
-        {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+        {error && <p className="mt-2 text-sm text-danger">{error}</p>}
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-md border border-black/10 px-3 py-2 text-sm dark:border-white/10">
+          <button type="button" onClick={onClose} className="btn btn-secondary">
             Cancel
           </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-          >
+          <button type="submit" disabled={submitting} className="btn btn-primary">
             {submitting ? "Adding..." : scheduleJob ? "Add Customer & Job" : "Add Customer"}
           </button>
         </div>

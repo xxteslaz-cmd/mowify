@@ -20,14 +20,11 @@ export default async function ChangeEmailPage({
     return (
       <div className="mx-auto max-w-sm px-4 py-16">
         <h1 className="mb-1 text-xl font-semibold">This link has expired</h1>
-        <p className="mb-6 text-sm text-black/60 dark:text-white/60">
+        <p className="mb-6 text-sm text-muted">
           Confirmation links work once and last an hour. Request a new one
           from your account page.
         </p>
-        <Link
-          href="/account"
-          className="inline-block rounded-lg bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
-        >
+        <Link href="/account" className="btn btn-primary">
           Go to account
         </Link>
       </div>
@@ -44,7 +41,7 @@ export default async function ChangeEmailPage({
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
       <h1 className="mb-1 text-xl font-semibold">Confirm your new email</h1>
-      <p className="mb-6 text-sm text-black/60 dark:text-white/60">
+      <p className="mb-6 text-sm text-muted">
         {user?.pendingEmail
           ? `Move this Mowify account to ${user.pendingEmail}?`
           : "Confirm this email address change."}

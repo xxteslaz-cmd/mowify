@@ -14,10 +14,10 @@ export default function ManageCrewsModal({
   onChanged: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-4" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-5 shadow-xl dark:bg-zinc-900"
+        className="max-h-[85vh] w-full max-w-md overflow-y-auto card p-5 shadow-xl"
       >
         <h2 className="mb-4 text-lg font-semibold">Manage Crews</h2>
         <div className="space-y-2">
@@ -25,17 +25,14 @@ export default function ManageCrewsModal({
             <CrewRow key={crew.id} crew={crew} onChanged={onChanged} />
           ))}
           {crews.length === 0 && (
-            <p className="text-sm text-black/40 dark:text-white/40">No crews yet.</p>
+            <p className="text-sm text-muted">No crews yet.</p>
           )}
         </div>
 
         <NewCrewRow onChanged={onChanged} />
 
         <div className="mt-4 flex justify-end">
-          <button
-            onClick={onClose}
-            className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-black"
-          >
+          <button onClick={onClose} className="btn btn-primary">
             Done
           </button>
         </div>
@@ -84,7 +81,7 @@ function CrewRow({ crew, onChanged }: { crew: CrewWithJobCount; onChanged: () =>
   }
 
   return (
-    <div className={`rounded-md border border-black/10 p-2 dark:border-white/10 ${!crew.active ? "opacity-50" : ""}`}>
+    <div className={`card p-2 ${!crew.active ? "opacity-50" : ""}`}>
       <div className="flex items-center gap-2">
         <input
           type="color"
@@ -97,34 +94,26 @@ function CrewRow({ crew, onChanged }: { crew: CrewWithJobCount; onChanged: () =>
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="min-w-0 flex-1 rounded border border-black/10 px-2 py-1 text-sm dark:border-white/10 dark:bg-transparent"
+          className="min-w-0 flex-1 field"
         />
         {dirty && (
-          <button
-            onClick={save}
-            disabled={saving}
-            className="shrink-0 rounded bg-black px-2 py-1 text-xs font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
-          >
+          <button onClick={save} disabled={saving} className="shrink-0 btn btn-primary">
             Save
           </button>
         )}
-        <button
-          onClick={toggleActive}
-          disabled={saving}
-          className="shrink-0 rounded border border-black/10 px-2 py-1 text-xs disabled:opacity-50 dark:border-white/10"
-        >
+        <button onClick={toggleActive} disabled={saving} className="shrink-0 btn btn-secondary">
           {crew.active ? "Deactivate" : "Activate"}
         </button>
         <button
           onClick={remove}
           disabled={saving || jobCount > 0}
           title={jobCount > 0 ? `Can't delete: crew has ${jobCount} job${jobCount === 1 ? "" : "s"}` : `Delete ${crew.name}`}
-          className="shrink-0 rounded border border-red-500/40 px-2 py-1 text-xs text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-400/40 dark:text-red-400"
+          className="shrink-0 btn btn-danger"
         >
           Delete
         </button>
       </div>
-      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>
   );
 }
@@ -144,7 +133,7 @@ function NewCrewRow({ onChanged }: { onChanged: () => void }) {
   }
 
   return (
-    <div className="mt-3 flex items-center gap-2 border-t border-black/10 pt-3 dark:border-white/10">
+    <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
       <input
         type="color"
         value={color}
@@ -158,12 +147,12 @@ function NewCrewRow({ onChanged }: { onChanged: () => void }) {
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && add()}
-        className="min-w-0 flex-1 rounded border border-black/10 px-2 py-1 text-sm dark:border-white/10 dark:bg-transparent"
+        className="min-w-0 flex-1 field"
       />
       <button
         onClick={add}
         disabled={submitting || !name.trim()}
-        className="shrink-0 rounded bg-black px-2 py-1 text-xs font-medium text-white disabled:opacity-50 dark:bg-white dark:text-black"
+        className="shrink-0 btn btn-primary"
       >
         + Add
       </button>
