@@ -58,7 +58,7 @@ export default function StopCard({
         <button
           onClick={() => setStatus("COMPLETED")}
           disabled={pending || job.status === "COMPLETED"}
-          className="flex-1 rounded-lg bg-green-600 py-3 text-base font-semibold text-white disabled:opacity-50"
+          className="btn btn-primary btn-lg flex-1"
         >
           {isDone ? "Completed ✓" : "Mark Complete"}
         </button>
