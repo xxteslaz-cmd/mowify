@@ -75,158 +75,164 @@ export default function TeamClient({
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <h1 className="mb-1 text-xl font-semibold">Team</h1>
-      <p className="mb-6 text-sm text-muted">
-        Logins for your crew. Each person sees only their own day.
-      </p>
-
-      <div className="mb-6 card p-4">
-        <p className="mb-2 text-sm font-medium">Crew sign-in link</p>
-        <p className="mb-3 text-sm text-muted">
-          Text this to your crew once. They bookmark it and sign in with their
-          username and PIN.
+    <div className="px-4 py-6 md:px-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold">Team</h1>
+        <p className="mt-1 text-sm text-muted">
+          Logins for your crew. Each person sees only their own day.
         </p>
-        <div className="flex gap-2">
-          <input readOnly value={fullLink} className={`${FIELD} font-mono`} />
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(fullLink);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            }}
-            className="shrink-0 btn btn-primary"
-          >
-            {copied ? "Copied" : "Copy"}
-          </button>
-        </div>
       </div>
 
-      {error && (
-        <p role="alert" className="mb-4 card border-danger/30 bg-danger/5 p-3 text-sm text-danger">
-          {error}
-        </p>
-      )}
-
-      <div className="mb-6 divide-y divide-border card">
-        {members.length === 0 && (
-          <p className="p-4 text-sm text-muted">
-            No crew logins yet.
+      {/* Crew logins and the add-login form read as forms, not a dashboard,
+          so they keep a reading width instead of stretching with the page. */}
+      <div className="max-w-3xl">
+        <div className="mb-6 card p-4">
+          <p className="mb-2 text-sm font-medium">Crew sign-in link</p>
+          <p className="mb-3 text-sm text-muted">
+            Text this to your crew once. They bookmark it and sign in with their
+            username and PIN.
           </p>
-        )}
-        {members.map((m) => {
-          return (
-            <div
-              key={m.id}
-              className="flex items-center justify-between gap-3 p-4"
+          <div className="flex gap-2">
+            <input readOnly value={fullLink} className={`${FIELD} font-mono`} />
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(fullLink);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="shrink-0 btn btn-primary"
             >
-              <div className="min-w-0">
-                <p className="font-medium">
-                  {m.name}
-                  {!m.active && (
-                    <span className="ml-2 text-xs text-muted">
-                      deactivated
-                    </span>
-                  )}
-                  {m.locked && (
-                    <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
-                      locked out
-                    </span>
-                  )}
-                </p>
-                <p className="text-sm text-muted">
-                  <span className="font-mono">{m.username}</span>
-                  {m.crew && (
-                    <>
-                      {" · "}
-                      <span
-                        className="inline-block h-2 w-2 rounded-full align-middle"
-                        style={{ backgroundColor: m.crew.color }}
-                      />{" "}
-                      {m.crew.name}
-                    </>
-                  )}
-                </p>
-              </div>
-
-              <div className="flex shrink-0 gap-3 text-sm">
-                <button
-                  disabled={busy}
-                  onClick={() => handleResetPin(m.id)}
-                  className="btn btn-ghost"
-                >
-                  Reset PIN
-                </button>
-                <button
-                  disabled={busy}
-                  onClick={() => run(() => setCrewLoginActive(m.id, !m.active))}
-                  className="btn btn-ghost"
-                >
-                  {m.active ? "Deactivate" : "Reactivate"}
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <form onSubmit={handleAdd} className="card p-4">
-        <p className="mb-3 text-sm font-medium">Add a crew login</p>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <input
-            placeholder="Name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            className={FIELD}
-          />
-          <input
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            autoCapitalize="none"
-            required
-            className={FIELD}
-          />
-          <input
-            placeholder="6-digit PIN"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            inputMode="numeric"
-            pattern="\d{6}"
-            maxLength={6}
-            required
-            className={FIELD}
-          />
-          <select
-            value={crewId}
-            onChange={(e) => setCrewId(e.target.value)}
-            required
-            className={FIELD}
-          >
-            {crews.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+              {copied ? "Copied" : "Copy"}
+            </button>
+          </div>
         </div>
 
-        <button
-          type="submit"
-          disabled={busy || crews.length === 0}
-          className="mt-3 btn btn-primary"
-        >
-          Add crew login
-        </button>
-
-        {crews.length === 0 && (
-          <p className="mt-2 text-sm text-muted">
-            Create a crew on the dashboard first.
+        {error && (
+          <p role="alert" className="mb-4 card border-danger/30 bg-danger/5 p-3 text-sm text-danger">
+            {error}
           </p>
         )}
-      </form>
+
+        <div className="mb-6 divide-y divide-border card">
+          {members.length === 0 && (
+            <p className="p-4 text-sm text-muted">
+              No crew logins yet.
+            </p>
+          )}
+          {members.map((m) => {
+            return (
+              <div
+                key={m.id}
+                className="flex items-center justify-between gap-3 p-4"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium">
+                    {m.name}
+                    {!m.active && (
+                      <span className="ml-2 text-xs text-muted">
+                        deactivated
+                      </span>
+                    )}
+                    {m.locked && (
+                      <span className="ml-2 text-xs text-amber-600 dark:text-amber-400">
+                        locked out
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-sm text-muted">
+                    <span className="font-mono">{m.username}</span>
+                    {m.crew && (
+                      <>
+                        {" · "}
+                        <span
+                          className="inline-block h-2 w-2 rounded-full align-middle"
+                          style={{ backgroundColor: m.crew.color }}
+                        />{" "}
+                        {m.crew.name}
+                      </>
+                    )}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 gap-3 text-sm">
+                  <button
+                    disabled={busy}
+                    onClick={() => handleResetPin(m.id)}
+                    className="btn btn-ghost"
+                  >
+                    Reset PIN
+                  </button>
+                  <button
+                    disabled={busy}
+                    onClick={() => run(() => setCrewLoginActive(m.id, !m.active))}
+                    className="btn btn-ghost"
+                  >
+                    {m.active ? "Deactivate" : "Reactivate"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <form onSubmit={handleAdd} className="card p-4">
+          <p className="mb-3 text-sm font-medium">Add a crew login</p>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <input
+              placeholder="Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className={FIELD}
+            />
+            <input
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoCapitalize="none"
+              required
+              className={FIELD}
+            />
+            <input
+              placeholder="6-digit PIN"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              inputMode="numeric"
+              pattern="\d{6}"
+              maxLength={6}
+              required
+              className={FIELD}
+            />
+            <select
+              value={crewId}
+              onChange={(e) => setCrewId(e.target.value)}
+              required
+              className={FIELD}
+            >
+              {crews.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            disabled={busy || crews.length === 0}
+            className="mt-3 btn btn-primary"
+          >
+            Add crew login
+          </button>
+
+          {crews.length === 0 && (
+            <p className="mt-2 text-sm text-muted">
+              Create a crew on the dashboard first.
+            </p>
+          )}
+        </form>
+      </div>
     </div>
   );
 }

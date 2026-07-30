@@ -41,7 +41,13 @@ export default async function DashboardPage({
   const jobsWithNextDate = await attachNextDates(orgId, jobs);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6">
+    <div className="px-4 py-6 md:px-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="mt-1 text-sm text-muted">
+          Plan the day, move jobs between crews, and see what&apos;s next.
+        </p>
+      </div>
       <CalendarNav dateISO={dateISO} monthISO={monthISO} summaries={summaries} />
       <DashboardBoard
         key={dateISO}

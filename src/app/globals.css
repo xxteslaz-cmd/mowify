@@ -6,13 +6,13 @@
  * editing this file instead of hunting through twenty others.
  */
 :root {
-  /* Warm off-white rather than pure white — easier to look at on a bright job
-     site, and it lets white cards sit visibly above the page. */
-  --background: #f7f6f2;
+  /* A cool neutral page with white cards floating on it. Reads as software
+     rather than stationery, and gives the green somewhere quiet to sit. */
+  --background: #f2f5f6;
   --surface: #ffffff;
-  --foreground: #1c1f1d;
-  --muted: #6b716d;
-  --border: #e2e0d8;
+  --foreground: #171b1a;
+  --muted: #667471;
+  --border: #dfe5e6;
 
   /* Green earns its place here: this is landscaping software. Deep enough to
      carry white text at accessible contrast rather than a decorative mint. */
@@ -30,11 +30,11 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #12140f;
-    --surface: #1a1d19;
-    --foreground: #e8e9e4;
-    --muted: #9aa09a;
-    --border: #2c302b;
+    --background: #0f1413;
+    --surface: #171d1b;
+    --foreground: #e6eae8;
+    --muted: #94a09d;
+    --border: #262e2c;
 
     --brand: #62b083;
     --brand-hover: #74c294;

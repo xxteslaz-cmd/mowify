@@ -21,7 +21,7 @@ export default async function CustomerDetailPage({
     .sort((a, b) => b.scheduledDate.getTime() - a.scheduledDate.getTime());
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
+    <div className="px-4 py-6 md:px-8">
       <CustomerDetailClient customer={customer} upcoming={upcoming} history={history} />
     </div>
   );
