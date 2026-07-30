@@ -1,26 +1,187 @@
 @import "tailwindcss";
 
+/**
+ * One place defines the look. Components use the semantic tokens and the
+ * component classes below rather than hard-coded colours, so retheming means
+ * editing this file instead of hunting through twenty others.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* Warm off-white rather than pure white — easier to look at on a bright job
+     site, and it lets white cards sit visibly above the page. */
+  --background: #f7f6f2;
+  --surface: #ffffff;
+  --foreground: #1c1f1d;
+  --muted: #6b716d;
+  --border: #e2e0d8;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Green earns its place here: this is landscaping software. Deep enough to
+     carry white text at accessible contrast rather than a decorative mint. */
+  --brand: #2f6b4f;
+  --brand-hover: #255741;
+  --brand-soft: #e8f0ea;
+  --on-brand: #ffffff;
+
+  /* Warm clay for a highlight that must not read as an error. */
+  --accent: #b4642f;
+
+  --danger: #b3261e;
+  --radius: 0.625rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #12140f;
+    --surface: #1a1d19;
+    --foreground: #e8e9e4;
+    --muted: #9aa09a;
+    --border: #2c302b;
+
+    --brand: #62b083;
+    --brand-hover: #74c294;
+    --brand-soft: #1e2a23;
+    --on-brand: #10130f;
+
+    --accent: #d68a52;
+    --danger: #f2b8b5;
   }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-on-brand: var(--on-brand);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-jakarta);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* The previous rule hard-coded Arial here, which silently overrode the
+     webfont the layout was already loading. */
+  font-family: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Headings get tighter tracking than the body. At display sizes the default
+   spacing reads loose and makes the app look less deliberate than it is. */
+h1,
+h2,
+h3 {
+  letter-spacing: -0.018em;
+}
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: var(--radius);
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease,
+      transform 60ms ease;
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translateY(0.5px);
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+  }
+
+  .btn-primary {
+    background: var(--brand);
+    color: var(--on-brand);
+    /* A hairline of depth. Flat-on-flat made the primary action hard to pick
+       out on the dashboard, which is the screen crews use in a hurry. */
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--brand-hover);
+  }
+
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--foreground);
+    border-color: var(--border);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--brand);
+    color: var(--brand);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    padding-inline: 0.5rem;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    color: var(--foreground);
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: var(--danger);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--danger) 10%, transparent);
+  }
+
+  .btn-lg {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .field {
+    width: 100%;
+    background: var(--surface);
+    color: var(--foreground);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .field:focus {
+    outline: 2px solid var(--brand);
+    outline-offset: -1px;
+    border-color: transparent;
+  }
+
+  .field::placeholder {
+    color: var(--muted);
+  }
 }
