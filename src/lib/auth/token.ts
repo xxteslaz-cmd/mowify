@@ -9,7 +9,12 @@ export const VERIFICATION_TOKEN_MS = 7 * 24 * 60 * 60 * 1000;
 export const RESET_COOLDOWN_MS = 60 * 1000;
 
 export function tokenLifetime(purpose: TokenPurpose): number {
-  return purpose === "PASSWORD_RESET" ? RESET_TOKEN_MS : VERIFICATION_TOKEN_MS;
+  // EMAIL_CHANGE gets the same short lifetime as PASSWORD_RESET: it moves a
+  // security-critical value, so it is treated as a credential rather than the
+  // more forgiving week-long verification link.
+  return purpose === "PASSWORD_RESET" || purpose === "EMAIL_CHANGE"
+    ? RESET_TOKEN_MS
+    : VERIFICATION_TOKEN_MS;
 }
 
 /**

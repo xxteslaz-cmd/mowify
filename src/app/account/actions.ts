@@ -8,7 +8,11 @@ import { hashSecret, verifySecret } from "@/lib/auth/password";
 import { readSessionToken, deleteOtherSessionsForUser } from "@/lib/auth/session";
 import { issueToken } from "@/lib/auth/token";
 import { sendEmail, appUrl } from "@/lib/email/client";
-import { verifyEmailEmail } from "@/lib/email/templates";
+import {
+  verifyEmailEmail,
+  changeEmailEmail,
+  emailChangeWarningEmail,
+} from "@/lib/email/templates";
 import {
   isLocked,
   lockoutMessage,
@@ -68,6 +72,102 @@ export async function changePassword(input: {
   // Sign out everywhere else, but not the tab doing the changing.
   const current = await readSessionToken();
   if (current) await deleteOtherSessionsForUser(userId, current);
+
+  revalidatePath("/account");
+}
+
+const EmailChangeSchema = z
+  .object({
+    newEmail: z.string().trim().toLowerCase().email("Enter a valid email"),
+    currentPassword: z.string().min(1, "Enter your current password"),
+  })
+  .strict();
+
+export type EmailChangeState = { error?: string } | undefined;
+
+// Requests a move to a new address. The move does not happen here — only
+// once the new address confirms — so a typo can never strand the account
+// somewhere unreachable, which is the exact failure this feature exists to
+// prevent. See requireOwner()/lockout above: the same current-password check
+// and throttle as changePassword, because a stolen session must not be
+// enough on its own to move the account.
+export async function requestEmailChange(input: {
+  newEmail: string;
+  currentPassword: string;
+}): Promise<EmailChangeState> {
+  const { userId } = await requireOwner();
+  const parsed = EmailChangeSchema.safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+  if (isLocked(user)) return { error: lockoutMessage(user.lockedUntil!) };
+
+  if (parsed.data.newEmail === user.email) {
+    return { error: "That's already your email address" };
+  }
+
+  // Same reasoning as changePassword: a correct guess here would let an
+  // attacker holding a stolen session move the account to an address they
+  // control, so wrong guesses are throttled identically.
+  if (
+    !user.passwordHash ||
+    !(await verifySecret(user.passwordHash, parsed.data.currentPassword))
+  ) {
+    const next = nextLockoutState(priorFailures(user));
+    await prisma.user.update({ where: { id: userId }, data: next });
+    return next.lockedUntil
+      ? { error: lockoutMessage(next.lockedUntil) }
+      : { error: "Current password is incorrect" };
+  }
+
+  // The address being taken is not a secret worth protecting here: signup
+  // already rejects duplicates visibly for the same address.
+  const taken = await prisma.user.findUnique({
+    where: { email: parsed.data.newEmail },
+  });
+  if (taken) return { error: "That email is already registered" };
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      pendingEmail: parsed.data.newEmail,
+      failedAttempts: 0,
+      lockedUntil: null,
+    },
+  });
+
+  // issueToken supersedes any earlier EMAIL_CHANGE token for this user, which
+  // is what makes requesting a new change also cancel a prior one.
+  const raw = await issueToken(userId, "EMAIL_CHANGE");
+  const { subject, html } = changeEmailEmail(
+    appUrl(`/account/change-email/${raw}`),
+  );
+  await sendEmail({ to: parsed.data.newEmail, subject, html });
+
+  // The only signal the real owner gets if someone with a stolen session is
+  // moving their account elsewhere, sent while they can still react.
+  if (user.email) {
+    const warning = emailChangeWarningEmail(parsed.data.newEmail);
+    await sendEmail({ to: user.email, subject: warning.subject, html: warning.html });
+  }
+
+  revalidatePath("/account");
+}
+
+// Requesting a new change already supersedes a prior one (issueToken marks
+// the earlier token consumed), so this exists only for the case where the
+// owner wants to back out without picking a replacement address.
+export async function cancelEmailChange() {
+  const { userId } = await requireOwner();
+
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: userId }, data: { pendingEmail: null } }),
+    prisma.token.updateMany({
+      where: { userId, purpose: "EMAIL_CHANGE", consumedAt: null },
+      data: { consumedAt: new Date() },
+    }),
+  ]);
 
   revalidatePath("/account");
 }

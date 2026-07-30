@@ -12,6 +12,10 @@ const PUBLIC_PREFIXES = [
   "/forgot-password",
   "/reset-password/",
   "/verify-email/",
+  // The confirm link is emailed to the NEW address, which the owner may open
+  // on a device or browser that has no session cookie for this account at
+  // all — unlike /account/change-email itself, which does require one.
+  "/account/change-email/",
 ];
 
 export default function proxy(req: NextRequest) {
