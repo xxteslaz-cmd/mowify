@@ -42,19 +42,30 @@ export default function RootLayout({
       lang="en"
       className={`${jakarta.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
-        <header className="border-b border-border">
-          {/* Fixed height so nothing shifts once the nav resolves. */}
-          <Suspense fallback={<div className="h-[49px]" />}>
-            <Nav />
-          </Suspense>
-        </header>
-        {/* Own Suspense boundary so awaiting the verification status never
-            delays the nav above it or {children} below it. */}
-        <Suspense fallback={null}>
-          <VerifyBanner />
+      <body className="flex min-h-full flex-col md:flex-row">
+        {/* Sized to match the resolved nav in both the top-bar and sidebar
+            shapes, so nothing shifts once the session read finishes. */}
+        <Suspense
+          fallback={
+            <>
+              <div className="h-[49px] border-b border-border md:hidden" />
+              <div className="hidden md:block md:h-screen md:w-60 md:shrink-0 md:border-r md:border-border md:bg-surface" />
+            </>
+          }
+        >
+          <Nav />
         </Suspense>
-        <main className="flex-1">{children}</main>
+        {/* min-w-0 lets this column shrink below its content's intrinsic
+            width instead of forcing the sidebar row onto a horizontal
+            scrollbar. */}
+        <div className="flex min-h-full min-w-0 flex-1 flex-col">
+          {/* Own Suspense boundary so awaiting the verification status never
+              delays the nav above it or {children} below it. */}
+          <Suspense fallback={null}>
+            <VerifyBanner />
+          </Suspense>
+          <main className="flex-1">{children}</main>
+        </div>
       </body>
     </html>
   );

@@ -41,7 +41,9 @@ export default function CustomerDetailClient({
         ← All customers
       </Link>
 
-      <div className="mt-2 card p-4">
+      {/* A name-and-address card reads badly stretched edge to edge, so it
+          keeps a reading width even though the page around it doesn't. */}
+      <div className="mt-2 max-w-2xl card p-4">
         {!editing ? (
           <>
             <div className="flex items-start justify-between">
@@ -95,12 +97,12 @@ export default function CustomerDetailClient({
         )}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 max-w-4xl">
         <h2 className="mb-2 text-sm font-semibold text-muted">Upcoming jobs</h2>
         <JobList jobs={upcoming} empty="No upcoming jobs scheduled." />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 max-w-4xl">
         <h2 className="mb-2 text-sm font-semibold text-muted">Job history</h2>
         <JobList jobs={history} empty="No past jobs yet." />
       </div>

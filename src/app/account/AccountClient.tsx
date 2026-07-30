@@ -92,169 +92,175 @@ export default function AccountClient({
   }
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6">
-      <h1 className="mb-1 text-xl font-semibold">Account</h1>
-      <p className="mb-6 text-sm text-muted">{email}</p>
+    <div className="px-4 py-6 md:px-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold">Account</h1>
+        <p className="mt-1 text-sm text-muted">{email}</p>
+      </div>
 
-      <div className="mb-6 card p-4">
-        <p className="mb-2 text-sm font-medium">Email</p>
-        {verified ? (
-          <p className="flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400">
-            <svg
-              viewBox="0 0 16 16"
-              aria-hidden="true"
-              className="h-4 w-4 shrink-0 fill-current"
-            >
-              <path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3.7 6.1l-4.2 4.2a.8.8 0 01-1.1 0L4.3 8.2a.8.8 0 111.1-1.1l1.5 1.5 3.7-3.6a.8.8 0 011.1 1.1z" />
-            </svg>
-            Confirmed
-          </p>
-        ) : (
-          <>
-            <p className="mb-3 text-sm text-muted">
-              Not confirmed yet. Confirming means you can recover this account
-              if you ever forget your password.
+      {/* Login and security settings, not a dashboard — a reading width
+          keeps the forms scannable while the page itself fills the shell. */}
+      <div className="max-w-lg">
+        <div className="mb-6 card p-4">
+          <p className="mb-2 text-sm font-medium">Email</p>
+          {verified ? (
+            <p className="flex items-center gap-1.5 text-sm text-green-700 dark:text-green-400">
+              <svg
+                viewBox="0 0 16 16"
+                aria-hidden="true"
+                className="h-4 w-4 shrink-0 fill-current"
+              >
+                <path d="M8 0a8 8 0 100 16A8 8 0 008 0zm3.7 6.1l-4.2 4.2a.8.8 0 01-1.1 0L4.3 8.2a.8.8 0 111.1-1.1l1.5 1.5 3.7-3.6a.8.8 0 011.1 1.1z" />
+              </svg>
+              Confirmed
             </p>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-muted">
+                Not confirmed yet. Confirming means you can recover this account
+                if you ever forget your password.
+              </p>
+              <button
+                disabled={busy || sent}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await resendVerification();
+                    setSent(true);
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="btn btn-primary"
+              >
+                {sent ? "Sent" : "Send confirmation email"}
+              </button>
+            </>
+          )}
+        </div>
+
+        {pendingEmail && (
+          <div className="mb-6 card p-4">
+            <p className="mb-2 text-sm font-medium">Pending email change</p>
+            <p className="mb-3 text-sm text-muted">
+              Waiting for {pendingEmail} to confirm. Your email stays{" "}
+              {email} until then.
+            </p>
+            <button disabled={cancelBusy} onClick={cancelPending} className="btn btn-secondary">
+              Cancel
+            </button>
+          </div>
+        )}
+
+        <form onSubmit={submitEmailChange} className="mb-6 card p-4">
+          <p className="mb-3 text-sm font-medium">Change email</p>
+
+          <div className="space-y-3">
+            <input
+              type="email"
+              placeholder="New email address"
+              autoComplete="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              required
+              className={FIELD}
+            />
+            <PasswordField
+              placeholder="Current password"
+              autoComplete="current-password"
+              value={emailCurrentPassword}
+              onChange={(e) => setEmailCurrentPassword(e.target.value)}
+              required
+              className={FIELD}
+            />
+          </div>
+
+          {emailError && (
+            <p role="alert" className="mt-3 text-sm text-danger">
+              {emailError}
+            </p>
+          )}
+          {emailRequested && (
+            <p role="status" className="mt-3 text-sm text-muted">
+              Check the new address for a confirmation link. Nothing changes
+              until it confirms.
+            </p>
+          )}
+
+          <button type="submit" disabled={emailBusy} className="mt-3 btn btn-primary">
+            Change email
+          </button>
+        </form>
+
+        <form onSubmit={submit} className="card p-4">
+          <p className="mb-3 text-sm font-medium">Change password</p>
+
+          <div className="space-y-3">
+            <PasswordField
+              placeholder="Current password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrent(e.target.value)}
+              required
+              className={FIELD}
+            />
+            <PasswordField
+              placeholder="New password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNew(e.target.value)}
+              required
+              className={FIELD}
+            />
+          </div>
+
+          {error && (
+            <p role="alert" className="mt-3 text-sm text-danger">
+              {error}
+            </p>
+          )}
+          {done && (
+            <p role="status" className="mt-3 text-sm text-muted">
+              Password changed. Other devices have been signed out.
+            </p>
+          )}
+
+          <button type="submit" disabled={busy} className="mt-3 btn btn-primary">
+            Change password
+          </button>
+
+          <p className="mt-4 border-t border-border pt-3 text-sm text-muted">
+            Don&apos;t know your current password?{" "}
             <button
-              disabled={busy || sent}
+              type="button"
+              disabled={busy || linkSent}
               onClick={async () => {
                 setBusy(true);
+                setLinkMsg(null);
                 try {
-                  await resendVerification();
-                  setSent(true);
+                  const result = await emailMyResetLink();
+                  if (result?.sent) {
+                    setLinkSent(true);
+                    setLinkMsg("Sent. Check your email for the link.");
+                  } else {
+                    setLinkMsg(result?.error ?? "Something went wrong.");
+                  }
                 } finally {
                   setBusy(false);
                 }
               }}
-              className="btn btn-primary"
+              className="underline underline-offset-4 hover:text-foreground disabled:opacity-50"
             >
-              {sent ? "Sent" : "Send confirmation email"}
+              Email me a reset link
             </button>
-          </>
-        )}
+          </p>
+          {linkMsg && (
+            <p role="status" className="mt-2 text-sm text-muted">
+              {linkMsg}
+            </p>
+          )}
+        </form>
       </div>
-
-      {pendingEmail && (
-        <div className="mb-6 card p-4">
-          <p className="mb-2 text-sm font-medium">Pending email change</p>
-          <p className="mb-3 text-sm text-muted">
-            Waiting for {pendingEmail} to confirm. Your email stays{" "}
-            {email} until then.
-          </p>
-          <button disabled={cancelBusy} onClick={cancelPending} className="btn btn-secondary">
-            Cancel
-          </button>
-        </div>
-      )}
-
-      <form onSubmit={submitEmailChange} className="mb-6 card p-4">
-        <p className="mb-3 text-sm font-medium">Change email</p>
-
-        <div className="space-y-3">
-          <input
-            type="email"
-            placeholder="New email address"
-            autoComplete="email"
-            value={newEmail}
-            onChange={(e) => setNewEmail(e.target.value)}
-            required
-            className={FIELD}
-          />
-          <PasswordField
-            placeholder="Current password"
-            autoComplete="current-password"
-            value={emailCurrentPassword}
-            onChange={(e) => setEmailCurrentPassword(e.target.value)}
-            required
-            className={FIELD}
-          />
-        </div>
-
-        {emailError && (
-          <p role="alert" className="mt-3 text-sm text-danger">
-            {emailError}
-          </p>
-        )}
-        {emailRequested && (
-          <p role="status" className="mt-3 text-sm text-muted">
-            Check the new address for a confirmation link. Nothing changes
-            until it confirms.
-          </p>
-        )}
-
-        <button type="submit" disabled={emailBusy} className="mt-3 btn btn-primary">
-          Change email
-        </button>
-      </form>
-
-      <form onSubmit={submit} className="card p-4">
-        <p className="mb-3 text-sm font-medium">Change password</p>
-
-        <div className="space-y-3">
-          <PasswordField
-            placeholder="Current password"
-            autoComplete="current-password"
-            value={currentPassword}
-            onChange={(e) => setCurrent(e.target.value)}
-            required
-            className={FIELD}
-          />
-          <PasswordField
-            placeholder="New password"
-            autoComplete="new-password"
-            value={newPassword}
-            onChange={(e) => setNew(e.target.value)}
-            required
-            className={FIELD}
-          />
-        </div>
-
-        {error && (
-          <p role="alert" className="mt-3 text-sm text-danger">
-            {error}
-          </p>
-        )}
-        {done && (
-          <p role="status" className="mt-3 text-sm text-muted">
-            Password changed. Other devices have been signed out.
-          </p>
-        )}
-
-        <button type="submit" disabled={busy} className="mt-3 btn btn-primary">
-          Change password
-        </button>
-
-        <p className="mt-4 border-t border-border pt-3 text-sm text-muted">
-          Don&apos;t know your current password?{" "}
-          <button
-            type="button"
-            disabled={busy || linkSent}
-            onClick={async () => {
-              setBusy(true);
-              setLinkMsg(null);
-              try {
-                const result = await emailMyResetLink();
-                if (result?.sent) {
-                  setLinkSent(true);
-                  setLinkMsg("Sent. Check your email for the link.");
-                } else {
-                  setLinkMsg(result?.error ?? "Something went wrong.");
-                }
-              } finally {
-                setBusy(false);
-              }
-            }}
-            className="underline underline-offset-4 hover:text-foreground disabled:opacity-50"
-          >
-            Email me a reset link
-          </button>
-        </p>
-        {linkMsg && (
-          <p role="status" className="mt-2 text-sm text-muted">
-            {linkMsg}
-          </p>
-        )}
-      </form>
     </div>
   );
 }
