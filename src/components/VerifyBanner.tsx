@@ -20,7 +20,7 @@ export default async function VerifyBanner() {
       Confirm your email so you can recover your account if you forget your
       password.{" "}
       <a href="/account" className="underline underline-offset-4">
-        Confirm now
+        Send yourself a link
       </a>
     </div>
   );
