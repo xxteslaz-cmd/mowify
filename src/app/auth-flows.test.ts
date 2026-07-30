@@ -67,10 +67,17 @@ vi.mock("@/lib/auth/session", async (importOriginal) => {
 
 const { requestReset } = await import("@/app/forgot-password/actions");
 const { completeReset } = await import("@/app/reset-password/[token]/actions");
-const { changePassword } = await import("@/app/account/actions");
+const { changePassword, requestEmailChange, cancelEmailChange } = await import(
+  "@/app/account/actions"
+);
 const { issueToken, consumeToken } = await import("@/lib/auth/token");
 const { confirmEmail } = await import("@/app/verify-email/[token]/actions");
 const VerifyEmailPage = (await import("@/app/verify-email/[token]/page")).default;
+const { confirmEmailChange } = await import(
+  "@/app/account/change-email/[token]/actions"
+);
+const ChangeEmailPage = (await import("@/app/account/change-email/[token]/page"))
+  .default;
 
 function form(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -80,6 +87,18 @@ function form(fields: Record<string, string>): FormData {
 
 function linkToken(html: string): string {
   const m = html.match(/https:\/\/mowify\.test\/[a-z-]+\/([A-Za-z0-9_-]+)/);
+  if (!m) throw new Error("no link found in email");
+  return m[1];
+}
+
+// Distinct from linkToken above: the change-email confirm link has two path
+// segments before the token ("/account/change-email/TOKEN"), so the
+// single-segment pattern used for the other links would capture "change-email"
+// as if it were the token instead.
+function changeEmailLinkToken(html: string): string {
+  const m = html.match(
+    /https:\/\/mowify\.test\/account\/change-email\/([A-Za-z0-9_-]+)/,
+  );
   if (!m) throw new Error("no link found in email");
   return m[1];
 }
@@ -389,5 +408,331 @@ describe("email verification", () => {
     expect(result?.error).toBeTruthy();
     const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
     expect(after.emailVerifiedAt).toBeNull();
+  });
+});
+
+describe("changing the account email", () => {
+  async function signedIn(password = "original-password") {
+    const { org, user } = await seedOwner(password);
+    currentUser.value = {
+      userId: user.id,
+      orgId: org.id,
+      role: "OWNER",
+      crewId: null,
+      name: "Owner",
+    };
+    currentToken.value = "acting-session";
+    await prisma.session.createMany({
+      data: [
+        {
+          tokenHash: hashToken("acting-session"),
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+        {
+          tokenHash: hashToken("other-device"),
+          userId: user.id,
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      ],
+    });
+    return user;
+  }
+
+  async function requestChange(newEmail = "new-address@example.com") {
+    await requestEmailChange({ newEmail, currentPassword: "original-password" });
+    const mail = sent.calls.find((c) => c.to === newEmail);
+    if (!mail) throw new Error("no confirmation email sent to the new address");
+    return changeEmailLinkToken(mail.html);
+  }
+
+  it("rejects a wrong current password and leaves the account alone", async () => {
+    const user = await signedIn();
+
+    // A stolen session must not be enough to move the account: the current
+    // password has to be verified the same way changePassword requires it.
+    const result = await requestEmailChange({
+      newEmail: "attacker@example.com",
+      currentPassword: "not-the-password",
+    });
+
+    expect(result?.error).toBeTruthy();
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toBe(user.email);
+    expect(after.pendingEmail).toBeNull();
+    expect(sent.calls).toHaveLength(0);
+  });
+
+  it("locks out after repeated wrong current-password guesses", async () => {
+    await signedIn();
+
+    for (let i = 0; i < 5; i++) {
+      await requestEmailChange({
+        newEmail: "attacker@example.com",
+        currentPassword: "not-the-password",
+      });
+    }
+
+    // A stolen session must not be able to guess the current password
+    // unthrottled: a correct guess would let an attacker move the account to
+    // an address they control.
+    const result = await requestEmailChange({
+      newEmail: "attacker@example.com",
+      currentPassword: "original-password",
+    });
+    expect(result?.error).toMatch(/too many attempts/i);
+    expect(sent.calls).toHaveLength(0);
+  });
+
+  it("sets pendingEmail and leaves email unchanged until the token is confirmed", async () => {
+    const user = await signedIn();
+
+    await requestChange("new-address@example.com");
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toBe(user.email);
+    expect(after.pendingEmail).toBe("new-address@example.com");
+
+    // One mail to the new address to confirm, one warning to the old address
+    // naming it — the only signal the real owner gets if this wasn't them.
+    expect(sent.calls).toHaveLength(2);
+    const toNew = sent.calls.find((c) => c.to === "new-address@example.com");
+    const toOld = sent.calls.find((c) => c.to === user.email);
+    expect(toNew?.html).toContain("https://mowify.test/account/change-email/");
+    expect(toOld?.html).toContain("new-address@example.com");
+  });
+
+  it("does not consume the token when the confirm page is merely fetched", async () => {
+    // Same bug this closes on /verify-email: a corporate mail scanner fetches
+    // every URL in an inbox, and a GET must not be able to burn the link
+    // before the owner clicks it themselves.
+    const user = await signedIn();
+    const raw = await requestChange();
+
+    await ChangeEmailPage({ params: Promise.resolve({ token: raw }) });
+
+    const row = await prisma.token.findFirstOrThrow({
+      where: { userId: user.id, purpose: "EMAIL_CHANGE" },
+    });
+    expect(row.consumedAt).toBeNull();
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toBe(user.email);
+
+    // And the link still works for the person it was sent to.
+    await expect(
+      confirmEmailChange(undefined, form({ token: raw })),
+    ).rejects.toThrow("redirect: /account");
+  });
+
+  it("confirming moves the address, clears pendingEmail, stamps emailVerifiedAt, and drops other sessions but not the acting one", async () => {
+    const user = await signedIn();
+    const oldEmail = user.email!;
+    const raw = await requestChange("new-address@example.com");
+
+    await expect(
+      confirmEmailChange(undefined, form({ token: raw })),
+    ).rejects.toThrow("redirect: /account");
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toBe("new-address@example.com");
+    expect(after.email).not.toBe(oldEmail);
+    expect(after.pendingEmail).toBeNull();
+    expect(after.emailVerifiedAt).not.toBeNull();
+
+    const rows = await prisma.session.findMany({ where: { userId: user.id } });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].tokenHash).toBe(hashToken("acting-session"));
+  });
+
+  it("refuses to reuse the same confirm link", async () => {
+    const user = await signedIn();
+    const raw = await requestChange("new-address@example.com");
+
+    await expect(
+      confirmEmailChange(undefined, form({ token: raw })),
+    ).rejects.toThrow("redirect: /account");
+
+    const second = await confirmEmailChange(undefined, form({ token: raw }));
+    expect(second?.error).toBeTruthy();
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toBe("new-address@example.com"); // unchanged by the replay
+  });
+
+  it("an EMAIL_CHANGE token cannot reset a password", async () => {
+    // Purpose binding: a one-hour email-change token must not be usable to
+    // reset a password, exactly as PASSWORD_RESET and EMAIL_VERIFICATION
+    // tokens must not substitute for one another.
+    const { user } = await seedOwner();
+    const changeToken = await issueToken(user.id, "EMAIL_CHANGE");
+
+    const result = await completeReset(
+      undefined,
+      form({ token: changeToken, password: "should-not-apply" }),
+    );
+
+    expect(result?.error).toBeTruthy();
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(await verifySecret(after.passwordHash!, "should-not-apply")).toBe(false);
+  });
+
+  it("produces a readable error rather than a raw crash if the address is taken before confirmation", async () => {
+    const user = await signedIn();
+    const raw = await requestChange("new-address@example.com");
+
+    // Simulates another signup claiming the address in the intervening hour.
+    // Done directly against the database, since this app's own signup flow
+    // would otherwise also refuse the duplicate at its own pre-check rather
+    // than exercising the unique-constraint path this test is after.
+    const otherOrg = await makeOrg();
+    await prisma.user.create({
+      data: {
+        orgId: otherOrg.id,
+        role: "OWNER",
+        name: "Someone else",
+        email: "new-address@example.com",
+        passwordHash: user.passwordHash,
+      },
+    });
+
+    const result = await confirmEmailChange(undefined, form({ token: raw }));
+
+    expect(result?.error).toBeTruthy();
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    // The write that would have moved the address is exactly the one that hit
+    // the unique constraint, so the original account must still be unmoved.
+    expect(after.email).not.toBe("new-address@example.com");
+    // And pendingEmail must not be left pointing at an address that can never
+    // be confirmed with this (now-consumed) token — otherwise /account would
+    // show a stale "confirm to finish" banner forever.
+    expect(after.pendingEmail).toBeNull();
+  });
+
+  it("cancelling clears the pending address and the outstanding token", async () => {
+    const user = await signedIn();
+    const raw = await requestChange("new-address@example.com");
+
+    await cancelEmailChange();
+
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.pendingEmail).toBeNull();
+
+    // The link from before the cancellation must no longer work.
+    const result = await confirmEmailChange(undefined, form({ token: raw }));
+    expect(result?.error).toBeTruthy();
+  });
+
+  it("suppresses a second request inside the cooldown, without touching the first link", async () => {
+    // Without this, any owner account (free to create via signup) could mail
+    // an arbitrary attacker-chosen inbox as fast as this action is invoked.
+    const user = await signedIn();
+    const raw = await requestChange("new-address@example.com");
+    sent.calls.length = 0;
+
+    const result = await requestEmailChange({
+      newEmail: "second-address@example.com",
+      currentPassword: "original-password",
+    });
+
+    expect(result?.error).toBeTruthy();
+    expect(sent.calls).toHaveLength(0);
+
+    // The cooldown suppresses a second send; it must not invalidate the link
+    // already issued.
+    await expect(
+      confirmEmailChange(undefined, form({ token: raw })),
+    ).rejects.toThrow("redirect: /account");
+    const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+    expect(after.email).toBe("new-address@example.com");
+  });
+
+  // Reviewer-supplied attack probes. The scenario: an attacker with a stolen
+  // session AND the current password (the request-time check alone cannot
+  // stop someone who has both) requests a move to their own address. The
+  // token reaches their inbox. The warning email tells the real owner to
+  // change their password — or, for a full compromise, to reset it — "if
+  // this wasn't you." Both of those remedies are worthless if the attacker's
+  // already-issued link still works afterwards.
+  describe("attack probes: reacting to the warning email must actually stop the move", () => {
+    it("PROBE A — a password change cancels an in-flight email change", async () => {
+      const user = await signedIn();
+      const oldEmail = user.email!;
+      const raw = await requestChange("attacker@evil.example");
+
+      // The owner reacts to the warning email exactly as it instructs.
+      await changePassword({
+        currentPassword: "original-password",
+        newPassword: "a-brand-new-password",
+      });
+
+      const afterPasswordChange = await prisma.user.findUniqueOrThrow({
+        where: { id: user.id },
+      });
+      expect(afterPasswordChange.pendingEmail).toBeNull();
+
+      // The attacker, who already holds the confirmation link, must not
+      // still be able to move the account after the owner "fixed" things.
+      const result = await confirmEmailChange(undefined, form({ token: raw }));
+      expect(result?.error).toBeTruthy();
+
+      const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(after.email).toBe(oldEmail);
+    });
+
+    it("PROBE B — a completed password reset cancels an in-flight email change", async () => {
+      const user = await signedIn();
+      const oldEmail = user.email!;
+      const raw = await requestChange("attacker@evil.example");
+
+      // The owner reacts to a full compromise the way the warning email's
+      // advice implies: requesting and completing a password reset, which
+      // normally drops every session.
+      await requestReset(undefined, form({ email: oldEmail }));
+      const resetMail = sent.calls.find(
+        (c) => c.to === oldEmail && c.html.includes("/reset-password/"),
+      );
+      if (!resetMail) throw new Error("no reset email sent");
+      const resetToken = linkToken(resetMail.html);
+
+      await expect(
+        completeReset(
+          undefined,
+          form({ token: resetToken, password: "recovered-password" }),
+        ),
+      ).rejects.toThrow("redirect: /login");
+
+      const afterReset = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(afterReset.pendingEmail).toBeNull();
+      expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0);
+
+      // The attacker's already-held confirmation link must not still work
+      // after this recovery — the worst case from the review, since a full
+      // reset that still lets the account move afterwards is worse than no
+      // warning at all.
+      const result = await confirmEmailChange(undefined, form({ token: raw }));
+      expect(result?.error).toBeTruthy();
+
+      const after = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+      expect(after.email).toBe(oldEmail);
+    });
+
+    it("PROBE C — the confirming request with no session of its own drops every session", async () => {
+      // The realistic case: the confirm link is emailed to the NEW address
+      // and normally opened on a device or browser with no cookie for this
+      // account at all — which is also why the route is public. A test that
+      // only exercises the acting-session path (as the earlier "drops other
+      // sessions" test does) never proves anything about production, where
+      // there usually is no acting session.
+      const user = await signedIn();
+      const raw = await requestChange("new-address@example.com");
+      currentToken.value = null;
+
+      await expect(
+        confirmEmailChange(undefined, form({ token: raw })),
+      ).rejects.toThrow("redirect: /account");
+
+      expect(await prisma.session.count({ where: { userId: user.id } })).toBe(0);
+    });
   });
 });

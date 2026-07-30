@@ -29,7 +29,7 @@ export async function requestReset(
   if (user && user.role === "OWNER" && user.active && user.email) {
     // Checked before superseding anything: the cooldown reads prior tokens'
     // createdAt, and issueToken marks them consumed.
-    if (!(await isWithinCooldown(user.id))) {
+    if (!(await isWithinCooldown(user.id, "PASSWORD_RESET"))) {
       const raw = await issueToken(user.id, "PASSWORD_RESET");
       const { subject, html } = resetPasswordEmail(
         appUrl(`/reset-password/${raw}`),

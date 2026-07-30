@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { login } from "./actions";
+import PasswordField from "@/components/PasswordField";
 
 export default function LoginForm() {
   const [state, action, pending] = useActionState(login, undefined);
@@ -26,10 +27,9 @@ export default function LoginForm() {
         <label htmlFor="password" className="mb-1 block text-sm font-medium">
           Password
         </label>
-        <input
+        <PasswordField
           id="password"
           name="password"
-          type="password"
           autoComplete="current-password"
           required
           className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm dark:border-white/15 dark:bg-transparent"

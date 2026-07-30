@@ -6,10 +6,18 @@ import { hashToken } from "./session";
 
 export const RESET_TOKEN_MS = 60 * 60 * 1000;
 export const VERIFICATION_TOKEN_MS = 7 * 24 * 60 * 60 * 1000;
-export const RESET_COOLDOWN_MS = 60 * 1000;
+// One cooldown window, shared by every purpose: whichever address a token
+// gets emailed to, the abuse it prevents is the same shape — a script driving
+// unlimited mail at that inbox as fast as the request can be repeated.
+export const TOKEN_COOLDOWN_MS = 60 * 1000;
 
 export function tokenLifetime(purpose: TokenPurpose): number {
-  return purpose === "PASSWORD_RESET" ? RESET_TOKEN_MS : VERIFICATION_TOKEN_MS;
+  // EMAIL_CHANGE gets the same short lifetime as PASSWORD_RESET: it moves a
+  // security-critical value, so it is treated as a credential rather than the
+  // more forgiving week-long verification link.
+  return purpose === "PASSWORD_RESET" || purpose === "EMAIL_CHANGE"
+    ? RESET_TOKEN_MS
+    : VERIFICATION_TOKEN_MS;
 }
 
 /**
@@ -93,15 +101,22 @@ export async function consumeToken(
 }
 
 /**
- * Anyone can POST the reset form repeatedly, so without this it is an
- * email-bomb aimed at someone else's inbox.
+ * Anyone who can invoke the request action can do so repeatedly, so without
+ * this it is an email-bomb aimed at whatever inbox the caller names — an
+ * unknown address for a password reset, or an attacker-chosen one for an
+ * email change. Purpose-scoped so a burst of password resets does not also
+ * throttle an unrelated email-change request for the same user, or vice
+ * versa.
  */
-export async function isWithinCooldown(userId: string): Promise<boolean> {
+export async function isWithinCooldown(
+  userId: string,
+  purpose: TokenPurpose,
+): Promise<boolean> {
   const recent = await prisma.token.findFirst({
     where: {
       userId,
-      purpose: "PASSWORD_RESET",
-      createdAt: { gt: new Date(Date.now() - RESET_COOLDOWN_MS) },
+      purpose,
+      createdAt: { gt: new Date(Date.now() - TOKEN_COOLDOWN_MS) },
     },
   });
   return recent !== null;

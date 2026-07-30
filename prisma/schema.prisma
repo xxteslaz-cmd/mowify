@@ -97,6 +97,7 @@ model Job {
 enum TokenPurpose {
   PASSWORD_RESET
   EMAIL_VERIFICATION
+  EMAIL_CHANGE
 }
 
 enum Role {
@@ -128,6 +129,12 @@ model User {
   // Owner credentials. Null for CREW users.
   email        String? @unique
   passwordHash String?
+
+  // Set while an email change is awaiting confirmation from the new address.
+  // Not unique-constrained: two owners may both have a pending change to the
+  // same address, and only the first to confirm gets it. The uniqueness that
+  // matters is on `email` above, which already exists.
+  pendingEmail String?
 
   // Crew credentials. Null for OWNER users. The username is unique per-org
   // rather than globally, so every company can have its own "jose".

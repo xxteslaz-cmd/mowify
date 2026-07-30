@@ -29,3 +29,30 @@ export function verifyEmailEmail(link: string) {
     ),
   };
 }
+
+export function changeEmailEmail(link: string) {
+  return {
+    subject: "Confirm your new Mowify email",
+    html: WRAP(
+      `<p>Someone asked to move this Mowify account to this email address.</p>` +
+        BUTTON(link, "Confirm my new email") +
+        `<p>This link works once and expires in an hour. Nothing changes until you confirm.</p>` +
+        `<p>If this wasn't you, ignore this email — your account will stay as it is.</p>`,
+    ),
+  };
+}
+
+// Sent to the CURRENT address, not the new one, so the real owner has a
+// chance to react before the account moves anywhere: it is the only signal
+// they get if someone with a stolen session (and a guessed or leaked
+// password) is behind the change.
+export function emailChangeWarningEmail(newEmail: string) {
+  return {
+    subject: "Your Mowify account email is changing",
+    html: WRAP(
+      `<p>Someone requested to change the email on this Mowify account to <strong>${newEmail}</strong>.</p>` +
+        `<p>Nothing has changed yet — the new address must confirm first, and the link expires in an hour.</p>` +
+        `<p>If this wasn't you, sign in and change your password right away.</p>`,
+    ),
+  };
+}

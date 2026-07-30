@@ -113,13 +113,13 @@ describe("consumeToken", () => {
 describe("isWithinCooldown", () => {
   it("is false when no token was ever issued", async () => {
     const user = await owner();
-    expect(await isWithinCooldown(user.id)).toBe(false);
+    expect(await isWithinCooldown(user.id, "PASSWORD_RESET")).toBe(false);
   });
 
   it("is true immediately after issuing", async () => {
     const user = await owner();
     await issueToken(user.id, "PASSWORD_RESET");
-    expect(await isWithinCooldown(user.id)).toBe(true);
+    expect(await isWithinCooldown(user.id, "PASSWORD_RESET")).toBe(true);
   });
 
   it("is false once the cooldown has passed", async () => {
@@ -129,6 +129,12 @@ describe("isWithinCooldown", () => {
       where: { userId: user.id },
       data: { createdAt: new Date(Date.now() - 120_000) },
     });
-    expect(await isWithinCooldown(user.id)).toBe(false);
+    expect(await isWithinCooldown(user.id, "PASSWORD_RESET")).toBe(false);
+  });
+
+  it("is scoped per purpose, so one purpose's cooldown does not throttle another", async () => {
+    const user = await owner();
+    await issueToken(user.id, "PASSWORD_RESET");
+    expect(await isWithinCooldown(user.id, "EMAIL_CHANGE")).toBe(false);
   });
 });
