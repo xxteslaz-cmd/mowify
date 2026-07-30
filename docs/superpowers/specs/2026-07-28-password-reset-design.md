@@ -175,9 +175,12 @@ reset path and the crew-deactivation path both depend on it deleting everything.
 
 ### Verification
 
-Signup issues an `EMAIL_VERIFICATION` token and sends the email. **That send
-must not be able to fail signup** — a Resend outage must still produce a working
-account, and the person can resend from `/account`.
+**Signup deliberately sends nothing.** It is unauthenticated, so mailing from it
+let anyone script an arbitrary recipient list and burn the sending domain's
+reputation — the practical damage being a spam-flagged or suspended Resend
+account rather than harm to any one recipient. Verification is started from
+`/account` instead, which requires a session and is rate limited. The reminder
+banner is what prompts a new owner to do it.
 
 `/verify-email/[token]` looks the token up by hash and purpose, rejects
 missing/expired/consumed, then stamps `emailVerifiedAt` and `consumedAt`.
