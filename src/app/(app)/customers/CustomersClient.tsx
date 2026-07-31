@@ -7,7 +7,7 @@ import type { Crew, Frequency, ServiceType } from "@prisma/client";
 import { todayISO } from "@/lib/date";
 import { SERVICE_TYPES, SERVICE_LABEL, FREQUENCIES, FREQUENCY_LABEL } from "@/lib/labels";
 import { createCustomer } from "./actions";
-import { createJob } from "@/app/dashboard/actions";
+import { createJob } from "@/app/(app)/dashboard/actions";
 
 type CustomerRow = {
   id: string;

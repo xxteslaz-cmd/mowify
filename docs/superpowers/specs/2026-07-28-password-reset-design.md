@@ -1,4 +1,4 @@
-# Password reset and email verification for Mowify
+# Password reset and email verification for GroundsRoute
 
 **Date:** 2026-07-28
 **Status:** Approved, ready for implementation planning

@@ -43,7 +43,7 @@ export default async function ChangeEmailPage({
       <h1 className="mb-1 text-xl font-semibold">Confirm your new email</h1>
       <p className="mb-6 text-sm text-muted">
         {user?.pendingEmail
-          ? `Move this Mowify account to ${user.pendingEmail}?`
+          ? `Move this GroundsRoute account to ${user.pendingEmail}?`
           : "Confirm this email address change."}
       </p>
       <ConfirmForm token={token} />

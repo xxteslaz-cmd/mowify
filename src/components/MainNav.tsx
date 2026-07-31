@@ -31,7 +31,7 @@ export default function MainNav({
           back into a plain top bar rather than eating the screen. */}
       <header className="border-b border-border bg-surface md:hidden">
         <nav className="flex items-center gap-6 px-4 py-3">
-          <span className="text-lg font-semibold">Mowify</span>
+          <span className="text-lg font-semibold">GroundsRoute</span>
           {links.map(({ href, label }) => {
             const active = isActive(href);
             return (
@@ -58,7 +58,7 @@ export default function MainNav({
           fight the main column for width with manual offsets. */}
       <aside className="hidden md:sticky md:top-0 md:flex md:h-screen md:w-60 md:shrink-0 md:flex-col md:border-r md:border-border md:bg-surface">
         <div className="px-5 py-5">
-          <span className="text-lg font-semibold">Mowify</span>
+          <span className="text-lg font-semibold">GroundsRoute</span>
         </div>
 
         <nav className="flex flex-col gap-1 px-3">

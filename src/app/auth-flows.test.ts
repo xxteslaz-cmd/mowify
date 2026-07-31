@@ -44,7 +44,7 @@ vi.mock("@/lib/auth/dal", () => ({
 }));
 
 vi.mock("@/lib/email/client", () => ({
-  appUrl: (path: string) => `https://mowify.test${path}`,
+  appUrl: (path: string) => `https://groundsroute.test${path}`,
   sendEmail: async (input: { to: string; subject: string; html: string }) => {
     sent.calls.push(input);
     return true;
@@ -75,7 +75,7 @@ vi.mock("@/lib/auth/session", async (importOriginal) => {
 const { requestReset } = await import("@/app/forgot-password/actions");
 const { completeReset } = await import("@/app/reset-password/[token]/actions");
 const { changePassword, emailMyResetLink, requestEmailChange, cancelEmailChange } = await import(
-  "@/app/account/actions"
+  "@/app/(app)/account/actions"
 );
 const { signup } = await import("@/app/signup/actions");
 const { issueToken, consumeToken } = await import("@/lib/auth/token");
@@ -94,7 +94,7 @@ function form(fields: Record<string, string>): FormData {
 }
 
 function linkToken(html: string): string {
-  const m = html.match(/https:\/\/mowify\.test\/[a-z-]+\/([A-Za-z0-9_-]+)/);
+  const m = html.match(/https:\/\/groundsroute\.test\/[a-z-]+\/([A-Za-z0-9_-]+)/);
   if (!m) throw new Error("no link found in email");
   return m[1];
 }
@@ -105,7 +105,7 @@ function linkToken(html: string): string {
 // as if it were the token instead.
 function changeEmailLinkToken(html: string): string {
   const m = html.match(
-    /https:\/\/mowify\.test\/account\/change-email\/([A-Za-z0-9_-]+)/,
+    /https:\/\/groundsroute\.test\/account\/change-email\/([A-Za-z0-9_-]+)/,
   );
   if (!m) throw new Error("no link found in email");
   return m[1];
@@ -147,7 +147,7 @@ describe("requesting a reset", () => {
 
     expect(sent.calls).toHaveLength(1);
     expect(sent.calls[0].to).toBe(user.email);
-    expect(sent.calls[0].html).toContain("https://mowify.test/reset-password/");
+    expect(sent.calls[0].html).toContain("https://groundsroute.test/reset-password/");
 
     const tokens = await prisma.token.findMany({ where: { userId: user.id } });
     expect(tokens).toHaveLength(1);
@@ -506,7 +506,7 @@ describe("changing the account email", () => {
     expect(sent.calls).toHaveLength(2);
     const toNew = sent.calls.find((c) => c.to === "new-address@example.com");
     const toOld = sent.calls.find((c) => c.to === user.email);
-    expect(toNew?.html).toContain("https://mowify.test/account/change-email/");
+    expect(toNew?.html).toContain("https://groundsroute.test/account/change-email/");
     expect(toOld?.html).toContain("new-address@example.com");
   });
 

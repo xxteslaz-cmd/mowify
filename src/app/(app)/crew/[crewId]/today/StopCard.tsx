@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { JobWithCustomer } from "@/lib/types";
-import { updateJobStatus } from "@/app/dashboard/actions";
+import { updateJobStatus } from "@/app/(app)/dashboard/actions";
 import { serviceLabel } from "@/lib/labels";
 
 export default function StopCard({

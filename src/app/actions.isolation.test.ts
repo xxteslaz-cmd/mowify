@@ -52,7 +52,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-const { createCustomer, updateCustomer } = await import("@/app/customers/actions");
+const { createCustomer, updateCustomer } = await import("@/app/(app)/customers/actions");
 const {
   createJob,
   updateJob,
@@ -63,7 +63,7 @@ const {
   updateJobStatus,
   bulkRescheduleDay,
   deleteJob,
-} = await import("@/app/dashboard/actions");
+} = await import("@/app/(app)/dashboard/actions");
 
 const DATE = "2026-08-03";
 
