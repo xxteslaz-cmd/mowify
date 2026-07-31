@@ -9,21 +9,23 @@ export default async function LoginPage() {
   if (user) redirect("/");
 
   return (
-    <div className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="mb-1 text-xl font-semibold">Sign in to Mowify</h1>
-      <p className="mb-6 text-sm text-muted">
-        For owners and office staff.
-      </p>
+    <div className="mx-auto max-w-sm px-4 py-10">
+      <div className="card p-5">
+        <h1 className="text-lg font-semibold">Sign in to Mowify</h1>
+        <p className="mt-0.5 text-sm text-muted">For owners and office staff.</p>
 
-      <LoginForm />
+        <div className="mt-4">
+          <LoginForm />
+        </div>
 
-      <p className="mt-4 text-sm text-muted">
-        <Link href="/forgot-password" className="underline underline-offset-4">
-          Forgot your password?
-        </Link>
-      </p>
+        <p className="mt-3 text-sm text-muted">
+          <Link href="/forgot-password" className="underline underline-offset-4">
+            Forgot your password?
+          </Link>
+        </p>
+      </div>
 
-      <p className="mt-6 text-sm text-muted">
+      <p className="mt-4 text-center text-sm text-muted">
         No account yet?{" "}
         <Link href="/signup" className="underline underline-offset-4">
           Create your company

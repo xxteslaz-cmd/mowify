@@ -1,10 +1,13 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/dal";
 import { deleteAllSessionsForUser } from "@/lib/auth/session";
+import LandingPage from "./LandingPage";
 
 export default async function Home() {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+  // Signed out is the only case that no longer redirects: everyone else
+  // still follows the exact path they always did, below.
+  if (!user) return <LandingPage />;
   if (user.role === "CREW" && user.crewId) {
     redirect(`/crew/${user.crewId}/today`);
   }

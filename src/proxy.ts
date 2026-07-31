@@ -22,6 +22,15 @@ const PUBLIC_PREFIXES = [
 export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Exact match, not a prefix: every route starts with "/", so adding it to
+  // PUBLIC_PREFIXES would make pathname.startsWith("/") true for the whole
+  // site and quietly remove the signed-out redirect everywhere. The root
+  // itself renders a public landing page when signed out (see src/app/page.tsx)
+  // but every other route must still fall through to the check below.
+  if (pathname === "/") {
+    return NextResponse.next();
+  }
+
   if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }

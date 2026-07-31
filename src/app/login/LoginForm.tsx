@@ -8,7 +8,7 @@ export default function LoginForm() {
   const [state, action, pending] = useActionState(login, undefined);
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={action} className="space-y-3">
       <div>
         <label htmlFor="email" className="mb-1 block text-sm font-medium">
           Email
