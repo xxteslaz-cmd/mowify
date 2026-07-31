@@ -184,4 +184,27 @@ h3 {
   .field::placeholder {
     color: var(--muted);
   }
+
+  /* The landing page hero is the one place in the app that gets to be a
+     billboard rather than a workspace, so it earns a background the rest of
+     the app doesn't use: a quiet wash of the brand colour rather than the
+     flat page background. Built from existing tokens so it still flips with
+     the theme instead of needing its own dark-mode override. */
+  .hero-gradient {
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, var(--brand-soft), var(--background) 70%);
+  }
+
+  /* One size larger than anything a form or dashboard needs, reserved for the
+     hero headline so it reads as marketing rather than app chrome. */
+  .text-display {
+    font-size: 2.25rem;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  @media (min-width: 640px) {
+    .text-display {
+      font-size: 3rem;
+    }
+  }
 }
