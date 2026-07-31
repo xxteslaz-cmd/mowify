@@ -9,9 +9,9 @@ const BUTTON = (href: string, label: string) =>
 
 export function resetPasswordEmail(link: string) {
   return {
-    subject: "Reset your Mowify password",
+    subject: "Reset your GroundsRoute password",
     html: WRAP(
-      `<p>Someone asked to reset the password for this Mowify account.</p>` +
+      `<p>Someone asked to reset the password for this GroundsRoute account.</p>` +
         BUTTON(link, "Choose a new password") +
         `<p>This link works once and expires in an hour.</p>` +
         `<p>If this wasn't you, ignore this email — your password has not changed.</p>`,
@@ -21,7 +21,7 @@ export function resetPasswordEmail(link: string) {
 
 export function verifyEmailEmail(link: string) {
   return {
-    subject: "Confirm your Mowify email",
+    subject: "Confirm your GroundsRoute email",
     html: WRAP(
       `<p>Confirm this address so you can recover your account if you ever forget your password.</p>` +
         BUTTON(link, "Confirm my email") +
@@ -32,9 +32,9 @@ export function verifyEmailEmail(link: string) {
 
 export function changeEmailEmail(link: string) {
   return {
-    subject: "Confirm your new Mowify email",
+    subject: "Confirm your new GroundsRoute email",
     html: WRAP(
-      `<p>Someone asked to move this Mowify account to this email address.</p>` +
+      `<p>Someone asked to move this GroundsRoute account to this email address.</p>` +
         BUTTON(link, "Confirm my new email") +
         `<p>This link works once and expires in an hour. Nothing changes until you confirm.</p>` +
         `<p>If this wasn't you, ignore this email — your account will stay as it is.</p>`,
@@ -48,9 +48,9 @@ export function changeEmailEmail(link: string) {
 // password) is behind the change.
 export function emailChangeWarningEmail(newEmail: string) {
   return {
-    subject: "Your Mowify account email is changing",
+    subject: "Your GroundsRoute account email is changing",
     html: WRAP(
-      `<p>Someone requested to change the email on this Mowify account to <strong>${newEmail}</strong>.</p>` +
+      `<p>Someone requested to change the email on this GroundsRoute account to <strong>${newEmail}</strong>.</p>` +
         `<p>Nothing has changed yet — the new address must confirm first, and the link expires in an hour.</p>` +
         `<p>If this wasn't you, sign in and change your password right away.</p>`,
     ),

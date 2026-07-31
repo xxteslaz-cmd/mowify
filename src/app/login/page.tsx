@@ -11,7 +11,7 @@ export default async function LoginPage() {
   return (
     <div className="mx-auto max-w-sm px-4 py-10">
       <div className="card p-5">
-        <h1 className="text-lg font-semibold">Sign in to Mowify</h1>
+        <h1 className="text-lg font-semibold">Sign in to GroundsRoute</h1>
         <p className="mt-0.5 text-sm text-muted">For owners and office staff.</p>
 
         <div className="mt-4">

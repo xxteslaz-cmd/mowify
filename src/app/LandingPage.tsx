@@ -58,18 +58,21 @@ export default function LandingPage() {
               The day, planned on one board.
             </h1>
             <p className="mt-4 max-w-md text-lg text-muted">
-              Mowify is crew scheduling for small landscaping companies.
+              GroundsRoute is crew scheduling for small landscaping companies.
               Build the day once on your board, and every crew opens their
               phone to just their stops.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/signup" className="btn btn-primary btn-lg">
-                Start free
+                Start your free trial
               </Link>
               <Link href="/login" className="btn btn-secondary btn-lg">
                 Sign in
               </Link>
             </div>
+            <p className="mt-3 text-sm text-muted">
+              30 days free, cancel any time, no card required.
+            </p>
           </div>
           <BoardMock />
         </div>
@@ -144,12 +147,12 @@ export default function LandingPage() {
           Put your week on one board.
         </h2>
         <p className="mx-auto mt-3 max-w-md text-sm text-muted">
-          Free to start. Add your crews and customers whenever you&apos;re
-          ready.
+          30 days free, cancel any time, no card required. Add your crews and
+          customers whenever you&apos;re ready.
         </p>
         <div className="mt-6 flex justify-center">
           <Link href="/signup" className="btn btn-primary btn-lg">
-            Start free
+            Start your free trial
           </Link>
         </div>
       </section>

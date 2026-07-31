@@ -1,16 +1,16 @@
-# Multi-tenant authentication for Mowify
+# Multi-tenant authentication for GroundsRoute
 
 **Date:** 2026-07-27
 **Status:** Approved, ready for implementation planning
 
 ## Problem
 
-Mowify has no authentication. Every route is publicly reachable and every server
+GroundsRoute has no authentication. Every route is publicly reachable and every server
 action in `src/app/dashboard/actions.ts` and `src/app/customers/actions.ts` is
 callable by anyone who finds the URL. Customer names, addresses, and phone
 numbers are exposed, and any visitor can create, reschedule, or delete jobs.
 
-Mowify is also becoming a multi-tenant product: many landscaping companies sign
+GroundsRoute is also becoming a multi-tenant product: many landscaping companies sign
 up independently, each with isolated crews, customers, and jobs. The current
 schema has no notion of a company, so isolation has to be introduced alongside
 authentication.
