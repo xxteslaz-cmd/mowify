@@ -1,7 +1,15 @@
 # Billing: a card-required 30-day trial
 
 **Date:** 2026-07-31
-**Status:** Approved, ready for implementation planning
+**Status:** Partly superseded by `2026-08-04-paid-signup-gate-design.md`.
+
+The **Signup** section below was rejected: creating the account first and
+holding it read-only until a webhook confirmed a card was judged too weak a
+gate. The replacement creates no `Org` or `User` until Stripe confirms.
+
+Everything else here still stands and is carried forward by that spec — the
+read-only line, `requireActiveOrg`, the `Org` columns, the Billing Portal, and
+the webhook's subscription-mirroring behaviour.
 
 ## Problem
 
