@@ -16,8 +16,8 @@ Every task's requirements implicitly include this section.
 
 - **Read the relevant guide in `node_modules/next/dist/docs/` before writing code.** This Next version differs from training data.
 - **Every commit must pass all four:** `npx tsc --noEmit`, `npm run lint`, `npm run build`, `npm test`. `npm test` alone is insufficient — Vitest transpiles without typechecking.
-- **Schema changes must reach both databases:** `npm run db:push` and `npm run db:push:test`. There is no migrations directory.
-- **Never write to `DATABASE_URL`.** It is live production data. Task 9's script is the sole exception and requires the owner's explicit say-so at run time.
+- **Never write to `DATABASE_URL`.** It is live production data (`neondb`).
+- **During this plan, push schema to the TEST database only:** `npm run db:push:test`. Do **not** run `npm run db:push` — it targets production. `AGENTS.md` says every schema change must reach both databases, and it eventually must, but the owner ruled on 2026-08-04 that production's push happens at merge/deploy time by their own hand, together with Task 9's grandfathering script. An implementer running it mid-plan would alter the live schema for a feature that is not merged.
 - **Server Actions must return error state, never throw it.** A thrown message is redacted by production React. `redirect()` is exempt — it is Next control flow, not an error.
 - **`err.meta.target` is `undefined` with `@prisma/adapter-pg`.** Use `p2002Fields` from `src/lib/prisma-errors.ts`.
 - **Anything reaching Prisma's `data` needs a `.strict()` Zod allowlist.** A Server Action's TypeScript parameter type is erased at runtime.
@@ -164,13 +164,15 @@ model PendingSignup {
 }
 ```
 
-- [ ] **Step 4: Push the schema to both databases**
+- [ ] **Step 4: Push the schema to the TEST database only**
 
 ```bash
-npm run db:push && npm run db:push:test
+npm run db:push:test
 ```
 
-Expected: both report the database is in sync. If `db:push` prompts about data loss, stop and report — these are additive columns and must not require a reset.
+Expected: it reports the database is in sync. If it prompts about data loss, stop and report — these are additive columns and must not require a reset.
+
+**Do not run `npm run db:push`.** That targets `DATABASE_URL`, which is live production. Production's schema push happens at merge/deploy time by the owner, not from inside this plan.
 
 - [ ] **Step 5: Add the factory and extend the test reset**
 
