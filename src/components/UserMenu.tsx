@@ -25,6 +25,18 @@ export default async function UserMenu() {
           >
             Account
           </a>
+          {/* Until this existed the only route to /billing was the lapsed
+              banner, which by definition appears only once something has gone
+              wrong. A customer in good standing had no way to replace an
+              expiring card, read an invoice, or cancel without guessing the
+              URL — and cancelling is expected to be at least as easy as
+              subscribing. */}
+          <a
+            href="/billing"
+            className="text-sm text-muted hover:text-foreground md:rounded-md md:px-3 md:py-1.5 md:hover:bg-foreground/5 md:hover:text-foreground"
+          >
+            Billing
+          </a>
         </div>
       )}
       <div className="flex items-center gap-3 md:w-full md:flex-col md:items-stretch md:gap-2 md:border-t md:border-border md:pt-3">
