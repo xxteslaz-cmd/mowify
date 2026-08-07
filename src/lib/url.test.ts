@@ -3,7 +3,13 @@ import { appUrl, requireAppUrl } from "@/lib/url";
 
 const original = process.env.APP_URL;
 afterEach(() => {
-  process.env.APP_URL = original;
+  // Assigning `undefined` back to process.env.APP_URL does not delete the
+  // key — Node coerces it to the string "undefined", which is truthy and
+  // would make requireAppUrl() stop throwing for every test file after this
+  // one (fileParallelism is off, so state leaks across files). Absence has
+  // to be restored as absence.
+  if (original === undefined) delete process.env.APP_URL;
+  else process.env.APP_URL = original;
 });
 
 describe("appUrl", () => {
