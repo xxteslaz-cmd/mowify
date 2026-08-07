@@ -83,18 +83,24 @@ async function completeSignup(session: Stripe.Checkout.Session): Promise<void> {
     return;
   }
 
-  // Resolved before the transaction opens, for two reasons. First, a network
-  // call has no business holding a database transaction open — Stripe's
-  // round trip is exactly the kind of latency an interactive transaction
-  // should never wait on. Second, the id itself is already in the signed
-  // event: session.subscription needs no network call to trust, so writing
-  // it below does not depend on this request succeeding. Only status,
-  // trial_end and the period end come from the retrieved object, and if
-  // retrieval fails those simply stay null — recoverable later by any
-  // subscription event, because the org is still findable by its id.
+  // Resolved before the transaction opens: a network call has no business
+  // holding a database transaction open, and Stripe's round trip is exactly
+  // the kind of latency an interactive transaction should never wait on.
+  //
+  // The id comes from the signed event rather than the retrieved object, so
+  // the column every future webhook keys off never depends on this request.
+  // The status does depend on it, and a failure here must therefore reach the
+  // route as a 500 so Stripe retries: writing a null status would mark the
+  // customer inactive the instant they finished paying, and nothing would fix
+  // it — customer.subscription.created is typically delivered before or
+  // alongside this event and is dropped, because no org exists to mirror it
+  // onto yet. The next event we act on would be the trial ending, thirty days
+  // of read-only later.
   const stripeSubscriptionId = subscriptionId(session.subscription);
   const stripeCustomerId = typeof session.customer === "string" ? session.customer : null;
-  const subscription = await retrieveSubscription(session.subscription);
+  const subscription = stripeSubscriptionId
+    ? await retrieveSubscription(stripeSubscriptionId)
+    : null;
 
   // Provisioning, writing the org's billing fields, and consuming the
   // PendingSignup row all happen in one transaction. Committing the org
@@ -216,7 +222,6 @@ async function mirrorSubscription(id: string): Promise<void> {
   }
 
   const subscription = await retrieveSubscription(id);
-  if (!subscription) return;
 
   await prisma.org.update({
     where: { id: org.id },
@@ -235,27 +240,18 @@ function subscriptionId(
 }
 
 /**
- * A failed retrieval degrades to null rather than throwing. This is a
- * read used only to refresh status/trial/period-end display fields — the
- * column that future webhook events key off (stripeSubscriptionId) comes
- * from the signed event itself, not from this call, so a Stripe outage here
- * costs us a stale status, never an unlinkable org.
+ * Deliberately does not catch, for the same reason cancelSubscription does not.
+ *
+ * Swallowing this used to look cheap because it only feeds "display" columns,
+ * but subscriptionStatus is what isOrgActive() reads, so a null here is the
+ * difference between a working account and a read-only one. It is worse in the
+ * other direction: a customer.subscription.deleted whose retrieve failed would
+ * answer 200 and leave the org "active" forever, because Stripe does not
+ * redeliver an event it was told was handled. Letting the error reach the route
+ * means a 500 and a retry, and this read is idempotent, so a retry is free.
  */
-async function retrieveSubscription(
-  ref: string | Stripe.Subscription | null | undefined,
-): Promise<Stripe.Subscription | null> {
-  const id = subscriptionId(ref);
-  if (!id) return null;
-  try {
-    return (await getStripe().subscriptions.retrieve(id)) as Stripe.Subscription;
-  } catch (err) {
-    console.error(
-      "Stripe webhook: could not retrieve subscription",
-      id,
-      err instanceof Error ? err.message : String(err),
-    );
-    return null;
-  }
+async function retrieveSubscription(id: string): Promise<Stripe.Subscription> {
+  return (await getStripe().subscriptions.retrieve(id)) as Stripe.Subscription;
 }
 
 /**

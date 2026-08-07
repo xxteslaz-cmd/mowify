@@ -281,21 +281,48 @@ describe("checkout.session.completed", () => {
     ).rejects.toThrow("Stripe is down");
   });
 
-  it("keeps the org linkable by its subscription id even when Stripe retrieval fails", async () => {
-    // stripeSubscriptionId is taken from the signed event, not from the
-    // retrieved subscription object. If retrieval instead supplied the id
-    // and the call failed, the org would be provisioned with a null
-    // stripeSubscriptionId and no future webhook event could ever find it —
-    // mirrorSubscription looks organizations up BY that column.
-    subscriptions.value.delete("sub_1");
-    const pending = await makePendingSignup({ email: "flaky-retrieve@example.com" });
+  it("takes stripeSubscriptionId from the signed event, not from the API response", async () => {
+    // If the id came from the retrieved object instead, a response that did
+    // not carry one would provision an org with a null stripeSubscriptionId
+    // that no future webhook event could ever find — mirrorSubscription looks
+    // organizations up BY that column.
+    subscriptions.value.set("sub_1", {
+      status: "trialing",
+      trial_end: 1790000000,
+      items: { data: [{ current_period_end: 1790000000 }] },
+    });
+    const pending = await makePendingSignup({ email: "no-id@example.com" });
 
     await handleStripeEvent(completedEvent({ client_reference_id: pending.id }));
 
     const org = await prisma.org.findFirstOrThrow();
     expect(org.stripeSubscriptionId).toBe("sub_1");
-    expect(org.subscriptionStatus).toBeNull();
-    expect(org.trialEndsAt).toBeNull();
+    expect(org.subscriptionStatus).toBe("trialing");
+  });
+
+  it("500s rather than provisioning a customer who cannot be given a status", async () => {
+    // Degrading a failed retrieve to a null status used to look harmless
+    // because it only feeds display columns. It is not: isOrgActive() reads
+    // subscriptionStatus, so the customer would be read-only the instant they
+    // finished paying, and nothing would repair it. The subscription.created
+    // event that could have is delivered before or alongside this one and gets
+    // dropped, since no org exists to mirror it onto yet; the next event we
+    // act on is the trial ending, thirty days later. A 500 buys a retry.
+    subscriptions.value.delete("sub_1");
+    const pending = await makePendingSignup({ email: "flaky-retrieve@example.com" });
+
+    await expect(
+      handleStripeEvent(completedEvent({ client_reference_id: pending.id })),
+    ).rejects.toThrow(/no such subscription/);
+
+    // Nothing half-made is left for the retry to trip over.
+    expect(await prisma.org.count()).toBe(0);
+    expect(await prisma.user.count()).toBe(0);
+    const fresh = await prisma.pendingSignup.findUniqueOrThrow({
+      where: { id: pending.id },
+    });
+    expect(fresh.consumedAt).toBeNull();
+    expect(fresh.passwordHash).not.toBeNull();
   });
 
   it("honours a completion for an expired but unswept row", async () => {
@@ -462,6 +489,27 @@ describe("subscription lifecycle", () => {
     ).toBe("active");
   });
 
+  it("500s on a cancellation it cannot read, rather than leaving the org active", async () => {
+    // The expensive direction. Swallowing this answered Stripe 200 for a
+    // customer.subscription.deleted, and Stripe never redelivers an event it
+    // was told was handled — so a cancelled customer kept full access forever.
+    const org = await orgWithSubscription("active");
+    subscriptions.value.delete("sub_1");
+
+    await expect(
+      handleStripeEvent({
+        id: "evt_8",
+        type: "customer.subscription.deleted",
+        data: { object: { id: "sub_1" } },
+      } as never),
+    ).rejects.toThrow(/no such subscription/);
+
+    // Still active only because the retry has not happened yet; the 500 is
+    // what guarantees there will be one.
+    const fresh = await prisma.org.findUniqueOrThrow({ where: { id: org.id } });
+    expect(fresh.subscriptionStatus).toBe("active");
+  });
+
   it("ignores a subscription that belongs to no org here", async () => {
     subscriptions.value.set("sub_9", {
       id: "sub_9",
@@ -606,6 +654,37 @@ describe("signature verification", () => {
     });
     expect(user).not.toBeNull();
     expect(user?.role).toBe("OWNER");
+  });
+
+  it("reports a missing webhook secret as 500, not as a bad signature", async () => {
+    // A 400 here reads as "Stripe sent us something invalid" and sends the
+    // operator to Stripe's dashboard, while the actual fault is an unset
+    // environment variable on this side. Stripe gives up retrying after about
+    // three days, so every signup misdiagnosed inside that window is lost.
+    process.env.STRIPE_SECRET_KEY = "sk_test_x";
+    process.env.STRIPE_PRICE_ID = "price_x";
+    process.env.APP_URL = "https://app.example.com";
+    const saved = process.env.STRIPE_WEBHOOK_SECRET;
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+
+    try {
+      const { POST } = await import("@/app/api/stripe/webhook/route");
+      const response = await POST(
+        new Request("https://app.example.com/api/stripe/webhook", {
+          method: "POST",
+          headers: { "stripe-signature": "t=1,v1=deadbeef" },
+          body: "{}",
+        }),
+      );
+
+      expect(response.status).toBe(500);
+    } finally {
+      // Restored explicitly rather than left to the next test to overwrite:
+      // an env var leaking out of one test has already caused a failure in
+      // this repo once.
+      if (saved === undefined) delete process.env.STRIPE_WEBHOOK_SECRET;
+      else process.env.STRIPE_WEBHOOK_SECRET = saved;
+    }
   });
 
   it("rejects a request with no signature header at all", async () => {

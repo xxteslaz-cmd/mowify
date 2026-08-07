@@ -19,13 +19,28 @@ export async function POST(request: Request): Promise<Response> {
   // Stripe sent, and re-serialising JSON changes them.
   const body = await request.text();
 
+  // Resolved before the verification try block, so a missing STRIPE_* variable
+  // cannot be reported as "Stripe sent us a bad signature". That 400 pointed
+  // an operator at Stripe's dashboard instead of their own environment, and
+  // Stripe only retries for about three days — every signup misdiagnosed
+  // inside that window is lost for good. A 500 says what this actually is:
+  // a fixable condition on our side.
+  let stripe;
+  let webhookSecret;
+  try {
+    stripe = getStripe();
+    webhookSecret = stripeConfig().webhookSecret;
+  } catch (err) {
+    console.error(
+      "Stripe webhook not configured:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return new Response("Billing not configured", { status: 500 });
+  }
+
   let event;
   try {
-    event = await getStripe().webhooks.constructEventAsync(
-      body,
-      signature,
-      stripeConfig().webhookSecret,
-    );
+    event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
   } catch (err) {
     console.error(
       "Stripe webhook rejected:",
