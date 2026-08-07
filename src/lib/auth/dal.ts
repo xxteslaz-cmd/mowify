@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isOrgActive } from "@/lib/subscription";
 import {
   SESSION_COOKIE,
   hashToken,
@@ -119,5 +120,28 @@ export async function requireOwner(): Promise<SessionUser> {
 export async function requireCrew(): Promise<SessionUser> {
   const user = await verifySession();
   if (user.role !== "CREW") redirect("/login");
+  return user;
+}
+
+/**
+ * The gate on every owner write path.
+ *
+ * Reads keep calling requireOwner(): a company whose card expired should still
+ * be able to see the schedule it already built. What stops is administration.
+ *
+ * The status comes from the Org row, which the Stripe webhook mirrors. It is
+ * never computed from our own clock — an org is entitled because Stripe says
+ * the money is good, not because thirty days have not elapsed yet.
+ */
+export async function requireActiveOrg(): Promise<SessionUser> {
+  const user = await requireOwner();
+
+  const org = await prisma.org.findUnique({
+    where: { id: user.orgId },
+    select: { subscriptionStatus: true },
+  });
+
+  if (!isOrgActive(org?.subscriptionStatus)) redirect("/billing");
+
   return user;
 }
