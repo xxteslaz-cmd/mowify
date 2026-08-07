@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth/dal";
 import MainNav from "@/components/MainNav";
 import UserMenu from "@/components/UserMenu";
 import VerifyBanner from "@/components/VerifyBanner";
+import LapsedBanner from "@/components/LapsedBanner";
 
 // The session read lives here, not at the top of this layout, so awaiting it
 // only delays this nested subtree — {children} keeps streaming immediately.
@@ -38,6 +39,11 @@ export default function AppLayout({
           width instead of forcing the sidebar row onto a horizontal
           scrollbar. */}
       <div className="flex min-h-full min-w-0 flex-1 flex-col">
+        {/* Its own boundary for the same reason VerifyBanner has one: awaiting
+            the subscription status must not delay the nav or {children}. */}
+        <Suspense fallback={null}>
+          <LapsedBanner />
+        </Suspense>
         {/* Own Suspense boundary so awaiting the verification status never
             delays the nav above it or {children} below it. */}
         <Suspense fallback={null}>
