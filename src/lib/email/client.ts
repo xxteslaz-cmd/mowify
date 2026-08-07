@@ -1,14 +1,11 @@
 import "server-only";
 import { Resend } from "resend";
 
-/**
- * Builds an absolute URL for an email link. Emails have no request context, so
- * the origin has to come from configuration rather than headers.
- */
-export function appUrl(path: string): string {
-  const base = process.env.APP_URL ?? "http://localhost:3000";
-  return `${base.replace(/\/$/, "")}${path}`;
-}
+// Moved to src/lib/url.ts: the Stripe webhook route needs it too, and it's a
+// Route Handler rather than a Server Action, so it can't import this module
+// (see the no-restricted-imports rule in eslint.config.mjs). Re-exported here
+// so existing callers of `appUrl` from "@/lib/email/client" are unchanged.
+export { appUrl } from "@/lib/url";
 
 /**
  * Sends an email and reports whether it worked.
