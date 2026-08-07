@@ -1,5 +1,6 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { createSession, hashToken } from "@/lib/auth/session";
@@ -31,17 +32,15 @@ export async function claimAccount(): Promise<ClaimState> {
   // guess at.
   if (!claim) return { status: "failed", reason: "unknown" };
 
-  let pending = await prisma.pendingSignup.findUnique({
-    where: { claimHash: hashToken(claim) },
-  });
+  const claimHash = hashToken(claim);
+
+  let pending = await findLiveClaim(claimHash);
 
   if (!pending) return { status: "failed", reason: "unknown" };
 
   if (!pending.consumedAt && shouldReconcile(pending.createdAt)) {
     await reconcileFromStripe(pending.checkoutSessionId);
-    pending = await prisma.pendingSignup.findUnique({
-      where: { claimHash: hashToken(claim) },
-    });
+    pending = await findLiveClaim(claimHash);
     if (!pending) return { status: "failed", reason: "unknown" };
   }
 
@@ -61,13 +60,53 @@ export async function claimAccount(): Promise<ClaimState> {
 
   if (!owner) return { status: "failed", reason: "unknown" };
 
+  // Invalidate the claim before opening the session, atomically with the
+  // read that proved it was still live: the WHERE clause requires claimHash
+  // to still equal the value just looked up, so this update is a
+  // compare-and-swap. A second request racing on the same cookie value (a
+  // double-poll, or the same stolen value replayed later) finds count 0 and
+  // must not proceed to mint its own session.
+  //
+  // Rotating to a fresh, discarded random hash — rather than clearing the
+  // column — is what makes this a real revocation. Without it, `claimAccount`
+  // never consulted anything but claimHash and never invalidated it: the
+  // browser's cookie being deleted is only an instruction to the browser, so
+  // anyone who had captured the raw claim value once (a synced profile, a
+  // backup, an XSS) could keep presenting it and mint a fresh owner session
+  // forever. Nothing in the product — a password change, "sign out
+  // everywhere" — could ever revoke it. Rotating the hash here means the
+  // value is dead the instant it is spent, no matter who still holds it.
+  const invalidated = await prisma.pendingSignup.updateMany({
+    where: { id: pending.id, claimHash },
+    data: { claimHash: hashToken(randomBytes(32).toString("base64url")) },
+  });
+  if (invalidated.count === 0) return { status: "failed", reason: "unknown" };
+
   await createSession(owner.id, "OWNER");
 
-  // Single use. The claim has done its only job, and leaving it in the browser
-  // would leave a second way into the account for as long as it lived.
+  // Also clear the cookie in this browser. Redundant with the rotation above
+  // for security — the value is already dead — but there is no reason to
+  // leave a spent token sitting in the browser either.
   cookieStore.delete(CLAIM_COOKIE);
 
   return { status: "ready" };
+}
+
+/**
+ * Looks up a claim by hash, rejecting rows whose expiry has passed.
+ *
+ * The signup sweep in `signup/actions.ts` only deletes unconsumed rows past
+ * expiry (`where: { consumedAt: null, expiresAt: { lt: now } }`) — a
+ * consumed row is deliberately left behind as a record, and would otherwise
+ * carry a live claimHash forever. Filtering on expiresAt here, independent of
+ * whether the row was ever consumed, caps how long a captured claim value
+ * stays usable at the 48-hour TTL it was minted with, whether or not
+ * anything ever sweeps the row.
+ */
+function findLiveClaim(claimHash: string) {
+  return prisma.pendingSignup.findFirst({
+    where: { claimHash, expiresAt: { gt: new Date() } },
+  });
 }
 
 function shouldReconcile(createdAt: Date): boolean {

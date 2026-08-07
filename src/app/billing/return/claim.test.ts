@@ -88,6 +88,47 @@ describe("claimAccount", () => {
     expect(cookieJar.value.get(CLAIM_COOKIE)).toBeUndefined();
   });
 
+  it("cannot mint a second session by replaying an already-used claim", async () => {
+    // Deleting the cookie only instructs the browser; it proves nothing
+    // about the row. Simulate someone who captured the raw claim value
+    // separately (a synced profile, a backup, an XSS) and still has it after
+    // the legitimate claim already succeeded once.
+    const { pending, claim } = await pendingWithCookie();
+    const org = await makeOrg();
+    await makeOwner(org.id, "dana@example.com");
+    await prisma.pendingSignup.update({
+      where: { id: pending.id },
+      data: { orgId: org.id, consumedAt: new Date(), passwordHash: null },
+    });
+
+    const first = await claimAccount();
+    expect(first).toEqual({ status: "ready" });
+
+    cookieJar.value.set(CLAIM_COOKIE, claim);
+    const second = await claimAccount();
+
+    expect(second).toEqual({ status: "failed", reason: "unknown" });
+    // Exactly the one session from the first, legitimate claim — never two.
+    expect(await prisma.session.count()).toBe(1);
+  });
+
+  it("grants nothing once the claim has expired", async () => {
+    const { pending } = await pendingWithCookie({
+      expiresAt: new Date(Date.now() - 1000),
+    });
+    const org = await makeOrg();
+    await makeOwner(org.id, "dana@example.com");
+    await prisma.pendingSignup.update({
+      where: { id: pending.id },
+      data: { orgId: org.id, consumedAt: new Date() },
+    });
+
+    const state = await claimAccount();
+
+    expect(state).toEqual({ status: "failed", reason: "unknown" });
+    expect(await prisma.session.count()).toBe(0);
+  });
+
   it("reports pending while the webhook has not landed", async () => {
     await pendingWithCookie({ checkoutSessionId: "cs_test_1" });
 

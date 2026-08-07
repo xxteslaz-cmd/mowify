@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { claimAccount, type ClaimState } from "./actions";
-
-const POLL_MS = 1_500;
-const GIVE_UP_MS = 60_000;
+import { startPolling } from "./poll";
 
 export default function ReturnClient() {
   const router = useRouter();
@@ -14,34 +12,11 @@ export default function ReturnClient() {
   const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    const startedAt = Date.now();
-
-    async function poll() {
-      const next = await claimAccount();
-      if (cancelled) return;
-
-      setState(next);
-
-      if (next.status === "ready") {
-        router.replace("/dashboard");
-        return;
-      }
-
-      if (next.status === "failed") return;
-
-      if (Date.now() - startedAt > GIVE_UP_MS) {
-        setTimedOut(true);
-        return;
-      }
-
-      setTimeout(poll, POLL_MS);
-    }
-
-    poll();
-    return () => {
-      cancelled = true;
-    };
+    return startPolling(claimAccount, {
+      onState: setState,
+      onReady: () => router.replace("/dashboard"),
+      onTimeout: () => setTimedOut(true),
+    });
   }, [router]);
 
   if (state.status === "failed") {
@@ -74,9 +49,25 @@ export default function ReturnClient() {
           : "Confirming your payment with Stripe. This usually takes a couple of seconds."}
       </p>
       {timedOut ? (
-        <Link className="btn btn-primary mt-4" href="/billing/return">
-          Refresh
-        </Link>
+        <div className="mt-4 flex justify-center gap-2">
+          {/*
+            A <Link> back to this same route would not work here: the App
+            Router reconciles the existing ReturnClient in place rather than
+            remounting it, so the polling effect would never re-run and this
+            button would look identical to the state it's meant to escape.
+            A real reload is what actually restarts the poll.
+          */}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => window.location.reload()}
+          >
+            Refresh
+          </button>
+          <Link className="btn btn-secondary" href="/login">
+            Sign in
+          </Link>
+        </div>
       ) : null}
     </div>
   );
