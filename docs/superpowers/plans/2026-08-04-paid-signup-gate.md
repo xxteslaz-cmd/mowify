@@ -87,9 +87,13 @@ describe("PendingSignup schema", () => {
     expect(pending.passwordHash).not.toBeNull();
   });
 
-  it("allows only one row per email, so a retry must reuse it", async () => {
-    await makePendingSignup({ email: "dup@example.com" });
-    await expect(makePendingSignup({ email: "dup@example.com" })).rejects.toThrow();
+  it("allows several rows per email, so one attempt cannot overwrite another", async () => {
+    const first = await makePendingSignup({ email: "dup@example.com" });
+    const second = await makePendingSignup({ email: "dup@example.com" });
+    // Each attempt owns its own claim. Reusing one row per email let an
+    // unauthenticated request rewrite a mid-payment signup's credentials.
+    expect(second.id).not.toBe(first.id);
+    expect(second.claimHash).not.toBe(first.claimHash);
   });
 
   it("allows only one row per claim hash", async () => {
@@ -137,11 +141,18 @@ Add a new model at the end of the file:
 // into a real account once Stripe confirms a card.
 model PendingSignup {
   id String @id @default(cuid())
-  // Unique because a retry reuses this row rather than adding a second one.
-  // One row per email means a checkout the visitor abandoned and later
-  // completed anyway still resolves here by id, and the claim cookie can only
-  // ever point at one place.
-  email String @unique
+  // Deliberately NOT unique: one row per signup attempt, never reused.
+  //
+  // Keying on email and reusing the row let an unauthenticated request
+  // overwrite the passwordHash and claimHash of a signup that was mid-payment.
+  // The "already registered" guard cannot fire during that window, because the
+  // User does not exist yet — so the victim paid and the attacker owned the
+  // company. A row per attempt closes it: an attacker's request creates their
+  // own row and sets a cookie in their own browser, and cookies are per-browser.
+  //
+  // Email uniqueness is enforced where it actually matters — at provisioning
+  // time, by createOrgWithOwner's "email-taken" result.
+  email String
   name        String
   companyName String
   // Nulled once the account exists. There is no reason to keep a credential
@@ -1128,7 +1139,7 @@ describe("signup no longer creates an account", () => {
   it("creates a PendingSignup holding the hashed password", async () => {
     await expect(signup(undefined, form())).rejects.toThrow(/redirect:/);
 
-    const pending = await prisma.pendingSignup.findUniqueOrThrow({
+    const pending = await prisma.pendingSignup.findFirstOrThrow({
       where: { email: "dana@example.com" },
     });
     expect(pending.companyName).toBe("Green Acres");
@@ -1143,7 +1154,7 @@ describe("signup no longer creates an account", () => {
     const raw = cookieJar.value.get(CLAIM_COOKIE);
     expect(raw).toBeTruthy();
 
-    const pending = await prisma.pendingSignup.findUniqueOrThrow({
+    const pending = await prisma.pendingSignup.findFirstOrThrow({
       where: { email: "dana@example.com" },
     });
     expect(pending.claimHash).toBe(hashToken(raw!));
@@ -1166,7 +1177,7 @@ describe("signup no longer creates an account", () => {
     expect(params.subscription_data).toMatchObject({ trial_period_days: 30 });
     expect(params.success_url).toBe("https://app.example.com/billing/return");
 
-    const pending = await prisma.pendingSignup.findUniqueOrThrow({
+    const pending = await prisma.pendingSignup.findFirstOrThrow({
       where: { email: "dana@example.com" },
     });
     expect(params.client_reference_id).toBe(pending.id);
@@ -1182,23 +1193,31 @@ describe("signup no longer creates an account", () => {
     expect(await prisma.pendingSignup.count()).toBe(0);
   });
 
-  it("reuses the row on a retry instead of creating a second one", async () => {
+  it("a second signup for the same email CANNOT touch the first one's row", async () => {
+    // This is the account-takeover regression test. Reusing one row per email
+    // let an unauthenticated request overwrite the passwordHash and claimHash
+    // of a signup that was mid-payment: the victim paid, and the webhook then
+    // provisioned the company with the attacker's password and claim.
     await expect(signup(undefined, form())).rejects.toThrow(/redirect:/);
-    const first = await prisma.pendingSignup.findUniqueOrThrow({
+    const victim = await prisma.pendingSignup.findFirstOrThrow({
       where: { email: "dana@example.com" },
     });
 
     created.nextId = "cs_test_2";
     cookieJar.value = new Map();
-    await expect(signup(undefined, form())).rejects.toThrow(/redirect:/);
+    await expect(
+      signup(undefined, form({ password: "attacker-password" })),
+    ).rejects.toThrow(/redirect:/);
 
-    expect(await prisma.pendingSignup.count()).toBe(1);
-    const second = await prisma.pendingSignup.findUniqueOrThrow({
-      where: { email: "dana@example.com" },
+    const victimAfter = await prisma.pendingSignup.findUniqueOrThrow({
+      where: { id: victim.id },
     });
-    expect(second.id).toBe(first.id);
-    // A retry must invalidate the previous browser's claim.
-    expect(second.claimHash).not.toBe(first.claimHash);
+    expect(victimAfter.passwordHash).toBe(victim.passwordHash);
+    expect(victimAfter.claimHash).toBe(victim.claimHash);
+    expect(victimAfter.checkoutSessionId).toBe(victim.checkoutSessionId);
+
+    // The second attempt got its own row, not a rewrite of the first.
+    expect(await prisma.pendingSignup.count()).toBe(2);
   });
 
   it("sweeps expired unconsumed rows but keeps consumed ones", async () => {
@@ -1228,10 +1247,10 @@ describe("signup no longer creates an account", () => {
     await expect(signup(undefined, form())).rejects.toThrow(/redirect:/);
 
     expect(
-      await prisma.pendingSignup.findUnique({ where: { email: "stale@example.com" } }),
+      await prisma.pendingSignup.findFirst({ where: { email: "stale@example.com" } }),
     ).toBeNull();
     expect(
-      await prisma.pendingSignup.findUnique({ where: { email: "done@example.com" } }),
+      await prisma.pendingSignup.findFirst({ where: { email: "done@example.com" } }),
     ).not.toBeNull();
   });
 
@@ -1392,14 +1411,20 @@ The body after `const { name, companyName, email, password } = parsed.data;`:
   const claim = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + CLAIM_TTL_MS);
 
-  // Upsert rather than create: someone who abandoned checkout and came back
-  // must be able to retry, and keeping one row per email means a checkout they
-  // left open and later paid still resolves to this same id.
+  // Create, never upsert. A row is owned by the browser that started it and is
+  // never rewritten by a later request: reusing a row keyed on email let an
+  // unauthenticated caller overwrite the passwordHash and claimHash of a signup
+  // that was mid-payment, because the "already registered" guard above cannot
+  // fire while the User still does not exist. A retry simply makes its own row.
+  //
+  // Two rows for one email is fine. Whichever checkout completes first wins,
+  // and the second is rejected at provisioning time by createOrgWithOwner's
+  // "email-taken" result, which the webhook turns into a cancelled
+  // subscription. That is the only place the uniqueness actually matters.
   let pending;
   try {
-    pending = await prisma.pendingSignup.upsert({
-      where: { email },
-      create: {
+    pending = await prisma.pendingSignup.create({
+      data: {
         email,
         name,
         companyName,
@@ -1407,25 +1432,13 @@ The body after `const { name, companyName, email, password } = parsed.data;`:
         claimHash: hashToken(claim),
         expiresAt,
       },
-      update: {
-        name,
-        companyName,
-        passwordHash,
-        claimHash: hashToken(claim),
-        checkoutSessionId: null,
-        failedReason: null,
-        expiresAt,
-      },
     });
-  } catch {
+  } catch (err) {
+    console.error(
+      "Pending signup not recorded:",
+      err instanceof Error ? err.message : String(err),
+    );
     return { error: "Something went wrong. Please try again." };
-  }
-
-  if (pending.consumedAt) {
-    // The row was already promoted to a real account. The user lookup above
-    // should have caught this, so reaching here means the account was created
-    // between these two queries.
-    return { errors: { email: "That email is already registered." } };
   }
 
   let checkoutUrl: string | null;
