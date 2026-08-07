@@ -10,6 +10,7 @@
     "postinstall": "prisma generate",
     "db:backfill": "tsx prisma/backfill.ts",
     "db:backfill-org": "tsx prisma/backfill-org.ts",
+    "db:grandfather": "tsx prisma/backfill-subscriptions.ts",
     "db:push": "prisma db push",
     "db:push:test": "tsx prisma/push-test.ts",
     "db:seed": "tsx prisma/seed.ts",

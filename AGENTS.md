@@ -17,7 +17,8 @@ Formerly called Mowify. The rename is complete except where noted below.
 
 Next.js 16 (App Router) · React 19 · Prisma 7 with the `@prisma/adapter-pg`
 driver adapter · PostgreSQL on Neon · Tailwind v4 · TypeScript · Vitest ·
-argon2 (`@node-rs/argon2`) · Zod · Resend · Stripe (designed, not yet built).
+argon2 (`@node-rs/argon2`) · Zod · Resend · Stripe (hosted Checkout and
+Billing Portal).
 
 ## Shape of the thing
 
@@ -80,6 +81,9 @@ because they are all easy to reintroduce.
   it, response timing reveals which emails and usernames are registered.
 - **The session cookie is still named `mowify_session`.** Renaming it signs out
   every existing session. Leave it.
+- **`/billing/return` must stay in `PUBLIC_PREFIXES`, and `/billing` must not.**
+  The prefix match means the shorter string would make the owner's billing page
+  public to anyone.
 
 ## Email
 
@@ -95,6 +99,40 @@ containing the token URL.
 Requires `RESEND_API_KEY`, `EMAIL_FROM` (on a domain verified in Resend) and
 `APP_URL`. **`APP_URL` silently defaults to localhost if unset**, which mails
 customers links to their own machine — the failure looks like success.
+
+## Billing
+
+Stripe, via hosted Checkout and the hosted Billing Portal. Card data never
+reaches this server.
+
+**Nobody has an account until Stripe confirms a card.** `signup` writes a
+`PendingSignup` row and an httpOnly claim cookie, then redirects to Checkout.
+`POST /api/stripe/webhook` is the only code that creates an `Org` — which is
+why its signature verification is not a formality, and why that route is exempt
+from the signed-out redirect in `src/proxy.ts`.
+
+`/billing/return` is public and identifies the visitor by the claim cookie
+alone. No identifier rides in the URL: URLs are shared, logged, and leak in
+`Referer` headers.
+
+**`requireActiveOrg()` gates every owner write path.** Reads keep calling
+`requireOwner()`. `updateJobStatus` deliberately calls only `verifySession()`
+so a lapsed company's crews can still mark stops complete — blocking that
+strands people in a yard mid-week to collect from their employer. `/billing`
+and everything in `account/actions.ts` stay ungated, or a lapsed account could
+never recover.
+
+Subscription events re-fetch the subscription from Stripe rather than trusting
+the event body, which removes webhook ordering as a concern entirely.
+
+Requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` and a
+real `APP_URL` — `requireAppUrl()` throws rather than defaulting to localhost,
+because a localhost `success_url` sends a paying customer to their own machine
+and looks like success from our side.
+
+`npm run db:grandfather` marks pre-billing companies active. It writes to
+`DATABASE_URL` and needs `GRANDFATHER_CONFIRM=yes`. Do not run it without the
+owner asking.
 
 ## Import boundaries (ESLint-enforced)
 
@@ -121,7 +159,7 @@ exist. Do not run it against production for any reason.
 
 ## Testing
 
-111 tests. `npm test` runs them against the test database.
+191 tests. `npm test` runs them against the test database.
 
 - `src/lib/data.isolation.test.ts` and `src/app/actions.isolation.test.ts` seed
   two orgs and prove nothing crosses between them. These are the tests that
