@@ -27,6 +27,53 @@ const sent = vi.hoisted(() => ({
 
 const currentToken = vi.hoisted(() => ({ value: null as string | null }));
 
+// Signup now sets a claim cookie itself (see src/app/signup/actions.ts), so
+// this file needs its own fake cookie jar the same way signup-gate.test.ts
+// does — nothing else exercised here writes a cookie through next/headers,
+// since createSession and readSessionToken are already stubbed below.
+const signupCookieJar = vi.hoisted(() => ({ value: new Map<string, string>() }));
+
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) => {
+      const value = signupCookieJar.value.get(name);
+      return value ? { name, value } : undefined;
+    },
+    set: (name: string, value: string) => {
+      signupCookieJar.value.set(name, value);
+    },
+    delete: (name: string) => {
+      signupCookieJar.value.delete(name);
+    },
+  }),
+}));
+
+// Stand-ins so signup's Checkout call succeeds without reaching the real
+// Stripe API — this file is about the email/token invariants across every
+// auth flow, not Checkout mechanics, which src/app/signup-gate.test.ts
+// already covers in depth.
+vi.mock("@/lib/stripe/client", () => ({
+  getStripe: () => ({
+    checkout: {
+      sessions: {
+        create: async () => ({
+          id: "cs_test_auth_flows",
+          url: "https://checkout.stripe.test/pay",
+        }),
+      },
+    },
+  }),
+}));
+
+vi.mock("@/lib/stripe/config", () => ({
+  stripeConfig: () => ({
+    secretKey: "sk_test_x",
+    webhookSecret: "whsec_x",
+    priceId: "price_x",
+    portalReturnUrl: "https://app.example.com/billing",
+  }),
+}));
+
 vi.mock("@/lib/auth/dal", () => ({
   getSessionUser: async () => currentUser.value,
   verifySession: async () => {
@@ -121,6 +168,8 @@ beforeEach(() => {
   sent.calls.length = 0;
   currentUser.value = null;
   currentToken.value = null;
+  signupCookieJar.value = new Map();
+  process.env.APP_URL = "https://app.example.com";
 });
 
 describe("requesting a reset", () => {
@@ -745,11 +794,14 @@ describe("changing the account email", () => {
   });
 });
 
-describe("signup does not send email", () => {
-  it("creates the account without mailing anyone", async () => {
-    // Signup is unauthenticated. Mailing from it let anyone script an
-    // arbitrary recipient list and burn the sending domain's reputation, so
-    // verification is started from /account instead.
+describe("signup does not create an account or send email", () => {
+  it("records a PendingSignup, sends nobody an email, and creates no Org or User", async () => {
+    // Signup no longer creates an account at all — it records a pending row
+    // and sends the visitor to Stripe; only the webhook (Task 6), once
+    // payment is confirmed, calls createOrgWithOwner. Signup is also still
+    // unauthenticated, so it still must not mail anyone: doing so let anyone
+    // script an arbitrary recipient list and burn the sending domain's
+    // reputation, which is why verification is started from /account instead.
     await expect(
       signup(
         undefined,
@@ -760,16 +812,19 @@ describe("signup does not send email", () => {
           password: "a-good-password",
         }),
       ),
-    ).rejects.toThrow("redirect: /dashboard");
+    ).rejects.toThrow(/redirect:/);
 
-    const user = await prisma.user.findUniqueOrThrow({
+    expect(await prisma.org.count()).toBe(0);
+    expect(await prisma.user.count()).toBe(0);
+
+    const pending = await prisma.pendingSignup.findUniqueOrThrow({
       where: { email: "fresh-owner@example.com" },
     });
-    expect(user.emailVerifiedAt).toBeNull();
+    expect(pending.consumedAt).toBeNull();
 
     // Nothing mailed, and no token left lying around for one.
     expect(sent.calls).toHaveLength(0);
-    expect(await prisma.token.count({ where: { userId: user.id } })).toBe(0);
+    expect(await prisma.token.count()).toBe(0);
   });
 });
 

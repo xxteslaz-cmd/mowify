@@ -1,13 +1,16 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { hashSecret } from "@/lib/auth/password";
-import { createSession } from "@/lib/auth/session";
-import { uniqueSlug } from "@/lib/auth/slug";
-import { p2002Fields } from "@/lib/prisma-errors";
+import { hashToken } from "@/lib/auth/session";
+import { CLAIM_COOKIE, CLAIM_TTL_MS } from "@/lib/auth/claim-cookie";
+import { getStripe } from "@/lib/stripe/client";
+import { stripeConfig } from "@/lib/stripe/config";
+import { requireAppUrl } from "@/lib/url";
 
 export type SignupFormState =
   | { errors?: Record<string, string>; error?: string }
@@ -21,15 +24,6 @@ const SignupSchema = z.object({
   email: z.string().email("Enter a valid email").trim().toLowerCase(),
   password: z.string().min(8, "Use at least 8 characters"),
 });
-
-// uniqueSlug checks availability and signup inserts in two separate steps, so
-// two people signing up with the same company name at the same moment can
-// both see a slug as free and both try to claim it. Only one insert can win;
-// the other hits Org.slug's unique constraint. Rather than weaken that
-// constraint (it is the real backstop against duplicate slugs), retry with a
-// freshly computed slug, which by then accounts for the row the other request
-// just inserted. Three attempts is far more than this should ever need.
-const MAX_SIGNUP_ATTEMPTS = 3;
 
 export async function signup(
   _state: SignupFormState,
@@ -58,76 +52,100 @@ export async function signup(
     return { errors: { email: "That email is already registered." } };
   }
 
-  // Hashed once outside the retry loop: the password does not change between
-  // attempts, and argon2 is deliberately expensive, so redoing it per retry
-  // would be pure waste.
+  // Unconsumed rows past their expiry can no longer be paid for: a Stripe
+  // Checkout session dies after twenty-four hours and these live forty-eight.
+  // Sweeping here rather than on a schedule keeps abandoned signups from
+  // accumulating without adding cron infrastructure this project does not have.
+  await prisma.pendingSignup.deleteMany({
+    where: { consumedAt: null, expiresAt: { lt: new Date() } },
+  });
+
   const passwordHash = await hashSecret(password);
+  const claim = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + CLAIM_TTL_MS);
 
-  // The company and its owner are meaningless without each other, so they are
-  // created together or not at all.
-  let user: Awaited<ReturnType<typeof prisma.user.create>> | undefined;
-
-  for (let attempt = 1; attempt <= MAX_SIGNUP_ATTEMPTS; attempt++) {
-    const slug = await uniqueSlug(companyName, async (candidate) => {
-      return (await prisma.org.count({ where: { slug: candidate } })) > 0;
+  // Upsert rather than create: someone who abandoned checkout and came back
+  // must be able to retry, and keeping one row per email means a checkout they
+  // left open and later paid still resolves to this same id.
+  let pending;
+  try {
+    pending = await prisma.pendingSignup.upsert({
+      where: { email },
+      create: {
+        email,
+        name,
+        companyName,
+        passwordHash,
+        claimHash: hashToken(claim),
+        expiresAt,
+      },
+      update: {
+        name,
+        companyName,
+        passwordHash,
+        claimHash: hashToken(claim),
+        checkoutSessionId: null,
+        failedReason: null,
+        expiresAt,
+      },
     });
-
-    try {
-      user = await prisma.$transaction(async (tx) => {
-        const org = await tx.org.create({ data: { name: companyName, slug } });
-        return tx.user.create({
-          data: {
-            orgId: org.id,
-            role: "OWNER",
-            name,
-            email,
-            passwordHash,
-          },
-        });
-      });
-      break;
-    } catch (err) {
-      if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") {
-        throw err;
-      }
-
-      const fields = p2002Fields(err);
-
-      if (fields.includes("email")) {
-        // A second signup for the same email landed between our lookup above
-        // and this insert. The org half of the transaction rolls back, so no
-        // orphaned company is left behind.
-        return { errors: { email: "That email is already registered." } };
-      }
-
-      if (!fields.includes("slug")) {
-        throw err;
-      }
-
-      if (attempt === MAX_SIGNUP_ATTEMPTS) {
-        // Exhausted every retry and still losing the slug race — an
-        // extremely unlikely pile-up of concurrent signups for the same
-        // company name. Break out to the friendly fallback below instead of
-        // rethrowing a raw database error with no error.tsx to catch it.
-        break;
-      }
-
-      // Slug lost the race — loop again and recompute against the row that
-      // just won it.
-    }
-  }
-
-  if (!user) {
-    // Reached only when every retry attempt lost the slug race (see the
-    // `break` above) — genuinely rare, but a real path, not dead code.
+  } catch {
     return { error: "Something went wrong. Please try again." };
   }
 
-  // No verification email is sent here, on purpose. Signup is unauthenticated,
-  // so mailing from it let anyone script an arbitrary recipient list and burn
-  // the sending domain's reputation. Verification is now started from /account
-  // instead, which requires a session and is rate limited. The reminder banner
-  // is what prompts a new owner to do it.
-  await createSession(user.id, "OWNER");
-  redirect("/dashboard");
+  if (pending.consumedAt) {
+    // The row was already promoted to a real account. The user lookup above
+    // should have caught this, so reaching here means the account was created
+    // between these two queries.
+    return { errors: { email: "That email is already registered." } };
+  }
+
+  let checkoutUrl: string | null;
+  try {
+    const stripe = getStripe();
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price: stripeConfig().priceId, quantity: 1 }],
+      subscription_data: { trial_period_days: 30 },
+      // A card is required before the trial starts. Without this Stripe skips
+      // payment collection for a fully discounted first period.
+      payment_method_collection: "always",
+      customer_email: email,
+      client_reference_id: pending.id,
+      success_url: `${requireAppUrl()}/billing/return`,
+      cancel_url: `${requireAppUrl()}/signup?canceled=1`,
+    });
+    checkoutUrl = session.url;
+
+    await prisma.pendingSignup.update({
+      where: { id: pending.id },
+      data: { checkoutSessionId: session.id },
+    });
+  } catch (err) {
+    // Returned, not thrown: production React redacts a thrown Server Action
+    // message and shows boilerplate instead.
+    console.error(
+      "Checkout session not created:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return { error: "We could not start checkout. Please try again." };
+  }
+
+  if (!checkoutUrl) {
+    return { error: "We could not start checkout. Please try again." };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(CLAIM_COOKIE, claim, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    // Lax rather than Strict: the visitor arrives back at /billing/return via
+    // a top-level navigation from Stripe, and a Strict cookie is withheld on
+    // exactly that kind of cross-site redirect.
+    sameSite: "lax",
+    expires: expiresAt,
+    path: "/",
+  });
+
+  redirect(checkoutUrl);
 }
