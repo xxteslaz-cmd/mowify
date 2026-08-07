@@ -24,7 +24,12 @@ Billing Portal).
 
 - `src/lib/auth/` — the security core. `dal.ts` is the authorization boundary;
   `session.ts`, `token.ts`, `password.ts`/`hash.ts`, `lockout.ts`, `slug.ts`.
-- `src/lib/data.ts` — every read the owner-facing app performs.
+- `src/lib/data.ts` — every read of the owner-facing app's *business* data
+  (customers, crews, jobs). The billing surface is the one exception: the
+  `/billing` page, its portal action, `LapsedBanner` and `dal.ts` read
+  `Org` through Prisma directly. That is safe because those reads take `orgId`
+  from the session and never from client input, but it does mean `data.ts` is
+  no longer literally every read.
 - `src/lib/recurring.ts` — generates future visits for recurring jobs.
 - `src/app/(app)/` — authenticated routes; this group owns the sidebar shell.
 - Public routes sit outside that group: landing, login, signup, the token
@@ -125,7 +130,8 @@ never recover.
 Subscription events re-fetch the subscription from Stripe rather than trusting
 the event body, which removes webhook ordering as a concern entirely.
 
-Requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` and a
+Requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`,
+optionally `STRIPE_PORTAL_RETURN_URL` (derived from `APP_URL` when unset), and a
 real `APP_URL` — `requireAppUrl()` throws rather than defaulting to localhost,
 because a localhost `success_url` sends a paying customer to their own machine
 and looks like success from our side.
@@ -133,6 +139,37 @@ and looks like success from our side.
 `npm run db:grandfather` marks pre-billing companies active. It writes to
 `DATABASE_URL` and needs `GRANDFATHER_CONFIRM=yes`. Do not run it without the
 owner asking.
+
+### Deploying billing for the first time — the order is not optional
+
+1. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` and a
+   real `APP_URL` in the production environment.
+2. `npm run db:push` — the new `PendingSignup` table and `Org` subscription
+   columns must exist before anything reads them.
+3. `GRANDFATHER_CONFIRM=yes npm run db:grandfather`.
+4. Deploy the code.
+
+Steps 3 and 4 are the time-critical pair, and only in that order. Every
+pre-existing company has `subscriptionStatus: null`, which `isOrgActive()`
+reads as lapsed. Ship the code first and every existing owner is instantly
+read-only and redirected to `/billing`, which — see below — has nothing to
+offer them. Grandfathering first is invisible to a running deployment, because
+nothing reads the column yet.
+
+### Known gap: no in-app way to start or restart a subscription
+
+Checkout is only ever created by `signup/actions.ts`, and that path deliberately
+creates a *new* org. There is no re-subscribe flow, so:
+
+- A customer who cancels goes `canceled` → read-only → `/billing` → the Stripe
+  Billing Portal. **Configure the Portal to allow resubscription**, or that
+  journey ends at a screen that cannot restart anything.
+- A grandfathered org has `stripeCustomerId: null`, so `/billing` shows "no
+  billing account" and the Portal button does not render at all. If such an org
+  ever lapses it has no in-app recovery whatsoever.
+
+Building a re-subscribe flow is a scope decision nobody has made yet. This is
+recorded so it is a known gap rather than a discovery.
 
 ## Import boundaries (ESLint-enforced)
 
@@ -159,7 +196,7 @@ exist. Do not run it against production for any reason.
 
 ## Testing
 
-191 tests. `npm test` runs them against the test database.
+201 tests. `npm test` runs them against the test database.
 
 - `src/lib/data.isolation.test.ts` and `src/app/actions.isolation.test.ts` seed
   two orgs and prove nothing crosses between them. These are the tests that
