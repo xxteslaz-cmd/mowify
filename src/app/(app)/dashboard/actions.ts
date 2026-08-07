@@ -12,7 +12,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 import type { Frequency, ServiceType } from "@prisma/client";
-import { requireOwner, verifySession } from "@/lib/auth/dal";
+import { requireActiveOrg, verifySession } from "@/lib/auth/dal";
 
 function revalidateAffected(dateISO: string, crewId?: string | null) {
   revalidatePath("/dashboard");
@@ -57,7 +57,7 @@ export async function createJob(input: {
   dateISO: string;
   crewId: string;
 }) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
 
   // The forms enforce this too, but a job with no crew would be invisible on
   // the board, so it can't be allowed to reach the database.
@@ -132,7 +132,7 @@ export async function updateJobFrequency(
   dateISO: string,
   crewId: string,
 ) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
 
   const current = await prisma.job.findFirst({ where: { id: jobId, orgId } });
   if (!current) throw new Error("Job not found");
@@ -181,7 +181,7 @@ export async function updateJob(input: {
   notes?: string | null;
   scope: "this" | "future";
 }) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
 
   if (!input.crewId) throw new Error("A crew is required");
 
@@ -264,7 +264,7 @@ export async function updateJob(input: {
 }
 
 export async function createCrew(input: { name: string; color: string }) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
   const parsed = CrewCreateInput.safeParse(input);
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   const crew = await prisma.crew.create({ data: { ...parsed.data, orgId } });
@@ -276,7 +276,7 @@ export async function updateCrew(
   id: string,
   input: { name?: string; color?: string; active?: boolean },
 ) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
   const parsed = CrewUpdateInput.safeParse(input);
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   // updateMany rather than update: it takes a non-unique where clause, so a
@@ -289,7 +289,7 @@ export async function updateCrew(
 }
 
 export async function deleteCrew(id: string) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
   // The UI disables Delete for crews with jobs, but re-check here since the
   // count the client rendered can be stale by the time the action runs.
   const jobCount = await prisma.job.count({ where: { crewId: id, orgId } });
@@ -329,7 +329,7 @@ export async function moveJobInColumn(input: {
   jobId: string;
   direction: "up" | "down";
 }) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
 
   const job = await prisma.job.findFirst({ where: { id: input.jobId, orgId } });
   if (!job) throw new Error("Job not found");
@@ -365,6 +365,11 @@ export async function moveJobInColumn(input: {
  * not the client-supplied one, so it's still scoped even though it isn't the
  * updateMany pattern used elsewhere in this file.
  */
+// Deliberately verifySession() and not requireActiveOrg(): a crew member
+// marking a stop complete is operational, not administrative. A company whose
+// card expired still has crews standing in customers' yards, and blocking them
+// breaks that company's day to collect from it. Do not "fix" this to match the
+// other actions in this file.
 export async function updateJobStatus(jobId: string, status: "COMPLETED" | "SKIPPED") {
   const user = await verifySession();
 
@@ -398,7 +403,7 @@ export async function bulkRescheduleDay(input: {
   newDateISO: string;
   jobIds: string[];
 }) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
   const newDate = parseISODate(input.newDateISO);
   await prisma.job.updateMany({
     where: {
@@ -420,7 +425,7 @@ export async function bulkRescheduleDay(input: {
 }
 
 export async function deleteJob(jobId: string, dateISO: string, crewId: string) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
   // deleteMany rather than delete: it takes a non-unique where clause, so a
   // job id from another company matches zero rows instead of deleting it.
   await prisma.job.deleteMany({ where: { id: jobId, orgId } });

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/auth/dal";
+import { requireActiveOrg } from "@/lib/auth/dal";
 import { hashSecret } from "@/lib/auth/password";
 import { deleteAllSessionsForUser } from "@/lib/auth/session";
 import { p2002Fields } from "@/lib/prisma-errors";
@@ -31,7 +31,7 @@ export async function createCrewLogin(input: {
   pin: string;
   crewId: string;
 }) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
   const parsed = CreateSchema.safeParse(input);
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
@@ -79,7 +79,7 @@ export async function createCrewLogin(input: {
 }
 
 export async function resetCrewPin(userId: string, pin: string) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
   const parsed = PIN.safeParse(pin);
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
 
@@ -104,7 +104,7 @@ export async function resetCrewPin(userId: string, pin: string) {
 }
 
 export async function setCrewLoginActive(userId: string, active: boolean) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
   const user = await prisma.user.findFirst({
     where: { id: userId, orgId, role: "CREW" },
   });

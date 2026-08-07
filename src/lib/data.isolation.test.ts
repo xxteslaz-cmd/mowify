@@ -28,6 +28,13 @@ vi.mock("@/lib/auth/dal", () => ({
     if (currentUser.value?.role !== "OWNER") throw new Error("redirect: /login");
     return currentUser.value;
   },
+  // Mirrors requireOwner: these suites prove org-scoping, and the billing
+  // gate is proven separately in src/app/billing-gate.test.ts. Treating every
+  // mocked org as paid keeps this suite testing the one thing it is for.
+  requireActiveOrg: async () => {
+    if (currentUser.value?.role !== "OWNER") throw new Error("redirect: /login");
+    return currentUser.value;
+  },
   requireCrew: async () => {
     if (currentUser.value?.role !== "CREW") throw new Error("redirect: /login");
     return currentUser.value;

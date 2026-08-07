@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-import { requireOwner } from "@/lib/auth/dal";
+import { requireActiveOrg } from "@/lib/auth/dal";
 
 // A Server Action is a public HTTP endpoint, reachable with any request body
 // a caller cares to send — not only from this file's own form. The `input`
@@ -29,7 +29,7 @@ export async function createCustomer(input: {
   phone?: string;
   notes?: string;
 }) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
   const parsed = CustomerInput.safeParse(input);
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   const customer = await prisma.customer.create({ data: { ...parsed.data, orgId } });
@@ -41,7 +41,7 @@ export async function updateCustomer(
   id: string,
   input: { name: string; address: string; phone?: string; notes?: string },
 ) {
-  const { orgId } = await requireOwner();
+  const { orgId } = await requireActiveOrg();
   const parsed = CustomerInput.safeParse(input);
   if (!parsed.success) throw new Error(parsed.error.issues[0].message);
   // updateMany rather than update: it takes a non-unique where clause, so a
