@@ -115,6 +115,15 @@ model Org {
   customers Customer[]
   jobs      Job[]
 
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  // Mirrored from Stripe's subscription.status: trialing, active, past_due,
+  // canceled, unpaid, incomplete. Never computed from our own clock, because
+  // Stripe knows whether the money arrived and we do not.
+  subscriptionStatus   String?
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -187,4 +196,35 @@ model Token {
   createdAt  DateTime     @default(now())
 
   @@index([userId, purpose])
+}
+
+// A signup that has been entered but not paid for. No Org or User exists for
+// it yet: that is the whole point of the gate. The webhook promotes a row here
+// into a real account once Stripe confirms a card.
+model PendingSignup {
+  id String @id @default(cuid())
+  // Unique because a retry reuses this row rather than adding a second one.
+  // One row per email means a checkout the visitor abandoned and later
+  // completed anyway still resolves here by id, and the claim cookie can only
+  // ever point at one place.
+  email String @unique
+  name        String
+  companyName String
+  // Nulled once the account exists. There is no reason to keep a credential
+  // after it has been copied onto the User row.
+  passwordHash String?
+  // SHA-256 of the value held in the claim cookie. Same reasoning as Session:
+  // only the hash is stored, so a database leak yields nothing that can claim
+  // somebody else's paid account.
+  claimHash         String  @unique
+  checkoutSessionId String? @unique
+  orgId             String?
+  failedReason      String?
+  // Set on completion and never cleared. This is what makes a replayed webhook
+  // a no-op rather than a second org.
+  consumedAt DateTime?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([expiresAt])
 }

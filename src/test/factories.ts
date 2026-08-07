@@ -74,3 +74,28 @@ export async function makeJob(
     },
   });
 }
+
+export async function makePendingSignup(
+  overrides: Partial<{
+    email: string;
+    name: string;
+    companyName: string;
+    passwordHash: string;
+    claimHash: string;
+    checkoutSessionId: string;
+    expiresAt: Date;
+  }> = {},
+) {
+  const suffix = unique();
+  return prisma.pendingSignup.create({
+    data: {
+      email: overrides.email ?? `pending-${suffix}@example.com`,
+      name: overrides.name ?? "Test Owner",
+      companyName: overrides.companyName ?? `Pending Co ${suffix}`,
+      passwordHash: overrides.passwordHash ?? (await hashSecret("owner-password")),
+      claimHash: overrides.claimHash ?? `claim-${suffix}`,
+      checkoutSessionId: overrides.checkoutSessionId ?? null,
+      expiresAt: overrides.expiresAt ?? new Date(Date.now() + 48 * 60 * 60 * 1000),
+    },
+  });
+}

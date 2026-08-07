@@ -8,6 +8,8 @@ if (!url.includes("test")) {
   throw new Error("TEST_DATABASE_URL does not look like a test database");
 }
 
-execFileSync("npx", ["prisma", "db", "push", "--url", url], {
+// Forward arguments (e.g., --accept-data-loss) to prisma db push, allowing
+// callers to pass flags without bypassing the test-database guard above.
+execFileSync("npx", ["prisma", "db", "push", "--url", url, ...process.argv.slice(2)], {
   stdio: "inherit",
 });
