@@ -55,7 +55,7 @@ vi.mock("@/lib/stripe/config", () => ({
 }));
 
 const { signup } = await import("@/app/signup/actions");
-const { CLAIM_COOKIE } = await import("@/lib/auth/claim-cookie");
+const { CLAIM_COOKIE, SWEEP_GRACE_MS } = await import("@/lib/auth/claim-cookie");
 const { hashToken } = await import("@/lib/auth/session");
 
 function form(overrides: Record<string, string> = {}) {
@@ -167,7 +167,35 @@ describe("signup no longer creates an account", () => {
     expect(await prisma.pendingSignup.count()).toBe(2);
   });
 
-  it("sweeps expired unconsumed rows but keeps consumed ones", async () => {
+  it("keeps a recently expired row Stripe could still be retrying", async () => {
+    // The sweep used to delete anything past expiry. Stripe retries a failed
+    // webhook for about three days from the completion, so a row that expired
+    // an hour ago can still have a payment on its way: deleting it leaves a
+    // customer holding a live subscription while the retry finds no row,
+    // logs "no pending signup" and answers 200. Nothing then creates the
+    // account, and nothing ever will.
+    await prisma.pendingSignup.create({
+      data: {
+        email: "mid-retry@example.com",
+        name: "Mid Retry",
+        companyName: "Mid Retry Co",
+        passwordHash: "x",
+        claimHash: "mid-retry-claim",
+        checkoutSessionId: "cs_mid_retry",
+        expiresAt: new Date(Date.now() - 60 * 60 * 1000),
+      },
+    });
+
+    await expect(signup(undefined, form())).rejects.toThrow(/redirect:/);
+
+    expect(
+      await prisma.pendingSignup.findFirst({
+        where: { email: "mid-retry@example.com" },
+      }),
+    ).not.toBeNull();
+  });
+
+  it("sweeps rows past the retry window but keeps consumed ones", async () => {
     const org = await makeOrg();
     await prisma.pendingSignup.create({
       data: {
@@ -176,7 +204,7 @@ describe("signup no longer creates an account", () => {
         companyName: "Stale Co",
         passwordHash: "x",
         claimHash: "stale-claim",
-        expiresAt: new Date(Date.now() - 1000),
+        expiresAt: new Date(Date.now() - SWEEP_GRACE_MS - 1000),
       },
     });
     await prisma.pendingSignup.create({
@@ -187,7 +215,7 @@ describe("signup no longer creates an account", () => {
         claimHash: "done-claim",
         orgId: org.id,
         consumedAt: new Date(),
-        expiresAt: new Date(Date.now() - 1000),
+        expiresAt: new Date(Date.now() - SWEEP_GRACE_MS - 1000),
       },
     });
 

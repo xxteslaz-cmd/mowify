@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { hashSecret } from "@/lib/auth/password";
 import { hashToken } from "@/lib/auth/session";
-import { CLAIM_COOKIE, CLAIM_TTL_MS } from "@/lib/auth/claim-cookie";
+import { CLAIM_COOKIE, CLAIM_TTL_MS, SWEEP_GRACE_MS } from "@/lib/auth/claim-cookie";
 import { getStripe } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/stripe/config";
 import { requireAppUrl } from "@/lib/url";
@@ -52,12 +52,20 @@ export async function signup(
     return { errors: { email: "That email is already registered." } };
   }
 
-  // Unconsumed rows past their expiry can no longer be paid for: a Stripe
-  // Checkout session dies after twenty-four hours and these live forty-eight.
   // Sweeping here rather than on a schedule keeps abandoned signups from
   // accumulating without adding cron infrastructure this project does not have.
+  //
+  // The threshold is expiry plus Stripe's webhook retry window, not expiry
+  // alone. Checkout's twenty-four-hour session lifetime is the wrong thing to
+  // measure against: what decides whether a payment can still arrive for a row
+  // is how long Stripe keeps retrying delivery, and that clock starts when the
+  // customer completes checkout. Deleting a row mid-retry leaves someone with a
+  // live subscription and no account.
   await prisma.pendingSignup.deleteMany({
-    where: { consumedAt: null, expiresAt: { lt: new Date() } },
+    where: {
+      consumedAt: null,
+      expiresAt: { lt: new Date(Date.now() - SWEEP_GRACE_MS) },
+    },
   });
 
   const passwordHash = await hashSecret(password);

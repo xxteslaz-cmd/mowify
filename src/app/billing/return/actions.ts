@@ -38,17 +38,18 @@ export async function claimAccount(): Promise<ClaimState> {
 
   if (!pending) return { status: "failed", reason: "unknown" };
 
+  // Checked before the reconcile, not after. A permanently failed row can never
+  // become good, so re-running the reconcile against it only bought a Stripe
+  // session retrieve, a subscription retrieve, another doomed provisioning
+  // attempt and another cancelSubscription call — every 1.5 seconds, for the
+  // whole sixty-second poll window.
+  if (pending.failedReason) return failure(pending.failedReason);
+
   if (!pending.consumedAt && shouldReconcile(pending.createdAt)) {
     await reconcileFromStripe(pending.checkoutSessionId);
     pending = await findLiveClaim(claimHash);
     if (!pending) return { status: "failed", reason: "unknown" };
-  }
-
-  if (pending.failedReason) {
-    return {
-      status: "failed",
-      reason: pending.failedReason === "email-taken" ? "email-taken" : "unknown",
-    };
+    if (pending.failedReason) return failure(pending.failedReason);
   }
 
   if (!pending.consumedAt || !pending.orgId) return { status: "pending" };
@@ -95,10 +96,10 @@ export async function claimAccount(): Promise<ClaimState> {
 /**
  * Looks up a claim by hash, rejecting rows whose expiry has passed.
  *
- * The signup sweep in `signup/actions.ts` only deletes unconsumed rows past
- * expiry (`where: { consumedAt: null, expiresAt: { lt: now } }`) — a
- * consumed row is deliberately left behind as a record, and would otherwise
- * carry a live claimHash forever. Filtering on expiresAt here, independent of
+ * The signup sweep in `signup/actions.ts` only deletes unconsumed rows, and
+ * only once they are well past expiry — a consumed row is deliberately left
+ * behind as a record, and would otherwise carry a live claimHash forever.
+ * Filtering on expiresAt here, independent of
  * whether the row was ever consumed, caps how long a captured claim value
  * stays usable at the 48-hour TTL it was minted with, whether or not
  * anything ever sweeps the row.
@@ -107,6 +108,13 @@ function findLiveClaim(claimHash: string) {
   return prisma.pendingSignup.findFirst({
     where: { claimHash, expiresAt: { gt: new Date() } },
   });
+}
+
+function failure(reason: string): ClaimState {
+  return {
+    status: "failed",
+    reason: reason === "email-taken" ? "email-taken" : "unknown",
+  };
 }
 
 function shouldReconcile(createdAt: Date): boolean {

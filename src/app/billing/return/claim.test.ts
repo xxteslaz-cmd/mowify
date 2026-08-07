@@ -202,6 +202,28 @@ describe("claimAccount", () => {
     });
   });
 
+  it("does not reconcile a row that has already failed for good", async () => {
+    // A failed row can never become good, so reconciling it again is pure
+    // waste — and not cheap waste: each pass costs a Stripe session retrieve,
+    // a subscription retrieve, another doomed provisioning attempt and another
+    // cancelSubscription call, repeated every 1.5 seconds for the sixty-second
+    // poll window. The failedReason check has to come before the reconcile.
+    await pendingWithCookie({ checkoutSessionId: "cs_test_1" });
+    await prisma.pendingSignup.updateMany({
+      where: { email: "dana@example.com" },
+      data: {
+        failedReason: "email-taken",
+        createdAt: new Date(Date.now() - 10_000),
+      },
+    });
+
+    expect(await claimAccount()).toEqual({
+      status: "failed",
+      reason: "email-taken",
+    });
+    expect(reconciled.calls).toBe(0);
+  });
+
   it("reconciles from Stripe when the webhook is late", async () => {
     await pendingWithCookie({ checkoutSessionId: "cs_test_1" });
     await prisma.pendingSignup.updateMany({
