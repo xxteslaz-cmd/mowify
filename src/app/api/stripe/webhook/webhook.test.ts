@@ -12,6 +12,13 @@ const subscriptions = vi.hoisted(() => ({
 // swallow that failure and answer Stripe 200 while a subscription survives
 // uncancelled with no record of the attempt.
 const cancelFailure = vi.hoisted(() => ({ message: null as string | null }));
+// Lets a test hold one handler inside its Stripe round trip while another runs
+// to completion. That round trip is where two deliveries for the same signup
+// really do overlap in production: /billing/return's reconcile and Stripe's own
+// delivery both read the row, and one of them then waits on the network.
+const retrieveHook = vi.hoisted(() => ({
+  fn: null as null | ((id: string) => Promise<void>),
+}));
 
 vi.mock("@/lib/stripe/client", () => ({
   getStripe: () => ({
@@ -22,6 +29,7 @@ vi.mock("@/lib/stripe/client", () => ({
         return { id, status: "canceled" };
       },
       retrieve: async (id: string) => {
+        if (retrieveHook.fn) await retrieveHook.fn(id);
         const sub = subscriptions.value.get(id);
         if (!sub) throw new Error(`no such subscription: ${id}`);
         return sub;
@@ -59,6 +67,7 @@ function completedEvent(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   canceled.ids = [];
   cancelFailure.message = null;
+  retrieveHook.fn = null;
   subscriptions.value = new Map([
     [
       "sub_1",
@@ -120,6 +129,88 @@ describe("checkout.session.completed", () => {
     expect(await prisma.org.count()).toBe(1);
     expect(await prisma.user.count()).toBe(1);
     expect(canceled.ids).toEqual([]);
+  });
+
+  it("does not cancel the winner's subscription when two deliveries overlap", async () => {
+    // The sequential replay test above proves nothing about this: there, the
+    // second call reads consumedAt already set. Here both calls read the row
+    // as unconsumed before either commits, which is exactly what happens when
+    // /billing/return's reconcile fires — its five-second grace is measured
+    // from when the visitor STARTED signup, so anyone who spends longer than
+    // that typing a card number reconciles on their first poll, alongside
+    // Stripe's own delivery.
+    //
+    // Before the conditional claim, the loser resumed with its stale read,
+    // provisioned into the winner's now-committed email, got "email-taken",
+    // and cancelled the winner's live subscription while stamping
+    // failedReason on the winner's consumed row. The customer was left with an
+    // account, no subscription, and a page saying their email was taken.
+    const pending = await makePendingSignup({ email: "race@example.com" });
+    const event = completedEvent({ client_reference_id: pending.id });
+
+    let markSecondHasRead!: () => void;
+    const secondHasRead = new Promise<void>((resolve) => {
+      markSecondHasRead = resolve;
+    });
+    let releaseLoser!: () => void;
+    const winnerFinished = new Promise<void>((resolve) => {
+      releaseLoser = resolve;
+    });
+
+    let arrivals = 0;
+    retrieveHook.fn = async () => {
+      arrivals += 1;
+      // Whichever handler reaches Stripe first waits until the other has also
+      // read the row; the second then waits until the first has committed.
+      // Pinning that interleaving makes the race deterministic instead of
+      // hoping the scheduler produces it.
+      if (arrivals === 1) {
+        await secondHasRead;
+        return;
+      }
+      markSecondHasRead();
+      await winnerFinished;
+    };
+
+    const first = handleStripeEvent(event);
+    const second = handleStripeEvent(event);
+    // The handler that is not parked in the hook settles first, so racing them
+    // identifies the winner without assuming which call it was.
+    void Promise.race([first, second]).then(releaseLoser, releaseLoser);
+
+    await Promise.allSettled([first, second]);
+
+    expect(canceled.ids).toEqual([]);
+    expect(await prisma.org.count()).toBe(1);
+    expect(await prisma.user.count()).toBe(1);
+
+    const fresh = await prisma.pendingSignup.findUniqueOrThrow({
+      where: { id: pending.id },
+    });
+    expect(fresh.failedReason).toBeNull();
+    expect(fresh.consumedAt).not.toBeNull();
+  });
+
+  it("answers both simultaneous deliveries 200 rather than 500ing one of them", async () => {
+    // Unsequenced, so the two transactions collide wherever the database puts
+    // them: the loser can lose on User.email (a cancelled subscription) or on
+    // Org.slug (a raw P2002 the route turns into a 500 and Stripe into a retry
+    // storm), depending on whether the winner committed before the loser
+    // computed its slug. Asserting both fulfilled AND nothing cancelled covers
+    // either landing. The conditional claim makes the loser return before it
+    // writes anything at all, so neither is reachable.
+    const pending = await makePendingSignup({ email: "race2@example.com" });
+    const event = completedEvent({ client_reference_id: pending.id });
+
+    const results = await Promise.allSettled([
+      handleStripeEvent(event),
+      handleStripeEvent(event),
+    ]);
+
+    expect(results.map((r) => r.status)).toEqual(["fulfilled", "fulfilled"]);
+    expect(canceled.ids).toEqual([]);
+    expect(await prisma.org.count()).toBe(1);
+    expect(await prisma.user.count()).toBe(1);
   });
 
   it("cancels a SECOND checkout completed for the same signup", async () => {

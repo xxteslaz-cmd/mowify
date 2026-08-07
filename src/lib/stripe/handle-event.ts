@@ -105,6 +105,20 @@ async function completeSignup(session: Stripe.Checkout.Session): Promise<void> {
   // created. Wrapping all three means a fault here rolls everything back,
   // and Stripe's retry starts from a clean slate instead of a half state.
   const result = await prisma.$transaction(async (tx) => {
+    // Claim the row before provisioning, not as part of the consume below.
+    // The `pending` read above happens outside this transaction, so two
+    // overlapping deliveries — Stripe's own, and the reconcile fired from
+    // /billing/return — can both see consumedAt null and both arrive here.
+    // The loser blocks on this row's lock, re-evaluates the WHERE clause once
+    // the winner commits, and finds nothing to update. Placing the claim last
+    // would never help: the loser dies inside createOrgWithOwner on the
+    // winner's email and never reaches it.
+    const claimed = await tx.pendingSignup.updateMany({
+      where: { id: pending.id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    if (claimed.count === 0) return { ok: false, reason: "already-claimed" } as const;
+
     const provisioned = await createOrgWithOwner(
       {
         companyName: pending.companyName,
@@ -132,7 +146,6 @@ async function completeSignup(session: Stripe.Checkout.Session): Promise<void> {
       data: {
         orgId: provisioned.orgId,
         checkoutSessionId: session.id,
-        consumedAt: new Date(),
         failedReason: null,
         // The credential has been copied onto the User row. Keeping a second
         // copy here would be a liability with no purpose.
@@ -143,21 +156,45 @@ async function completeSignup(session: Stripe.Checkout.Session): Promise<void> {
     return provisioned;
   });
 
-  if (!result.ok) {
-    // No account can be made for this payment. During a trial no money has
-    // moved, so cancelling costs the customer nothing and leaves no
-    // subscription that would start charging with nothing attached to it.
-    // This write is outside the transaction on purpose: when we reach here
-    // the transaction above made no lasting writes (it returned before
-    // touching org or pendingSignup), so there is nothing left to keep
-    // atomic with it.
-    console.error("Stripe webhook: provisioning failed", pending.id, result.reason);
-    await prisma.pendingSignup.update({
+  if (result.ok) return;
+
+  if (result.reason === "already-claimed") {
+    // Another delivery of this signup got there first. It is holding a live
+    // subscription for a real customer, so this one must not cancel anything
+    // or stamp a failure on the row the winner just consumed. The only case
+    // that still warrants cancelling is a genuinely different checkout, which
+    // is the same double-billing guard the consumedAt branch above applies to
+    // a sequential delivery — re-read the row rather than trusting the stale
+    // copy that let this handler in.
+    const winner = await prisma.pendingSignup.findUnique({
       where: { id: pending.id },
-      data: { failedReason: result.reason },
+      select: { checkoutSessionId: true },
     });
-    await cancelSubscription(session.subscription);
+    if (winner?.checkoutSessionId && winner.checkoutSessionId !== session.id) {
+      console.error(
+        "Stripe webhook: duplicate checkout for a consumed signup",
+        pending.id,
+      );
+      await cancelSubscription(session.subscription);
+    }
+    return;
   }
+
+  // No account can be made for this payment. During a trial no money has
+  // moved, so cancelling costs the customer nothing and leaves no
+  // subscription that would start charging with nothing attached to it.
+  //
+  // These writes are outside the transaction on purpose. Every non-ok reason
+  // that reaches here comes from a unique-constraint violation, and that
+  // violation aborts the Postgres transaction, so its COMMIT is a rollback:
+  // the conditional claim above is undone along with everything else, leaving
+  // the row unconsumed and free to record the failure.
+  console.error("Stripe webhook: provisioning failed", pending.id, result.reason);
+  await prisma.pendingSignup.update({
+    where: { id: pending.id },
+    data: { failedReason: result.reason },
+  });
+  await cancelSubscription(session.subscription);
 }
 
 /**
