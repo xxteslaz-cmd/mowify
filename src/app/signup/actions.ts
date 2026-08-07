@@ -64,14 +64,20 @@ export async function signup(
   const claim = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + CLAIM_TTL_MS);
 
-  // Upsert rather than create: someone who abandoned checkout and came back
-  // must be able to retry, and keeping one row per email means a checkout they
-  // left open and later paid still resolves to this same id.
+  // Create, never upsert. A row is owned by the browser that started it and is
+  // never rewritten by a later request: reusing a row keyed on email let an
+  // unauthenticated caller overwrite the passwordHash and claimHash of a signup
+  // that was mid-payment, because the "already registered" guard above cannot
+  // fire while the User still does not exist. A retry simply makes its own row.
+  //
+  // Two rows for one email is fine. Whichever checkout completes first wins,
+  // and the second is rejected at provisioning time by createOrgWithOwner's
+  // "email-taken" result, which the webhook turns into a cancelled
+  // subscription. That is the only place the uniqueness actually matters.
   let pending;
   try {
-    pending = await prisma.pendingSignup.upsert({
-      where: { email },
-      create: {
+    pending = await prisma.pendingSignup.create({
+      data: {
         email,
         name,
         companyName,
@@ -79,25 +85,13 @@ export async function signup(
         claimHash: hashToken(claim),
         expiresAt,
       },
-      update: {
-        name,
-        companyName,
-        passwordHash,
-        claimHash: hashToken(claim),
-        checkoutSessionId: null,
-        failedReason: null,
-        expiresAt,
-      },
     });
-  } catch {
+  } catch (err) {
+    console.error(
+      "Pending signup not recorded:",
+      err instanceof Error ? err.message : String(err),
+    );
     return { error: "Something went wrong. Please try again." };
-  }
-
-  if (pending.consumedAt) {
-    // The row was already promoted to a real account. The user lookup above
-    // should have caught this, so reaching here means the account was created
-    // between these two queries.
-    return { errors: { email: "That email is already registered." } };
   }
 
   let checkoutUrl: string | null;

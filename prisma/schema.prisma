@@ -203,11 +203,18 @@ model Token {
 // into a real account once Stripe confirms a card.
 model PendingSignup {
   id String @id @default(cuid())
-  // Unique because a retry reuses this row rather than adding a second one.
-  // One row per email means a checkout the visitor abandoned and later
-  // completed anyway still resolves here by id, and the claim cookie can only
-  // ever point at one place.
-  email String @unique
+  // Deliberately NOT unique: one row per signup attempt, never reused.
+  //
+  // Keying on email and reusing the row let an unauthenticated request
+  // overwrite the passwordHash and claimHash of a signup that was mid-payment.
+  // The "already registered" guard cannot fire during that window, because the
+  // User does not exist yet — so the victim paid and the attacker owned the
+  // company. A row per attempt closes it: an attacker's request creates their
+  // own row and sets a cookie in their own browser, and cookies are per-browser.
+  //
+  // Email uniqueness is enforced where it actually matters — at provisioning
+  // time, by createOrgWithOwner's "email-taken" result.
+  email String
   name        String
   companyName String
   // Nulled once the account exists. There is no reason to keep a credential

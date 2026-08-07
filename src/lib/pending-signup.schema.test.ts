@@ -10,9 +10,13 @@ describe("PendingSignup schema", () => {
     expect(pending.passwordHash).not.toBeNull();
   });
 
-  it("allows only one row per email, so a retry must reuse it", async () => {
-    await makePendingSignup({ email: "dup@example.com" });
-    await expect(makePendingSignup({ email: "dup@example.com" })).rejects.toThrow();
+  it("allows several rows per email, so one attempt cannot overwrite another", async () => {
+    const first = await makePendingSignup({ email: "dup@example.com" });
+    const second = await makePendingSignup({ email: "dup@example.com" });
+    // Each attempt owns its own claim. Reusing one row per email let an
+    // unauthenticated request rewrite a mid-payment signup's credentials.
+    expect(second.id).not.toBe(first.id);
+    expect(second.claimHash).not.toBe(first.claimHash);
   });
 
   it("allows only one row per claim hash", async () => {

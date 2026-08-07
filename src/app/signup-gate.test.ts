@@ -86,7 +86,7 @@ describe("signup no longer creates an account", () => {
   it("creates a PendingSignup holding the hashed password", async () => {
     await expect(signup(undefined, form())).rejects.toThrow(/redirect:/);
 
-    const pending = await prisma.pendingSignup.findUniqueOrThrow({
+    const pending = await prisma.pendingSignup.findFirstOrThrow({
       where: { email: "dana@example.com" },
     });
     expect(pending.companyName).toBe("Green Acres");
@@ -101,7 +101,7 @@ describe("signup no longer creates an account", () => {
     const raw = cookieJar.value.get(CLAIM_COOKIE);
     expect(raw).toBeTruthy();
 
-    const pending = await prisma.pendingSignup.findUniqueOrThrow({
+    const pending = await prisma.pendingSignup.findFirstOrThrow({
       where: { email: "dana@example.com" },
     });
     expect(pending.claimHash).toBe(hashToken(raw!));
@@ -124,7 +124,7 @@ describe("signup no longer creates an account", () => {
     expect(params.subscription_data).toMatchObject({ trial_period_days: 30 });
     expect(params.success_url).toBe("https://app.example.com/billing/return");
 
-    const pending = await prisma.pendingSignup.findUniqueOrThrow({
+    const pending = await prisma.pendingSignup.findFirstOrThrow({
       where: { email: "dana@example.com" },
     });
     expect(params.client_reference_id).toBe(pending.id);
@@ -140,23 +140,31 @@ describe("signup no longer creates an account", () => {
     expect(await prisma.pendingSignup.count()).toBe(0);
   });
 
-  it("reuses the row on a retry instead of creating a second one", async () => {
+  it("a second signup for the same email CANNOT touch the first one's row", async () => {
+    // This is the account-takeover regression test. Reusing one row per email
+    // let an unauthenticated request overwrite the passwordHash and claimHash
+    // of a signup that was mid-payment: the victim paid, and the webhook then
+    // provisioned the company with the attacker's password and claim.
     await expect(signup(undefined, form())).rejects.toThrow(/redirect:/);
-    const first = await prisma.pendingSignup.findUniqueOrThrow({
+    const victim = await prisma.pendingSignup.findFirstOrThrow({
       where: { email: "dana@example.com" },
     });
 
     created.nextId = "cs_test_2";
     cookieJar.value = new Map();
-    await expect(signup(undefined, form())).rejects.toThrow(/redirect:/);
+    await expect(
+      signup(undefined, form({ password: "attacker-password" })),
+    ).rejects.toThrow(/redirect:/);
 
-    expect(await prisma.pendingSignup.count()).toBe(1);
-    const second = await prisma.pendingSignup.findUniqueOrThrow({
-      where: { email: "dana@example.com" },
+    const victimAfter = await prisma.pendingSignup.findUniqueOrThrow({
+      where: { id: victim.id },
     });
-    expect(second.id).toBe(first.id);
-    // A retry must invalidate the previous browser's claim.
-    expect(second.claimHash).not.toBe(first.claimHash);
+    expect(victimAfter.passwordHash).toBe(victim.passwordHash);
+    expect(victimAfter.claimHash).toBe(victim.claimHash);
+    expect(victimAfter.checkoutSessionId).toBe(victim.checkoutSessionId);
+
+    // The second attempt got its own row, not a rewrite of the first.
+    expect(await prisma.pendingSignup.count()).toBe(2);
   });
 
   it("sweeps expired unconsumed rows but keeps consumed ones", async () => {
@@ -186,10 +194,10 @@ describe("signup no longer creates an account", () => {
     await expect(signup(undefined, form())).rejects.toThrow(/redirect:/);
 
     expect(
-      await prisma.pendingSignup.findUnique({ where: { email: "stale@example.com" } }),
+      await prisma.pendingSignup.findFirst({ where: { email: "stale@example.com" } }),
     ).toBeNull();
     expect(
-      await prisma.pendingSignup.findUnique({ where: { email: "done@example.com" } }),
+      await prisma.pendingSignup.findFirst({ where: { email: "done@example.com" } }),
     ).not.toBeNull();
   });
 

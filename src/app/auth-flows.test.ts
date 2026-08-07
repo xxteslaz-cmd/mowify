@@ -812,12 +812,12 @@ describe("signup does not create an account or send email", () => {
           password: "a-good-password",
         }),
       ),
-    ).rejects.toThrow(/redirect:/);
+    ).rejects.toThrow("redirect: https://checkout.stripe.test/pay");
 
     expect(await prisma.org.count()).toBe(0);
     expect(await prisma.user.count()).toBe(0);
 
-    const pending = await prisma.pendingSignup.findUniqueOrThrow({
+    const pending = await prisma.pendingSignup.findFirstOrThrow({
       where: { email: "fresh-owner@example.com" },
     });
     expect(pending.consumedAt).toBeNull();
