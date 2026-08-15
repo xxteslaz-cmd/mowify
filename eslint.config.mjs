@@ -37,6 +37,15 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // A git worktree under .claude/worktrees/ is a second full copy of the
+    // repo, and it lints as one — badly. The exemptions below are matched on
+    // root-relative paths like "src/app/**/actions.ts", which the worktree's
+    // ".claude/worktrees/<name>/src/app/**/actions.ts" does not match, so
+    // every file that legitimately relies on an exemption reports as a
+    // violation. The worktree has its own checkout of this config and lints
+    // itself correctly; it must not be linted from here. Same reason
+    // vitest.config.ts excludes **/.claude/**.
+    ".claude/**",
   ]),
   // Default: both restrictions apply everywhere. Each exemption below is
   // scoped to only the pattern it needs to lift, kept as its own selector,
