@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { requireAppUrl } from "@/lib/url";
 import "./globals.css";
 
 // Plus Jakarta Sans over Geist: it keeps the geometric clarity a dense
@@ -11,9 +12,38 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+const DESCRIPTION = "Crew scheduling for small landscaping companies";
+
 export const metadata: Metadata = {
-  title: "GroundsRoute",
-  description: "Crew scheduling for small landscaping companies",
+  // requireAppUrl rather than appUrl, for the same reason robots.ts uses it:
+  // without metadataBase Next resolves the Open Graph image against localhost
+  // and says so only in a build log, so every shared link would carry a
+  // preview image nobody outside this machine can load. That is the
+  // silent-success failure APP_URL has already caused here once.
+  metadataBase: new URL(requireAppUrl()),
+  title: {
+    default: "GroundsRoute",
+    // Pages that set their own title get the product name appended, so a
+    // browser tab or a bookmark still says what the app is.
+    template: "%s · GroundsRoute",
+  },
+  description: DESCRIPTION,
+  applicationName: "GroundsRoute",
+  openGraph: {
+    type: "website",
+    siteName: "GroundsRoute",
+    title: "GroundsRoute",
+    description: DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    // summary_large_image rather than summary: the shared card is a picture of
+    // the board, which is the actual pitch, and the small variant crops it to
+    // a thumbnail where nothing is legible.
+    card: "summary_large_image",
+    title: "GroundsRoute",
+    description: DESCRIPTION,
+  },
 };
 
 // The authenticated shell (sidebar nav, verify banner) lives in
