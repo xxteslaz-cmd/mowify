@@ -25,6 +25,12 @@ export default async function UserMenu() {
           >
             Account
           </a>
+          <a
+            href="/settings"
+            className="text-sm text-muted hover:text-foreground md:rounded-md md:px-3 md:py-1.5 md:hover:bg-foreground/5 md:hover:text-foreground"
+          >
+            Settings
+          </a>
           {/* Until this existed the only route to /billing was the lapsed
               banner, which by definition appears only once something has gone
               wrong. A customer in good standing had no way to replace an
