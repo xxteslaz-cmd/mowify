@@ -10,8 +10,8 @@
  */
 export const LEGAL = {
   entity: "[REGISTERED BUSINESS NAME]",
-  contactEmail: "[SUPPORT EMAIL ADDRESS]",
-  jurisdiction: "[STATE OR COUNTRY OF INCORPORATION]",
+  contactEmail: "support@groundsroute.com",
+  jurisdiction: "the Commonwealth of Pennsylvania",
   /** Update whenever the wording of either page changes materially. */
   lastUpdated: "23 August 2026",
 } as const;
