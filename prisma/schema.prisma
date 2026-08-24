@@ -105,6 +105,11 @@ enum Role {
   CREW
 }
 
+enum AssigneeMode {
+  CREW
+  EMPLOYEE
+}
+
 model Org {
   id        String     @id @default(cuid())
   name      String
@@ -123,6 +128,12 @@ model Org {
   subscriptionStatus   String?
   trialEndsAt          DateTime?
   currentPeriodEnd     DateTime?
+
+  // Whether this company organises work into crews or assigns it to named
+  // people. Presentation only — a Crew row is the assignable unit either way,
+  // which is what keeps the board, the phone view and recurring generation on
+  // a single code path.
+  assigneeMode AssigneeMode @default(CREW)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

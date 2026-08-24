@@ -38,6 +38,20 @@ export async function getDaySummaries(
   return summaries;
 }
 
+/**
+ * The wording this company uses for assignees. Read through the same
+ * requireOwner/orgId path as every other business read, so a caller cannot
+ * ask for another company's setting.
+ */
+export async function getAssigneeMode() {
+  const { orgId } = await requireOwner();
+  const org = await prisma.org.findUniqueOrThrow({
+    where: { id: orgId },
+    select: { assigneeMode: true },
+  });
+  return org.assigneeMode;
+}
+
 export async function getActiveCrews() {
   const { orgId } = await requireOwner();
   return prisma.crew.findMany({

@@ -9,8 +9,13 @@ import { parseISODate } from "@/lib/date";
 let counter = 0;
 const unique = () => `${Date.now()}-${counter++}`;
 
-export async function makeOrg(name = `Org ${unique()}`) {
-  return prisma.org.create({ data: { name, slug: slugify(name) } });
+export async function makeOrg(
+  name = `Org ${unique()}`,
+  assigneeMode: "CREW" | "EMPLOYEE" = "CREW",
+) {
+  return prisma.org.create({
+    data: { name, slug: slugify(name), assigneeMode },
+  });
 }
 
 export async function makeOwner(
