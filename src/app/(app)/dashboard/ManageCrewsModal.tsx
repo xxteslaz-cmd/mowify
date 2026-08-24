@@ -2,8 +2,13 @@
 
 import { useState } from "react";
 import type { CrewWithJobCount } from "@/lib/types";
-import type { AssigneeTerms } from "@/lib/assignee-terms";
-import { createCrew, updateCrew, deleteCrew } from "./actions";
+import { isEmployeeTerms, type AssigneeTerms } from "@/lib/assignee-terms";
+import {
+  createCrew,
+  createAssigneeWithLogin,
+  updateCrew,
+  deleteCrew,
+} from "./actions";
 
 export default function ManageCrewsModal({
   crews,
@@ -145,41 +150,98 @@ function NewCrewRow({
 }) {
   const [name, setName] = useState("");
   const [color, setColor] = useState("#2563eb");
+  const [username, setUsername] = useState("");
+  const [pin, setPin] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // A crew is a group that people are added to from /team; an employee is one
+  // person, so their login is worth offering in the same step rather than
+  // sending the owner to a second screen to finish the job.
+  const employeeMode = isEmployeeTerms(terms);
 
   async function add() {
     if (!name.trim()) return;
     setSubmitting(true);
-    await createCrew({ name: name.trim(), color });
+    setError(null);
+
+    if (!employeeMode) {
+      await createCrew({ name: name.trim(), color });
+    } else {
+      const result = await createAssigneeWithLogin({
+        name: name.trim(),
+        color,
+        // Send neither when both are blank, so an employee without a login is
+        // still valid; the action rejects one without the other.
+        username: username.trim() || undefined,
+        pin: pin.trim() || undefined,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        setSubmitting(false);
+        return;
+      }
+    }
+
     setName("");
+    setUsername("");
+    setPin("");
     setSubmitting(false);
     onChanged();
   }
 
   return (
-    <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
-      <input
-        type="color"
-        value={color}
-        onChange={(e) => setColor(e.target.value)}
-        aria-label={`New ${terms.one} color`}
-        className="h-8 w-8 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
-      />
-      <input
-        type="text"
-        placeholder={`New ${terms.one} name`}
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && add()}
-        className="min-w-0 flex-1 field"
-      />
-      <button
-        onClick={add}
-        disabled={submitting || !name.trim()}
-        className="shrink-0 btn btn-primary"
-      >
-        + Add
-      </button>
+    <div className="mt-3 border-t border-border pt-3">
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          aria-label={`New ${terms.one} color`}
+          className="h-8 w-8 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+        />
+        <input
+          type="text"
+          placeholder={`New ${terms.one} name`}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+          className="min-w-0 flex-1 field"
+        />
+        <button
+          onClick={add}
+          disabled={submitting || !name.trim()}
+          className="shrink-0 btn btn-primary"
+        >
+          + Add
+        </button>
+      </div>
+
+      {employeeMode && (
+        <div className="mt-2 flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="Username (optional)"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            autoComplete="off"
+            className="min-w-0 flex-1 field"
+          />
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="6-digit PIN (optional)"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            autoComplete="off"
+            className="min-w-0 flex-1 field"
+          />
+        </div>
+      )}
+
+      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>
   );
 }

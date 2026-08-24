@@ -29,3 +29,14 @@ export function assigneeTerms(mode: AssigneeMode): AssigneeTerms {
   // show the existing wording, not render "undefined" at a customer.
   return TERMS[mode] ?? TERMS.CREW;
 }
+
+/**
+ * Whether these terms are the employee wording.
+ *
+ * Compared against the table rather than a bare "employee" literal at the call
+ * site: the whole point of this module is that the noun lives in one place, and
+ * a literal elsewhere would silently stop matching the day the wording changes.
+ */
+export function isEmployeeTerms(terms: AssigneeTerms): boolean {
+  return terms.one === TERMS.EMPLOYEE.one;
+}

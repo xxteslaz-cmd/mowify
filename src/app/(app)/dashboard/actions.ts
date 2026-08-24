@@ -11,7 +11,10 @@ import {
 } from "@/lib/recurring";
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
+import { Prisma } from "@prisma/client";
 import type { Frequency, ServiceType } from "@prisma/client";
+import { hashSecret } from "@/lib/auth/password";
+import { p2002Fields } from "@/lib/prisma-errors";
 import { requireActiveOrg, verifySession } from "@/lib/auth/dal";
 import { assigneeTerms } from "@/lib/assignee-terms";
 
@@ -271,6 +274,85 @@ export async function createCrew(input: { name: string; color: string }) {
   const crew = await prisma.crew.create({ data: { ...parsed.data, orgId } });
   revalidatePath("/dashboard");
   return crew;
+}
+
+const AssigneeWithLoginInput = z
+  .object({
+    name: z.string().trim().min(1, "Enter a name"),
+    color: z.string().trim().min(1, "Pick a color"),
+    username: z.string().trim().min(1).optional(),
+    pin: z.string().regex(/^\d{6}$/, "Use a 6-digit PIN").optional(),
+  })
+  .strict()
+  .refine((v) => (v.username === undefined) === (v.pin === undefined), {
+    message: "Enter both a username and a PIN, or neither",
+  });
+
+export type CreateAssigneeResult =
+  | { ok: true; id: string }
+  | { ok: false; error: string };
+
+/**
+ * Creates a person and, optionally, their phone login in one step.
+ *
+ * Both rows are written in one transaction: a rejected username must not leave
+ * a half-made employee behind for the owner to find and delete.
+ *
+ * Returns error state rather than throwing — production React redacts thrown
+ * Server Action messages, so a throw would show boilerplate instead of the
+ * reason.
+ */
+export async function createAssigneeWithLogin(input: {
+  name: string;
+  color: string;
+  username?: string;
+  pin?: string;
+}): Promise<CreateAssigneeResult> {
+  const { orgId } = await requireActiveOrg();
+
+  const parsed = AssigneeWithLoginInput.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0].message };
+  }
+  const { name, color, username, pin } = parsed.data;
+
+  // argon2 is deliberately expensive; hash before opening the transaction so
+  // the database connection is not held across it.
+  const pinHash = pin ? await hashSecret(pin) : null;
+
+  try {
+    const crew = await prisma.$transaction(async (tx) => {
+      const created = await tx.crew.create({ data: { name, color, orgId } });
+      if (username && pinHash) {
+        await tx.user.create({
+          data: {
+            orgId,
+            role: "CREW",
+            name,
+            username,
+            pinHash,
+            crewId: created.id,
+          },
+        });
+      }
+      return created;
+    });
+    revalidatePath("/dashboard");
+    return { ok: true, id: crew.id };
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002" &&
+      p2002Fields(err).includes("username")
+    ) {
+      return { ok: false, error: "That username is already in use." };
+    }
+    console.error(
+      "Assignee not created:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return { ok: false, error: "Something went wrong. Please try again." };
+  }
 }
 
 export async function updateCrew(
