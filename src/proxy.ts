@@ -23,6 +23,11 @@ const PUBLIC_PREFIXES = [
   "/billing/return",
   // Stripe is not a browser and carries no session cookie.
   "/api/stripe/webhook",
+  // Linked from the landing page and from signup, so both have to render for
+  // someone who has no account yet — which is the whole point of publishing
+  // them. Neither is a prefix of another route.
+  "/terms",
+  "/privacy",
 ];
 
 export default function proxy(req: NextRequest) {
