@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Crew } from "@prisma/client";
 import type { JobWithNextDate } from "@/lib/types";
+import type { AssigneeTerms } from "@/lib/assignee-terms";
 import { toISODate } from "@/lib/date";
 import { serviceLabel, FREQUENCY_LABEL } from "@/lib/labels";
 import { updateJob } from "./actions";
@@ -10,11 +11,13 @@ import { updateJob } from "./actions";
 export default function EditJobModal({
   job,
   crews,
+  terms,
   onClose,
   onSaved,
 }: {
   job: JobWithNextDate;
   crews: Crew[];
+  terms: AssigneeTerms;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -32,7 +35,7 @@ export default function EditJobModal({
     e.preventDefault();
     setError(null);
     if (!crewId) {
-      setError("Select a crew.");
+      setError(`Select a ${terms.one}.`);
       return;
     }
     setSubmitting(true);
@@ -78,7 +81,7 @@ export default function EditJobModal({
             />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-muted">Crew</span>
+            <span className="mb-1 block text-muted">{terms.One}</span>
             <select
               value={crewId}
               onChange={(e) => setCrewId(e.target.value)}

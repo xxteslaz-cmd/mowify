@@ -13,6 +13,7 @@ import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 import type { Frequency, ServiceType } from "@prisma/client";
 import { requireActiveOrg, verifySession } from "@/lib/auth/dal";
+import { assigneeTerms } from "@/lib/assignee-terms";
 
 function revalidateAffected(dateISO: string, crewId?: string | null) {
   revalidatePath("/dashboard");
@@ -290,12 +291,22 @@ export async function updateCrew(
 
 export async function deleteCrew(id: string) {
   const { orgId } = await requireActiveOrg();
+
+  // These messages reach the owner, so they have to use the company's own
+  // noun. The mode is read here rather than passed in because a client-supplied
+  // word would be a client-supplied string rendered back at the user.
+  const org = await prisma.org.findUniqueOrThrow({
+    where: { id: orgId },
+    select: { assigneeMode: true },
+  });
+  const terms = assigneeTerms(org.assigneeMode);
+
   // The UI disables Delete for crews with jobs, but re-check here since the
   // count the client rendered can be stale by the time the action runs.
   const jobCount = await prisma.job.count({ where: { crewId: id, orgId } });
   if (jobCount > 0) {
     throw new Error(
-      `Cannot delete crew: ${jobCount} job${jobCount === 1 ? "" : "s"} still assigned to it.`,
+      `Cannot delete ${terms.one}: ${jobCount} job${jobCount === 1 ? "" : "s"} still assigned to it.`,
     );
   }
 
@@ -310,7 +321,7 @@ export async function deleteCrew(id: string) {
   });
   if (loginCount > 0) {
     throw new Error(
-      `Cannot delete crew: ${loginCount} login${loginCount === 1 ? "" : "s"} still assigned to it. Reassign or deactivate them first.`,
+      `Cannot delete ${terms.one}: ${loginCount} login${loginCount === 1 ? "" : "s"} still assigned to it. Reassign or deactivate them first.`,
     );
   }
 

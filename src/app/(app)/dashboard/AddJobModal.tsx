@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { Crew, Customer, Frequency, ServiceType } from "@prisma/client";
 import type { JobWithRelations } from "@/lib/types";
+import type { AssigneeTerms } from "@/lib/assignee-terms";
 import { SERVICE_TYPES, SERVICE_LABEL, FREQUENCIES, FREQUENCY_LABEL } from "@/lib/labels";
 import { createJob } from "./actions";
 
@@ -10,6 +11,7 @@ export default function AddJobModal({
   dateISO,
   crews,
   customers,
+  terms,
   defaultCrewId,
   onClose,
   onCreated,
@@ -17,6 +19,7 @@ export default function AddJobModal({
   dateISO: string;
   crews: Crew[];
   customers: Customer[];
+  terms: AssigneeTerms;
   defaultCrewId: string | null;
   onClose: () => void;
   onCreated: (job: JobWithRelations) => void;
@@ -57,7 +60,7 @@ export default function AddJobModal({
       return;
     }
     if (!crewId) {
-      setError("Select a crew.");
+      setError(`Select a ${terms.one}.`);
       return;
     }
     if (serviceType === "OTHER" && !customService.trim()) {
@@ -225,7 +228,7 @@ export default function AddJobModal({
             />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block text-muted">Crew</span>
+            <span className="mb-1 block text-muted">{terms.One}</span>
             <select
               value={crewId}
               onChange={(e) => setCrewId(e.target.value)}

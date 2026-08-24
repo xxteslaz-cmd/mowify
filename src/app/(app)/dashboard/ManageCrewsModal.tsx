@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import type { CrewWithJobCount } from "@/lib/types";
+import type { AssigneeTerms } from "@/lib/assignee-terms";
 import { createCrew, updateCrew, deleteCrew } from "./actions";
 
 export default function ManageCrewsModal({
   crews,
+  terms,
   onClose,
   onChanged,
 }: {
   crews: CrewWithJobCount[];
+  terms: AssigneeTerms;
   onClose: () => void;
   onChanged: () => void;
 }) {
@@ -19,17 +22,17 @@ export default function ManageCrewsModal({
         onClick={(e) => e.stopPropagation()}
         className="max-h-[85vh] w-full max-w-md overflow-y-auto card p-5 shadow-xl"
       >
-        <h2 className="mb-4 text-lg font-semibold">Manage Crews</h2>
+        <h2 className="mb-4 text-lg font-semibold">{`Manage ${terms.Many}`}</h2>
         <div className="space-y-2">
           {crews.map((crew) => (
-            <CrewRow key={crew.id} crew={crew} onChanged={onChanged} />
+            <CrewRow key={crew.id} crew={crew} terms={terms} onChanged={onChanged} />
           ))}
           {crews.length === 0 && (
-            <p className="text-sm text-muted">No crews yet.</p>
+            <p className="text-sm text-muted">{`No ${terms.many} yet.`}</p>
           )}
         </div>
 
-        <NewCrewRow onChanged={onChanged} />
+        <NewCrewRow terms={terms} onChanged={onChanged} />
 
         <div className="mt-4 flex justify-end">
           <button onClick={onClose} className="btn btn-primary">
@@ -41,7 +44,15 @@ export default function ManageCrewsModal({
   );
 }
 
-function CrewRow({ crew, onChanged }: { crew: CrewWithJobCount; onChanged: () => void }) {
+function CrewRow({
+  crew,
+  terms,
+  onChanged,
+}: {
+  crew: CrewWithJobCount;
+  terms: AssigneeTerms;
+  onChanged: () => void;
+}) {
   const [name, setName] = useState(crew.name);
   const [color, setColor] = useState(crew.color);
   const [saving, setSaving] = useState(false);
@@ -65,7 +76,8 @@ function CrewRow({ crew, onChanged }: { crew: CrewWithJobCount; onChanged: () =>
   }
 
   async function remove() {
-    if (!confirm(`Delete crew "${crew.name}"? This cannot be undone.`)) return;
+    if (!confirm(`Delete ${terms.one} "${crew.name}"? This cannot be undone.`))
+      return;
     setSaving(true);
     setError(null);
     try {
@@ -73,7 +85,9 @@ function CrewRow({ crew, onChanged }: { crew: CrewWithJobCount; onChanged: () =>
       onChanged();
     } catch {
       // The count we rendered can go stale if a job was assigned meanwhile.
-      setError("Couldn't delete this crew — it may have jobs assigned now.");
+      setError(
+        `Couldn't delete this ${terms.one} — it may have jobs assigned now.`,
+      );
       onChanged();
     } finally {
       setSaving(false);
@@ -107,7 +121,11 @@ function CrewRow({ crew, onChanged }: { crew: CrewWithJobCount; onChanged: () =>
         <button
           onClick={remove}
           disabled={saving || jobCount > 0}
-          title={jobCount > 0 ? `Can't delete: crew has ${jobCount} job${jobCount === 1 ? "" : "s"}` : `Delete ${crew.name}`}
+          title={
+            jobCount > 0
+              ? `Can't delete: ${terms.one} has ${jobCount} job${jobCount === 1 ? "" : "s"}`
+              : `Delete ${crew.name}`
+          }
           className="shrink-0 btn btn-danger"
         >
           Delete
@@ -118,7 +136,13 @@ function CrewRow({ crew, onChanged }: { crew: CrewWithJobCount; onChanged: () =>
   );
 }
 
-function NewCrewRow({ onChanged }: { onChanged: () => void }) {
+function NewCrewRow({
+  terms,
+  onChanged,
+}: {
+  terms: AssigneeTerms;
+  onChanged: () => void;
+}) {
   const [name, setName] = useState("");
   const [color, setColor] = useState("#2563eb");
   const [submitting, setSubmitting] = useState(false);
@@ -138,12 +162,12 @@ function NewCrewRow({ onChanged }: { onChanged: () => void }) {
         type="color"
         value={color}
         onChange={(e) => setColor(e.target.value)}
-        aria-label="New crew color"
+        aria-label={`New ${terms.one} color`}
         className="h-8 w-8 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
       />
       <input
         type="text"
-        placeholder="New crew name"
+        placeholder={`New ${terms.one} name`}
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && add()}

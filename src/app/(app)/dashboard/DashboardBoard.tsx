@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Crew, Customer, Frequency } from "@prisma/client";
 import type { JobWithNextDate, CrewWithJobCount } from "@/lib/types";
+import type { AssigneeTerms } from "@/lib/assignee-terms";
 import { toISODate, calculateNextOccurrenceDate } from "@/lib/date";
 import { serviceLabel } from "@/lib/labels";
 import AutoRefresh from "@/components/AutoRefresh";
@@ -37,12 +38,16 @@ export default function DashboardBoard({
   allCrews,
   jobs,
   customers,
+  terms,
 }: {
   dateISO: string;
   crews: Crew[];
   allCrews: CrewWithJobCount[];
   jobs: JobWithNextDate[];
   customers: Customer[];
+  // Passed in rather than read here: this is a client component, and the mode
+  // is resolved once on the server so no component branches on it inline.
+  terms: AssigneeTerms;
 }) {
   const router = useRouter();
   const [localJobs, setLocalJobs] = useState(jobs);
@@ -153,7 +158,11 @@ export default function DashboardBoard({
             setAddOpen(true);
           }}
           disabled={crews.length === 0}
-          title={crews.length === 0 ? "Create a crew before adding jobs" : undefined}
+          title={
+            crews.length === 0
+              ? `Create a ${terms.one} before adding jobs`
+              : undefined
+          }
           className="btn btn-primary disabled:opacity-40"
         >
           + Add Job
@@ -172,7 +181,7 @@ export default function DashboardBoard({
           {selectMode ? "Cancel selection" : "Select & reschedule"}
         </button>
         <button onClick={() => setManageCrewsOpen(true)} className="btn btn-secondary">
-          Manage Crews
+          {`Manage ${terms.Many}`}
         </button>
 
         {selectMode && selected.size > 0 && (
@@ -195,10 +204,10 @@ export default function DashboardBoard({
       {crews.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-10 text-center">
           <p className="text-sm text-muted">
-            No active crews yet. Every job belongs to a crew, so add one to start scheduling.
+            {`No active ${terms.many} yet. Every job belongs to a ${terms.one}, so add one to start scheduling.`}
           </p>
           <button onClick={() => setManageCrewsOpen(true)} className="mt-3 btn btn-primary">
-            Add a crew
+            {`Add a ${terms.one}`}
           </button>
         </div>
       ) : (
@@ -219,7 +228,7 @@ export default function DashboardBoard({
                     <Link
                       href={`/crew/${key}/today?date=${dateISO}`}
                       className="text-xs text-muted hover:text-foreground"
-                      title="Open this crew's phone view"
+                      title={`Open this ${terms.one}'s phone view`}
                     >
                       view
                     </Link>
@@ -269,6 +278,7 @@ export default function DashboardBoard({
           dateISO={dateISO}
           crews={crews}
           customers={customers}
+          terms={terms}
           defaultCrewId={addDefaultCrew}
           onClose={() => setAddOpen(false)}
           onCreated={(job) => {
@@ -286,6 +296,7 @@ export default function DashboardBoard({
         <EditJobModal
           job={editJob}
           crews={crews}
+          terms={terms}
           onClose={() => setEditJob(null)}
           onSaved={() => {
             setEditJob(null);
@@ -299,6 +310,7 @@ export default function DashboardBoard({
       {manageCrewsOpen && (
         <ManageCrewsModal
           crews={allCrews}
+          terms={terms}
           onClose={() => setManageCrewsOpen(false)}
           onChanged={() => router.refresh()}
         />

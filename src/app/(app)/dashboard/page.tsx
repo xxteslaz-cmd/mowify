@@ -1,4 +1,12 @@
-import { getActiveCrews, getAllCrews, getCustomers, getDaySummaries, getJobsForDate } from "@/lib/data";
+import {
+  getActiveCrews,
+  getAllCrews,
+  getAssigneeMode,
+  getCustomers,
+  getDaySummaries,
+  getJobsForDate,
+} from "@/lib/data";
+import { assigneeTerms } from "@/lib/assignee-terms";
 import { requireOwner } from "@/lib/auth/dal";
 import { monthGridDays, parseISODate, todayISO } from "@/lib/date";
 import { attachNextDates, ensureOccurrencesThrough, horizonDate } from "@/lib/recurring";
@@ -31,13 +39,19 @@ export default async function DashboardPage({
     lastVisible.getTime() > target.getTime() ? lastVisible : target,
   );
 
-  const [crews, allCrews, jobs, customers, summaries] = await Promise.all([
-    getActiveCrews(),
-    getAllCrews(),
-    getJobsForDate(dateISO),
-    getCustomers(),
-    getDaySummaries(gridDays),
-  ]);
+  // In the same Promise.all rather than a serial await: the mode is one small
+  // read, and awaiting it on its own line would add a round trip to every
+  // dashboard render.
+  const [crews, allCrews, jobs, customers, summaries, assigneeMode] =
+    await Promise.all([
+      getActiveCrews(),
+      getAllCrews(),
+      getJobsForDate(dateISO),
+      getCustomers(),
+      getDaySummaries(gridDays),
+      getAssigneeMode(),
+    ]);
+  const terms = assigneeTerms(assigneeMode);
   const jobsWithNextDate = await attachNextDates(orgId, jobs);
 
   return (
@@ -45,7 +59,7 @@ export default async function DashboardPage({
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         <p className="mt-1 text-sm text-muted">
-          Plan the day, move jobs between crews, and see what&apos;s next.
+          {`Plan the day, move jobs between ${terms.many}, and see what's next.`}
         </p>
       </div>
       <CalendarNav dateISO={dateISO} monthISO={monthISO} summaries={summaries} />
@@ -56,6 +70,7 @@ export default async function DashboardPage({
         allCrews={allCrews}
         jobs={jobsWithNextDate}
         customers={customers}
+        terms={terms}
       />
     </div>
   );
