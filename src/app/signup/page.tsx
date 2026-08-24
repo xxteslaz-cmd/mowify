@@ -20,6 +20,18 @@ export default async function SignupPage() {
 
       <SignupForm />
 
+      <p className="mt-4 text-xs leading-relaxed text-muted">
+        By creating a company you agree to our{" "}
+        <Link href="/terms" className="underline underline-offset-4">
+          Terms of Service
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="underline underline-offset-4">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+
       <p className="mt-6 text-sm text-muted">
         Already have an account?{" "}
         <Link href="/login" className="underline underline-offset-4">

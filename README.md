@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GroundsRoute
 
-## Getting Started
+Crew scheduling for small landscaping companies.
 
-First, run the development server:
+An owner books jobs onto crews across a calendar; each crew opens a phone page
+showing only their stops for the day and marks them done. Recurring jobs
+regenerate automatically. Multi-tenant — many companies sign up, and their data
+never mixes.
+
+## Stack
+
+Next.js 16 (App Router) · React 19 · Prisma 7 with the `@prisma/adapter-pg`
+driver adapter · PostgreSQL on Neon · Tailwind v4 · TypeScript · Vitest ·
+argon2 (`@node-rs/argon2`) · Zod · Resend · Stripe (hosted Checkout and
+Billing Portal).
+
+## Getting started
 
 ```bash
+npm install
+cp .env.example .env      # then fill in the values below
+npm run db:push:test      # applies the schema to the TEST database only
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The app runs at http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Production database. **Never write to it from a dev machine.** |
+| `TEST_DATABASE_URL` | Disposable test database; must contain "test" or the suite refuses to run. |
+| `APP_URL` | Absolute origin for emailed links and Stripe redirects. Defaults to localhost in `appUrl()`, but `requireAppUrl()` throws rather than guess. |
+| `RESEND_API_KEY` | Transactional email. Unset means email silently no-ops — see below. |
+| `EMAIL_FROM` | Sender address, on a domain verified in Resend. |
+| `STRIPE_SECRET_KEY` | Stripe API key. |
+| `STRIPE_WEBHOOK_SECRET` | Verifies the webhook signature. The webhook is the only code that creates an `Org`. |
+| `STRIPE_PRICE_ID` | The subscription price. |
+| `STRIPE_PORTAL_RETURN_URL` | Optional; derived from `APP_URL` when unset. |
 
-## Learn More
+`sendEmail` never throws — it logs and returns a boolean, so no user-facing
+operation fails because a mail provider is down. The trade-off is that a
+missing `RESEND_API_KEY` looks exactly like success. If you are testing the
+password-reset or verify-email flows locally, set it.
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command | Does |
+|---|---|
+| `npm run dev` | Development server. |
+| `npm test` | Vitest against the test database. |
+| `npm run lint` | ESLint, including the import-boundary rules. |
+| `npm run build` | Production build. |
+| `npm run db:push` | Applies the schema to `DATABASE_URL` — **production**. |
+| `npm run db:push:test` | Applies the schema to the test database. |
+| `npm run db:seed` | Truncates everything; refuses to run when real logins exist. |
+| `npm run db:grandfather` | Marks pre-billing companies active. Needs `GRANDFATHER_CONFIRM=yes`. |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Schema changes are applied with `prisma db push` — there is no migrations
+directory — and every change must reach both databases.
 
-## Deploy on Vercel
+## Before every commit
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+All four, in any order:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npx tsc --noEmit
+npm run lint
+npm run build
+npm test
+```
+
+`npm test` alone is insufficient: Vitest transpiles without typechecking, which
+has let a broken build land here before.
+
+## Architecture and the rules that matter
+
+`AGENTS.md` is the real document — it covers the authorization boundary, the
+per-tenant scoping pattern, the billing model and deploy order, and a list of
+bugs that have already happened here and are easy to reintroduce. Read it
+before changing anything under `src/lib/auth/`, `src/lib/data.ts`, or billing.

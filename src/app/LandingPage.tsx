@@ -157,6 +157,24 @@ export default function LandingPage() {
           </Link>
         </div>
       </section>
+
+      {/* The legal pages are reachable from every public entry point, because
+          someone deciding whether to hand over a card should not have to hunt
+          for the terms they are agreeing to. */}
+      <footer className="border-t border-border">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-8 text-sm text-muted sm:px-6 lg:px-8">
+          <span>GroundsRoute</span>
+          <Link href="/terms" className="hover:text-foreground">
+            Terms
+          </Link>
+          <Link href="/privacy" className="hover:text-foreground">
+            Privacy
+          </Link>
+          <Link href="/login" className="ml-auto hover:text-foreground">
+            Sign in
+          </Link>
+        </div>
+      </footer>
     </>
   );
 }
