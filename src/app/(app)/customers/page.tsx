@@ -1,13 +1,20 @@
-import { getActiveCrews, getCustomersWithJobCounts } from "@/lib/data";
+import {
+  getActiveCrews,
+  getAssigneeMode,
+  getCustomersWithJobCounts,
+} from "@/lib/data";
+import { assigneeTerms } from "@/lib/assignee-terms";
 import CustomersClient from "./CustomersClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomersPage() {
-  const [customers, crews] = await Promise.all([
+  const [customers, crews, assigneeMode] = await Promise.all([
     getCustomersWithJobCounts(),
     getActiveCrews(),
+    getAssigneeMode(),
   ]);
+  const terms = assigneeTerms(assigneeMode);
 
   return (
     <div className="px-4 py-6 md:px-8">
@@ -17,7 +24,7 @@ export default async function CustomersPage() {
           Every customer on the books, and how many jobs they&apos;ve had.
         </p>
       </div>
-      <CustomersClient customers={customers} crews={crews} />
+      <CustomersClient customers={customers} crews={crews} terms={terms} />
     </div>
   );
 }

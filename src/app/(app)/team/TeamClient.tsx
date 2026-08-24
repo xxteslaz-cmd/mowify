@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Crew } from "@prisma/client";
+import type { AssigneeTerms } from "@/lib/assignee-terms";
 import {
   createCrewLogin,
   resetCrewPin,
@@ -23,10 +24,12 @@ const FIELD = "field";
 export default function TeamClient({
   members,
   crews,
+  terms,
   crewLoginPath,
 }: {
   members: Member[];
   crews: Crew[];
+  terms: AssigneeTerms;
   crewLoginPath: string;
 }) {
   const router = useRouter();
@@ -77,7 +80,7 @@ export default function TeamClient({
   return (
     <div className="px-4 py-6 md:px-8">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Team</h1>
+        <h1 className="text-2xl font-semibold">{terms.Many}</h1>
         <p className="mt-1 text-sm text-muted">
           Logins for your crew. Each person sees only their own day.
         </p>
@@ -87,7 +90,7 @@ export default function TeamClient({
           so they keep a reading width instead of stretching with the page. */}
       <div className="max-w-3xl">
         <div className="mb-6 card p-4">
-          <p className="mb-2 text-sm font-medium">Crew sign-in link</p>
+          <p className="mb-2 text-sm font-medium">{`${terms.One} sign-in link`}</p>
           <p className="mb-3 text-sm text-muted">
             Text this to your crew once. They bookmark it and sign in with their
             username and PIN.
@@ -176,7 +179,7 @@ export default function TeamClient({
         </div>
 
         <form onSubmit={handleAdd} className="card p-4">
-          <p className="mb-3 text-sm font-medium">Add a crew login</p>
+          <p className="mb-3 text-sm font-medium">{`Add a ${terms.one} login`}</p>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <input

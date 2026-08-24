@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Crew, Frequency, ServiceType } from "@prisma/client";
+import type { AssigneeTerms } from "@/lib/assignee-terms";
 import { todayISO } from "@/lib/date";
 import { SERVICE_TYPES, SERVICE_LABEL, FREQUENCIES, FREQUENCY_LABEL } from "@/lib/labels";
 import { createCustomer } from "./actions";
@@ -18,7 +19,15 @@ type CustomerRow = {
   _count: { jobs: number };
 };
 
-export default function CustomersClient({ customers, crews }: { customers: CustomerRow[]; crews: Crew[] }) {
+export default function CustomersClient({
+  customers,
+  crews,
+  terms,
+}: {
+  customers: CustomerRow[];
+  crews: Crew[];
+  terms: AssigneeTerms;
+}) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -74,6 +83,7 @@ export default function CustomersClient({ customers, crews }: { customers: Custo
       {addOpen && (
         <AddCustomerModal
           crews={crews}
+          terms={terms}
           onClose={() => setAddOpen(false)}
           onCreated={() => {
             setAddOpen(false);
@@ -87,10 +97,12 @@ export default function CustomersClient({ customers, crews }: { customers: Custo
 
 function AddCustomerModal({
   crews,
+  terms,
   onClose,
   onCreated,
 }: {
   crews: Crew[];
+  terms: AssigneeTerms;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -114,7 +126,7 @@ function AddCustomerModal({
       return;
     }
     if (scheduleJob && !crewId) {
-      setError("Select a crew for the job.");
+      setError(`Select a ${terms.one} for the job.`);
       return;
     }
     if (scheduleJob && serviceType === "OTHER" && !customService.trim()) {
@@ -197,7 +209,7 @@ function AddCustomerModal({
           />
           Schedule a job now
           {crews.length === 0 && (
-            <span className="text-xs text-muted">(add a crew first)</span>
+            <span className="text-xs text-muted">{`(add a ${terms.one} first)`}</span>
           )}
         </label>
 
@@ -258,7 +270,7 @@ function AddCustomerModal({
               />
             </label>
             <label className="text-sm">
-              <span className="mb-1 block text-muted">Crew</span>
+              <span className="mb-1 block text-muted">{terms.One}</span>
               <select
                 value={crewId}
                 onChange={(e) => setCrewId(e.target.value)}

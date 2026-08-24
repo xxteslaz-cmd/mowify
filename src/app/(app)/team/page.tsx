@@ -1,13 +1,14 @@
 import { requireOwner } from "@/lib/auth/dal";
 import { prisma } from "@/lib/prisma";
-import { getActiveCrews } from "@/lib/data";
+import { getActiveCrews, getAssigneeMode } from "@/lib/data";
+import { assigneeTerms } from "@/lib/assignee-terms";
 import { isLocked } from "@/lib/auth/lockout";
 import TeamClient from "./TeamClient";
 
 export default async function TeamPage() {
   const { orgId } = await requireOwner();
 
-  const [org, members, crews] = await Promise.all([
+  const [org, members, crews, assigneeMode] = await Promise.all([
     prisma.org.findUniqueOrThrow({
       where: { id: orgId },
       select: { slug: true },
@@ -25,7 +26,9 @@ export default async function TeamPage() {
       orderBy: { name: "asc" },
     }),
     getActiveCrews(),
+    getAssigneeMode(),
   ]);
+  const terms = assigneeTerms(assigneeMode);
 
   // Lockout is resolved here, on the server, into a plain boolean via the same
   // isLocked() the login action uses. Both TeamPage and TeamClient are render
@@ -40,6 +43,7 @@ export default async function TeamPage() {
     <TeamClient
       members={membersWithLockStatus}
       crews={crews}
+      terms={terms}
       crewLoginPath={`/c/${org.slug}`}
     />
   );
