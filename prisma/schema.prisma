@@ -128,6 +128,12 @@ model Org {
   subscriptionStatus   String?
   trialEndsAt          DateTime?
   currentPeriodEnd     DateTime?
+  // Set once the seven-day trial-end reminder promised by Terms section 3 has
+  // actually been delivered. Nullable and never backfilled: an org that has not
+  // been reminded reads as null, which is true of every org that exists today.
+  // This is what makes the daily cron idempotent -- it can double-fire, overlap
+  // a deploy, or be retried, and nobody gets mailed twice.
+  trialReminderSentAt  DateTime?
 
   // Whether this company organises work into crews or assigns it to named
   // people. Presentation only — a Crew row is the assignable unit either way,

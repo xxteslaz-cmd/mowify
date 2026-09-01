@@ -2,6 +2,7 @@ import "server-only";
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { createOrgWithOwner } from "@/lib/provision";
+import { isOrgActive } from "@/lib/subscription";
 import { getStripe } from "./client";
 
 /**
@@ -212,25 +213,107 @@ async function completeSignup(session: Stripe.Checkout.Session): Promise<void> {
  * of trying to detect it.
  */
 async function mirrorSubscription(id: string): Promise<void> {
-  const org = await prisma.org.findFirst({
-    where: { stripeSubscriptionId: id },
-    select: { id: true },
-  });
+  const subscription = await retrieveSubscription(id);
+
+  const org = await resolveOrg(subscription);
   if (!org) {
     console.error("Stripe webhook: no org for subscription", id);
     return;
   }
 
-  const subscription = await retrieveSubscription(id);
+  // The subscription this org already holds, if it is not the one in hand. A
+  // resubscribe creates a second subscription, and only one of them may end up
+  // on the row.
+  if (org.stripeSubscriptionId && org.stripeSubscriptionId !== id) {
+    const held = await retrieveSubscription(org.stripeSubscriptionId);
+
+    // The company is already paying for a live subscription. Adopting this
+    // second one would leave them billed twice with only one of the two
+    // visible anywhere in the app. Cancel the newcomer instead and keep what
+    // they have — the same rule completeSignup applies to a duplicate
+    // checkout, and for the same reason.
+    //
+    // Not caught, deliberately. A swallowed failure here answers Stripe 200 —
+    // "handled" — while somebody is being charged twice and nothing on our
+    // side records it. A 500 means Stripe retries, and cancelling an
+    // already-cancelled subscription is a no-op, so the retry is free.
+    if (isOrgActive(held.status)) {
+      console.error(
+        "Stripe webhook: second subscription for an already-active org",
+        org.id,
+        id,
+      );
+      await getStripe().subscriptions.cancel(id);
+      return;
+    }
+  }
+
+  const adopting = org.stripeSubscriptionId !== id;
 
   await prisma.org.update({
     where: { id: org.id },
     data: {
+      // Adopting the subscription *is* this write. For the ordinary path both
+      // ids are already what they are set to here, so it stays a no-op.
+      stripeSubscriptionId: id,
+      stripeCustomerId: customerId(subscription.customer) ?? org.stripeCustomerId,
       subscriptionStatus: subscription.status,
       trialEndsAt: toDate(subscription.trial_end),
       currentPeriodEnd: periodEnd(subscription),
+      // Only when the row is moving to a different subscription. Clearing it on
+      // every mirror would re-arm the reminder on each subscription.updated —
+      // and Stripe sends a lot of those — so one trial would be reminded
+      // about repeatedly. Guarding on the id change means a genuinely new
+      // subscription gets a fresh reminder and an existing one keeps its record
+      // of having already been sent.
+      ...(adopting ? { trialReminderSentAt: null } : {}),
     },
   });
+}
+
+/**
+ * Finds the org a subscription belongs to.
+ *
+ * Three ways, in descending order of directness. The first is the ordinary
+ * path and the only one that existed before resubscribing was possible; the
+ * other two exist because a resubscribe creates a subscription whose id is on
+ * no Org row yet, so the first lookup necessarily misses.
+ */
+async function resolveOrg(subscription: Stripe.Subscription) {
+  const select = {
+    id: true,
+    stripeSubscriptionId: true,
+    stripeCustomerId: true,
+  } as const;
+
+  const byId = await prisma.org.findFirst({
+    where: { stripeSubscriptionId: subscription.id },
+    select,
+  });
+  if (byId) return byId;
+
+  // Written by startResubscribe as subscription_data.metadata. This is the
+  // deliberate, unambiguous link and is preferred over the customer lookup
+  // below, which is only an inference.
+  const orgId = subscription.metadata?.orgId;
+  if (orgId) {
+    const byMetadata = await prisma.org.findUnique({ where: { id: orgId }, select });
+    if (byMetadata) return byMetadata;
+    console.error("Stripe webhook: subscription names an unknown org", orgId);
+  }
+
+  // Last resort, for a subscription created outside our own flow — from the
+  // Stripe Dashboard, say. It carries no metadata, but the customer is still
+  // ours.
+  const customer = customerId(subscription.customer);
+  if (!customer) return null;
+  return prisma.org.findFirst({ where: { stripeCustomerId: customer }, select });
+}
+
+function customerId(
+  ref: string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined,
+): string | undefined {
+  return typeof ref === "string" ? ref : (ref?.id ?? undefined);
 }
 
 function subscriptionId(

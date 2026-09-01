@@ -77,6 +77,19 @@ const eslintConfig = defineConfig([
       "no-restricted-imports": ["error", { patterns: [hashPattern] }],
     },
   },
+  // Cron route handlers send mail too — the seven-day trial reminder cannot be
+  // a server action, because nobody is on a page when it needs to go out. A
+  // Route Handler under src/app/api/ is server-only by construction and can
+  // never be pulled into a client bundle, which is the exact risk the email
+  // pattern exists to prevent, so lifting it here is narrower than the
+  // exemption server actions already get. The hash restriction stays live, for
+  // the same reason it stays live for actions.
+  {
+    files: ["src/app/api/cron/**/route.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [hashPattern] }],
+    },
+  },
   // Tests legitimately need both: factories hash secrets directly via
   // hash.ts, and email tests exercise the client directly.
   {
