@@ -278,3 +278,75 @@ describe("the trial reminder flag", () => {
     expect(after.trialReminderSentAt).toEqual(sentAt);
   });
 });
+
+describe("the retention clock", () => {
+  async function orgWith(status: string, lapsedAt: Date | null) {
+    const org = await makeOrg();
+    await prisma.org.update({
+      where: { id: org.id },
+      data: {
+        stripeSubscriptionId: "sub_clock",
+        stripeCustomerId: "cus_1",
+        subscriptionStatus: status,
+        lapsedAt,
+      },
+    });
+    return org;
+  }
+
+  it("starts when an active company lapses", async () => {
+    const org = await orgWith("active", null);
+    subscriptions.value.set(
+      "sub_clock",
+      sub({ id: "sub_clock", customer: "cus_1", status: "canceled" }),
+    );
+
+    await handleStripeEvent(subscriptionEvent("sub_clock"));
+
+    const after = await prisma.org.findUniqueOrThrow({ where: { id: org.id } });
+    expect(after.lapsedAt).not.toBeNull();
+  });
+
+  it("does NOT restart while the company stays lapsed", async () => {
+    // Stripe sends many events for a lapsed subscription. Refreshing the
+    // timestamp on each would restart the 30 days every time and nothing would
+    // ever be deleted.
+    const original = new Date("2026-01-01T00:00:00.000Z");
+    const org = await orgWith("canceled", original);
+    subscriptions.value.set(
+      "sub_clock",
+      sub({ id: "sub_clock", customer: "cus_1", status: "canceled" }),
+    );
+
+    await handleStripeEvent(subscriptionEvent("sub_clock"));
+
+    const after = await prisma.org.findUniqueOrThrow({ where: { id: org.id } });
+    expect(after.lapsedAt).toEqual(original);
+  });
+
+  it("clears when the company becomes active again", async () => {
+    const org = await orgWith("canceled", new Date("2026-01-01"));
+    subscriptions.value.set(
+      "sub_clock",
+      sub({ id: "sub_clock", customer: "cus_1", status: "active" }),
+    );
+
+    await handleStripeEvent(subscriptionEvent("sub_clock"));
+
+    const after = await prisma.org.findUniqueOrThrow({ where: { id: org.id } });
+    expect(after.lapsedAt).toBeNull();
+  });
+
+  it("is set for a lapsed org that somehow had none recorded", async () => {
+    const org = await orgWith("canceled", null);
+    subscriptions.value.set(
+      "sub_clock",
+      sub({ id: "sub_clock", customer: "cus_1", status: "past_due" }),
+    );
+
+    await handleStripeEvent(subscriptionEvent("sub_clock"));
+
+    const after = await prisma.org.findUniqueOrThrow({ where: { id: org.id } });
+    expect(after.lapsedAt).not.toBeNull();
+  });
+});

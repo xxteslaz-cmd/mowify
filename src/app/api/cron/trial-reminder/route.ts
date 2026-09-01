@@ -1,5 +1,5 @@
-import { timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { cronAuthorized, cronUnauthorized } from "@/lib/cron-auth";
 import { sendEmail } from "@/lib/email/client";
 import { trialEndingEmail } from "@/lib/email/templates";
 import { pricePerInterval } from "@/lib/pricing";
@@ -23,11 +23,7 @@ import { appUrl } from "@/lib/url";
 const WINDOW_DAYS = 8;
 
 export async function GET(request: Request): Promise<Response> {
-  if (!authorized(request)) {
-    // 404 rather than 401. A 401 confirms the route exists to anyone probing,
-    // and there is nothing to gain from telling them.
-    return new Response(null, { status: 404 });
-  }
+  if (!cronAuthorized(request)) return cronUnauthorized();
 
   const now = new Date();
   const horizon = new Date(now.getTime() + WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -88,33 +84,6 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   return Response.json({ considered: orgs.length, sent, failed });
-}
-
-/**
- * Vercel Cron sends `Authorization: Bearer $CRON_SECRET`.
- *
- * Fails closed when CRON_SECRET is unset. The alternative — treating an absent
- * secret as "no auth required" — would leave a route that mails every trialing
- * customer open to anyone who guesses the path, and it would do so precisely
- * when the environment is misconfigured and nobody is watching.
- */
-function authorized(request: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) {
-    console.error("CRON_SECRET is not set; refusing to run the trial reminder.");
-    return false;
-  }
-
-  const header = request.headers.get("authorization");
-  if (!header?.startsWith("Bearer ")) return false;
-
-  // Constant-time, so the response time does not leak how much of the secret
-  // was correct. The lengths must match first — timingSafeEqual throws on
-  // mismatched buffers.
-  const provided = Buffer.from(header.slice("Bearer ".length));
-  const expected = Buffer.from(secret);
-  if (provided.length !== expected.length) return false;
-  return timingSafeEqual(provided, expected);
 }
 
 /** e.g. "12 September 2026" — unambiguous, unlike any all-numeric format. */

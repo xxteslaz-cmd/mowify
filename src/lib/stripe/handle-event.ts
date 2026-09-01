@@ -280,9 +280,21 @@ async function mirrorSubscription(id: string): Promise<void> {
 
   const adopting = org.stripeSubscriptionId !== id;
 
+  // When the 30-day retention clock starts and stops. Written only on the
+  // transition: refreshing it on every webhook while a company stays lapsed
+  // would restart the countdown each time and nothing would ever be deleted.
+  const nowActive = isOrgActive(subscription.status);
+  const wasActive = isOrgActive(org.subscriptionStatus);
+  const lapsedAt = nowActive
+    ? null
+    : wasActive || !org.lapsedAt
+      ? new Date()
+      : org.lapsedAt;
+
   await prisma.org.update({
     where: { id: org.id },
     data: {
+      lapsedAt,
       // Adopting the subscription *is* this write. For the ordinary path both
       // ids are already what they are set to here, so it stays a no-op.
       stripeSubscriptionId: id,
@@ -314,6 +326,8 @@ async function resolveOrg(subscription: Stripe.Subscription) {
     id: true,
     stripeSubscriptionId: true,
     stripeCustomerId: true,
+    subscriptionStatus: true,
+    lapsedAt: true,
   } as const;
 
   const byId = await prisma.org.findFirst({

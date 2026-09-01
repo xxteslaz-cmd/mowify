@@ -131,7 +131,8 @@ Subscription events re-fetch the subscription from Stripe rather than trusting
 the event body, which removes webhook ordering as a concern entirely.
 
 Requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`,
-`CRON_SECRET` (the trial reminder), optionally `STRIPE_PORTAL_RETURN_URL`
+`CRON_SECRET` (the cron routes), optionally `PURGE_ENABLED` and
+`STRIPE_PORTAL_RETURN_URL`
 (derived from `APP_URL` when unset), and a real `APP_URL` — `requireAppUrl()` throws rather than defaulting to localhost,
 because a localhost `success_url` sends a paying customer to their own machine
 and looks like success from our side.
@@ -262,6 +263,52 @@ from the sending domain — that rule is unchanged. By webhook time Stripe has
 confirmed a card against the address, so it is a paying customer rather than an
 arbitrary recipient.
 
+### Data lifecycle
+
+Both halves are published promises, so the code and the documents read the same
+constants — `RETENTION` in `src/lib/legal.ts` and `src/lib/pricing.ts`. **A page
+that says 30 days while the job uses 45 is not a discrepancy, it is a false
+statement to a customer**, and one number is the only reliable way to stop that.
+
+**Export** — `GET /api/export`, owner-only, **ungated by subscription status**.
+Terms §3 gives a lapsed company 30 days to export before deletion, so
+`requireActiveOrg` here would withhold it from the people the clause was written
+for. Scoped by `orgId` from the session, never from input. Credential hashes are
+excluded: they are not customer data and a downloads folder is the wrong place
+for the company's own logins.
+
+**Deletion** — `GET /api/cron/purge`, daily. `Org.lapsedAt` is the clock,
+written in `mirrorSubscription` **on the transition only**; refreshing it while
+a company stays lapsed would restart the 30 days on every webhook and nothing
+would ever be deleted.
+
+Three guards, all with tests that fail when the guard is removed:
+
+- **The active-status check is applied twice** — in the query and again inside
+  the transaction. The redundancy is the point: a bug leaving `lapsedAt` set on
+  a paying company must not be sufficient on its own to delete them.
+- **A cap of 50 orgs per run**, which aborts the whole run rather than deleting
+  the first 50. More than that is a broken query, not a wave of cancellations.
+- **`PURGE_ENABLED` must equal `"yes"`.** Unset, the job reports what it would
+  delete and touches nothing. **Deploy it unset first** and watch the numbers —
+  the first run of a deletion job against real customer data should never be its
+  first run.
+
+**`ConsentRecord` is never deleted with an org.** See the Auto-renewal consent
+section above; it is removed only by its own `expiresAt`.
+
+### The published documents
+
+`/terms` and `/privacy` are the real published pages, and they now describe
+things that exist. Two placeholders are still live and **render visibly on the
+pages** — `LEGAL.mailingAddress` and `LEGAL.county` — following the convention
+`src/lib/legal.ts` already set: unfilled values are rendered verbatim so they
+are obvious to anyone who looks, rather than hidden in a config file. Do not
+invent either one.
+
+Bump `LEGAL.version` whenever either document changes materially. Consent
+records already written keep the version they were taken under.
+
 ## Import boundaries (ESLint-enforced)
 
 - Application code imports hashing from `@/lib/auth/password`, never
@@ -291,7 +338,7 @@ exist. Do not run it against production for any reason.
 
 ## Testing
 
-289 tests. `npm test` runs them against the test database.
+310 tests. `npm test` runs them against the test database.
 
 - `src/lib/data.isolation.test.ts` and `src/app/actions.isolation.test.ts` seed
   two orgs and prove nothing crosses between them. These are the tests that

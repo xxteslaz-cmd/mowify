@@ -1,193 +1,325 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { LEGAL, SUBPROCESSORS } from "@/lib/legal";
+import { LEGAL, RETENTION, SUBPROCESSORS } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "What GroundsRoute collects, why, who it is shared with, and how long it is kept.",
+    "What GroundsRoute collects, why, who else sees it, and how long it is kept.",
 };
 
 const H2 = "mt-10 text-lg font-semibold text-foreground";
 const P = "mt-3 text-sm leading-relaxed text-muted";
 const UL = "mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-muted";
+const STRONG = "font-medium text-foreground";
 
 export default function PrivacyPage() {
   return (
     <article>
       <h1 className="text-2xl font-semibold text-foreground">Privacy Policy</h1>
+
+      <h2 className={H2}>In short</h2>
       <p className={P}>
-        GroundsRoute is operated by {LEGAL.entity}. This policy explains what we
-        collect, why we hold it, who else sees it and how long we keep it. It
-        covers both the people who run a company on GroundsRoute and the
-        customer records those companies enter.
+        GroundsRoute is crew scheduling software for landscaping companies. We
+        collect the minimum needed to run it: your account details, the job and
+        customer records you enter, and basic technical logs. We do not sell
+        personal information, we do not run advertising, and we do not use the
+        records you enter about your own customers for anything other than
+        providing the service to you.
       </p>
 
-      <h2 className={H2}>What we collect</h2>
+      <h2 className={H2}>1. Who this policy covers</h2>
+      <p className={P}>
+        This policy explains how {LEGAL.entityLong} (&ldquo;GroundsRoute&rdquo;,
+        &ldquo;we&rdquo;, &ldquo;us&rdquo;) handles personal information in
+        connection with the website at groundsroute.com and the GroundsRoute
+        application (together, the &ldquo;Service&rdquo;).
+      </p>
+      <p className={P}>
+        It applies to two groups of people, and the distinction between them
+        matters.
+      </p>
+      <p className={P}>
+        <span className={STRONG}>Subscribers</span> are the landscaping
+        companies that sign up for GroundsRoute, together with the owners and
+        crew members who log in. For information about these people we act as
+        the business that decides how the information is used — a
+        &ldquo;controller&rdquo; under most privacy laws.
+      </p>
+      <p className={P}>
+        <span className={STRONG}>Your customers</span> are the property owners
+        and clients whose names, addresses, and job details a Subscriber enters
+        into GroundsRoute. We hold this information on the Subscriber&apos;s
+        behalf and act only on their instructions — a &ldquo;processor&rdquo; or
+        &ldquo;service provider&rdquo;. We do not decide what is done with it,
+        we do not use it for our own purposes, and we have no direct
+        relationship with these individuals.
+      </p>
+      <p className={P}>
+        If you are a customer of a landscaping company that uses GroundsRoute
+        and you want to know what that company holds about you, or want it
+        corrected or deleted, contact that company directly. If you contact us
+        instead, we will refer your request to them.
+      </p>
+
+      <h2 className={H2}>2. Information we collect</h2>
+      <p className={P}>
+        <span className={STRONG}>Account information.</span> When a company
+        signs up we collect the company name, the owner&apos;s name and email
+        address, and a password. We never store passwords themselves — only an
+        argon2 hash, from which the original password cannot practically be
+        recovered.
+      </p>
+      <p className={P}>
+        <span className={STRONG}>Crew accounts.</span> Owners create logins for
+        their crew members consisting of a username, a display name, and a
+        six-digit PIN. Crew members do not give us an email address and have no
+        direct account relationship with us; their employer creates, manages,
+        and removes their access. PINs are stored hashed, never in plain text.
+      </p>
+      <p className={P}>
+        <span className={STRONG}>Job and customer records.</span> Subscribers
+        enter information about their own customers and work: customer names,
+        service addresses, contact details, job descriptions and notes,
+        schedules, recurring service patterns, crew assignments, and completion
+        status and timestamps. What goes into these records is entirely the
+        Subscriber&apos;s choice.
+      </p>
+      <p className={P}>
+        <span className={STRONG}>Billing information.</span> A payment card is
+        required at signup, including to start a free trial. Payments are
+        processed by Stripe. Card numbers, expiration dates, and security codes
+        are transmitted directly to Stripe and are never stored on our systems.
+        We receive and retain a Stripe customer identifier, the plan, trial and
+        subscription status, and billing history. We also retain a record of
+        your agreement to the subscription and trial terms, including the date
+        and the version of the terms you accepted, for at least{" "}
+        {RETENTION.consentYears} years as required by automatic renewal laws.
+      </p>
+      <p className={P}>
+        <span className={STRONG}>Technical and log information.</span> Our
+        servers and infrastructure providers record IP addresses, browser and
+        device type, requested pages, timestamps, and error diagnostics. We keep
+        a database record for each active login session containing a hashed
+        session token, creation and expiration times, and the associated
+        account.
+      </p>
+      <p className={P}>
+        <span className={STRONG}>Email delivery information.</span> Transactional
+        email — password resets, email verification, address changes, and
+        billing notices such as the reminder before a trial ends — is sent
+        through Resend, which processes the recipient address and delivery
+        status. We do not send marketing email unless you separately opt in.
+      </p>
+      <p className={P}>
+        <span className={STRONG}>What we do not collect.</span> GroundsRoute
+        does not track the physical location of crew members or vehicles. It
+        does not access GPS, contacts, camera, or microphone. We do not use
+        advertising cookies or tracking pixels in our email, and our email
+        templates contain no externally hosted images or scripts.
+      </p>
+
+      <h2 className={H2}>3. How we use information</h2>
+      <p className={P}>
+        We use the information above to create and authenticate accounts and
+        maintain login sessions; to display schedules to owners and the correct
+        daily stop list to each crew; to generate future visits for recurring
+        jobs; to process subscription payments and send billing notices; to send
+        transactional email such as password resets; to respond to support
+        requests; to monitor for abuse, investigate security incidents, and
+        debug problems; and to comply with legal obligations.
+      </p>
+      <p className={P}>
+        We may also produce aggregated, de-identified statistics about how the
+        Service is used — for example, how many companies use recurring
+        scheduling — provided those statistics contain no personal information
+        and cannot reasonably be re-associated with any individual or company.
+      </p>
+      <p className={P}>
+        We do not use Customer Data to train machine learning models, and we do
+        not use it for any purpose other than providing the Service to the
+        Subscriber who entered it.
+      </p>
+
+      <h2 className={H2}>4. How we share information</h2>
+      <p className={P}>
+        We share information only with service providers that help us operate
+        the Service, each bound by contract to protect it and use it only for
+        that purpose:
+      </p>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className="py-2 pr-4 font-medium text-foreground">Provider</th>
+              <th className="py-2 pr-4 font-medium text-foreground">Purpose</th>
+              <th className="py-2 font-medium text-foreground">Location</th>
+            </tr>
+          </thead>
+          <tbody>
+            {SUBPROCESSORS.map((p) => (
+              <tr key={p.name} className="border-b border-border align-top">
+                <td className="py-2 pr-4 text-foreground">{p.name}</td>
+                <td className="py-2 pr-4 leading-relaxed text-muted">
+                  {p.purpose}
+                </td>
+                <td className="py-2 whitespace-nowrap text-muted">
+                  United States
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className={P}>
+        We may also disclose information to professional advisors such as
+        lawyers and accountants under confidentiality obligations; to law
+        enforcement or other parties when required by law, subpoena, or court
+        order, or where necessary to protect our rights or someone&apos;s
+        safety; and to a successor entity in connection with a merger,
+        acquisition, or sale of assets, with notice to affected Subscribers.
+      </p>
+      <p className={P}>
+        <span className={STRONG}>We do not sell personal information</span>, and
+        have not done so in the preceding twelve months. We do not share
+        personal information for cross-context behavioural advertising, and we
+        do not disclose sensitive personal information for any purpose beyond
+        those listed above.
+      </p>
+
+      <h2 className={H2}>5. Tenant separation and security</h2>
+      <p className={P}>
+        Because many independent companies share the Service, keeping their data
+        separate is the central design constraint. Every database read and write
+        in the owner-facing application is scoped to the requesting
+        company&apos;s records at the data-access layer itself, rather than
+        relying on individual pages or features to apply the restriction
+        correctly. This separation is verified by an automated test suite that
+        creates two companies and asserts that neither can reach the
+        other&apos;s records.
+      </p>
+      <p className={P}>We also use:</p>
       <ul className={UL}>
+        <li>TLS for data in transit;</li>
+        <li>argon2 hashing for passwords and crew PINs;</li>
         <li>
-          <span className="font-medium text-foreground">Your account.</span> Your
-          company name, your name, your email address and a hashed form of your
-          password. We never store the password itself.
+          session cookies that carry only a random token whose SHA-256 hash is
+          stored server-side, so that disclosure of the database alone does not
+          yield usable sessions;
         </li>
+        <li>account lockout after repeated failed login attempts;</li>
         <li>
-          <span className="font-medium text-foreground">Crew logins.</span> The
-          name and username you give each crew member, and a hashed form of
-          their PIN. Crew members have no email address in the system.
-        </li>
-        <li>
-          <span className="font-medium text-foreground">
-            The records you enter.
-          </span>{" "}
-          Your customers&apos; names, service addresses, phone numbers and any
-          notes you add, along with the jobs scheduled against them.
-        </li>
-        <li>
-          <span className="font-medium text-foreground">Billing.</span> Your
-          subscription status and the identifiers Stripe gives us to recognise
-          your account.
-        </li>
-        <li>
-          <span className="font-medium text-foreground">Technical data.</span>{" "}
-          The ordinary server and security logs a hosted application produces,
-          such as request times and error records.
+          constant-cost login handling, so response timing does not reveal which
+          email addresses or usernames are registered.
         </li>
       </ul>
-
-      <h2 className={H2}>What we deliberately do not collect</h2>
-      <ul className={UL}>
-        <li>
-          <span className="font-medium text-foreground">Card numbers.</span>{" "}
-          Payment details are entered on Stripe&apos;s own hosted pages. They
-          never reach our servers and we cannot see them.
-        </li>
-        <li>
-          <span className="font-medium text-foreground">
-            Advertising and analytics profiles.
-          </span>{" "}
-          There are no third-party analytics, advertising or tracking scripts in
-          this application. We do not sell or share your data for advertising,
-          and we do not build profiles of you or your customers.
-        </li>
-        <li>
-          <span className="font-medium text-foreground">Location tracking.</span>{" "}
-          The crew view shows the addresses you scheduled. It does not track
-          where anyone actually is.
-        </li>
-      </ul>
-
-      <h2 className={H2}>Why we hold it</h2>
       <p className={P}>
-        To run the service you asked for: to sign you in, to show the right
-        schedule to the right people, to keep one company&apos;s data separate
-        from every other company&apos;s, to take payment, to send the few
-        transactional emails the product needs, and to investigate faults and
-        abuse.
+        No system is perfectly secure and we do not represent that ours is. If
+        we become aware of a security breach affecting your information, we will
+        notify you without undue delay and as required by applicable law.
       </p>
 
-      <h2 className={H2}>Cookies</h2>
+      <h2 className={H2}>6. How long we keep information</h2>
       <p className={P}>
-        We set one essential cookie to keep you signed in, and a short-lived one
-        during signup to reconnect you with your payment when you return from
-        Stripe. Both are strictly necessary for the service to work. There are
-        no advertising or analytics cookies, so there is nothing here to opt out
-        of. The session cookie holds a random token; only a one-way hash of it
-        is stored on our side, so the stored value cannot be used to sign in as
-        you.
+        Account and Customer Data are retained for as long as the trial or
+        subscription is active. After a trial ends without payment, or after
+        cancellation or termination, we retain the data for{" "}
+        <span className={STRONG}>{RETENTION.accountDays} days</span> so that it
+        can be restored or exported, then delete it. We will delete data sooner
+        on written request, subject to any legal obligation to retain it. You
+        can export your data at any point during that window from your settings
+        page.
+      </p>
+      <p className={P}>
+        Records evidencing your consent to subscription and trial terms are
+        retained for at least {RETENTION.consentYears} years, as automatic
+        renewal laws require. These are kept separately from your account, so
+        they survive the deletion described above and are removed on their own
+        schedule.
+      </p>
+      <p className={P}>
+        Session records expire automatically and are purged after expiration.
+        Server logs are retained for approximately {RETENTION.logDays} days.
+        Billing and tax records are retained for {RETENTION.billingYears} years
+        as required by law. Encrypted backups follow a rolling{" "}
+        {RETENTION.accountDays}-day cycle and are overwritten in the ordinary
+        course; data deleted from the live database may persist in backups until
+        that cycle completes.
       </p>
 
-      <h2 className={H2}>Who else sees it</h2>
+      <h2 className={H2}>7. Your privacy rights</h2>
       <p className={P}>
-        We do not sell your data. We share it only with the providers needed to
-        run the service:
+        Depending on where you live, you may have the right to know what
+        personal information we hold about you, to obtain a copy of it, to
+        correct inaccuracies, to request deletion, to obtain a portable copy,
+        and to opt out of sale or targeted advertising — the last of which does
+        not apply, because we do neither. We will not discriminate against you
+        for exercising any of these rights.
       </p>
-      <ul className={UL}>
-        {SUBPROCESSORS.map(({ name, purpose }) => (
-          <li key={name}>
-            <span className="font-medium text-foreground">{name}.</span>{" "}
-            {purpose}
-          </li>
-        ))}
-      </ul>
       <p className={P}>
-        We may also disclose data where the law requires it, or to protect our
-        rights or the safety of others.
+        To make a request, email {LEGAL.contactEmail} from the address
+        associated with your account, or include enough detail for us to locate
+        your records. We will verify your identity before acting, and we will
+        respond within the time required by applicable law, generally 45 days.
+        An authorised agent may submit a request on your behalf with written
+        proof of authorisation.
       </p>
-
-      <h2 className={H2}>Your customers&apos; information</h2>
       <p className={P}>
-        When your company enters a customer&apos;s name, address and phone
-        number, that record is yours and you decide what goes in it. We process
-        it on your instructions to provide the service. You are responsible for
-        having a lawful basis to hold it and for telling your own customers how
-        you use it. If one of your customers asks us directly to access or
-        delete their information, we will point them to you and let you know.
+        If we decline your request, you may appeal by replying to our response
+        with the word &ldquo;appeal&rdquo;. We will inform you of our decision
+        on appeal in writing within 45 days, along with the reasons. If your
+        appeal is denied, you may contact your state attorney general.
       </p>
-
-      <h2 className={H2}>How it is protected</h2>
-      <ul className={UL}>
-        <li>Passwords and crew PINs are stored using the argon2 hash function.</li>
-        <li>
-          Sessions live in the database, and only a SHA-256 hash of each session
-          token is stored, so a copy of the database yields no usable sessions.
-        </li>
-        <li>
-          Every read and write of your business data is scoped to your company
-          at the point it reaches the database, and that separation is covered
-          by automated tests.
-        </li>
-        <li>Traffic is served over HTTPS.</li>
-      </ul>
       <p className={P}>
-        No system is perfectly secure, and we cannot guarantee absolute
-        security. If a breach affects your data we will tell you promptly and
-        within any period the law requires.
+        Requests about records that a landscaping company entered into
+        GroundsRoute about its own customers must be directed to that company,
+        which controls those records. We will assist them in responding.
       </p>
 
-      <h2 className={H2}>How long we keep it</h2>
+      <h2 className={H2}>8. Children</h2>
       <p className={P}>
-        We keep your company&apos;s records for as long as the account is open.
-        If you close it, we delete or anonymise the data within 90 days, except
-        where we must keep something longer — billing and tax records, for
-        instance. Expired sessions and used sign-in links are cleared as a
-        matter of course.
+        The Service is intended for use by businesses and is not directed to
+        children. We do not knowingly collect personal information from anyone
+        under 13, and Subscribers must not create crew accounts for anyone under
+        13. Where a Subscriber creates a crew account for a minor of working
+        age, the Subscriber is responsible for complying with applicable child
+        labour and privacy laws, including obtaining any required parental
+        consent. If we learn that we have collected information from a child
+        under 13, we will delete it.
       </p>
 
-      <h2 className={H2}>Your rights</h2>
+      <h2 className={H2}>9. Location of the Service</h2>
       <p className={P}>
-        Depending on where you live, you may have the right to access a copy of
-        your data, correct it, delete it, restrict or object to how we use it,
-        or receive it in a portable form. You can change your name, email
-        address and password from your account page at any time. For anything
-        else, write to {LEGAL.contactEmail} and we will respond within the time
-        the law allows. You may also complain to your local data protection
-        authority.
+        GroundsRoute is offered to businesses in the United States and its
+        infrastructure is located in the United States. It is not intended for
+        use by residents of the European Economic Area, the United Kingdom, or
+        Switzerland, and we make no representation that it complies with the
+        requirements of those jurisdictions.
       </p>
 
-      <h2 className={H2}>Children</h2>
+      <h2 className={H2}>10. Changes to this policy</h2>
       <p className={P}>
-        GroundsRoute is a tool for businesses and is not directed at children.
-        We do not knowingly collect information from anyone under 16. If you
-        create a crew login for a young employee, you are responsible for having
-        the right to provide their details.
+        We may update this policy from time to time. If we make a material
+        change we will notify Subscribers by email or through the Service at
+        least 30 days before it takes effect, and update the date at the bottom
+        of this page. Continued use after the change takes effect constitutes
+        acceptance.
       </p>
 
-      <h2 className={H2}>International transfers</h2>
+      <h2 className={H2}>11. Contact</h2>
       <p className={P}>
-        Our providers listed above may process data in countries other than your
-        own, including the United States. Where that happens we rely on the
-        safeguards those providers put in place for international transfers.
+        {LEGAL.entityLong}
+        <br />
+        {LEGAL.mailingAddress}
+        <br />
+        {LEGAL.contactEmail}
       </p>
-
-      <h2 className={H2}>Changes and contact</h2>
       <p className={P}>
-        If we change this policy materially we will tell you by email or in the
-        app before the change takes effect. Questions, requests or complaints
-        can go to {LEGAL.contactEmail}. Our{" "}
+        Our{" "}
         <Link href="/terms" className="underline underline-offset-4">
           Terms of Service
         </Link>{" "}
-        cover the rest of the relationship.
+        govern your use of the Service and incorporate this policy.
       </p>
     </article>
   );

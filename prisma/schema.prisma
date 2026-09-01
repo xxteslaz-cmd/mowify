@@ -134,6 +134,15 @@ model Org {
   // This is what makes the daily cron idempotent -- it can double-fire, overlap
   // a deploy, or be retried, and nobody gets mailed twice.
   trialReminderSentAt  DateTime?
+  // When this company stopped having a live subscription. The Privacy Policy
+  // keeps data 30 days past that point and then deletes it, and
+  // subscriptionStatus says a company is lapsed without saying since when.
+  //
+  // Written on the transition only, never refreshed while it stays lapsed --
+  // refreshing it on every webhook would restart the 30 days each time and
+  // nothing would ever be deleted. Cleared when the company becomes active
+  // again.
+  lapsedAt             DateTime?
 
   // Whether this company organises work into crews or assigns it to named
   // people. Presentation only — a Crew row is the assignable unit either way,
