@@ -23,11 +23,21 @@ const PUBLIC_PREFIXES = [
   "/billing/return",
   // Stripe is not a browser and carries no session cookie.
   "/api/stripe/webhook",
+  // Neither is Vercel Cron. The trailing slash is load-bearing: these are
+  // matched with startsWith, and this repo has already shipped one bug from a
+  // prefix short enough to publish its neighbours. "/api/cron/" can only ever
+  // match routes under it, and each of those authenticates itself against
+  // CRON_SECRET — being exempt from the session redirect is not the same as
+  // being unauthenticated.
+  "/api/cron/",
   // Linked from the landing page and from signup, so both have to render for
   // someone who has no account yet — which is the whole point of publishing
   // them. Neither is a prefix of another route.
   "/terms",
   "/privacy",
+  // Terms section 4 cites this page for the rates, so it has to render for
+  // someone deciding whether to sign up at all.
+  "/pricing",
 ];
 
 export default function proxy(req: NextRequest) {

@@ -38,6 +38,8 @@ The app runs at http://localhost:3000.
 | `STRIPE_WEBHOOK_SECRET` | Verifies the webhook signature. The webhook is the only code that creates an `Org`. |
 | `STRIPE_PRICE_ID` | The subscription price. |
 | `STRIPE_PORTAL_RETURN_URL` | Optional; derived from `APP_URL` when unset. |
+| `CRON_SECRET` | Authenticates the daily cron routes. They fail closed without it. |
+| `PURGE_ENABLED` | Must be `"yes"` before the deletion job deletes anything. Unset, it reports and does nothing. |
 
 `sendEmail` never throws — it logs and returns a boolean, so no user-facing
 operation fails because a mail provider is down. The trade-off is that a

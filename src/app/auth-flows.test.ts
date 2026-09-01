@@ -136,6 +136,10 @@ const ChangeEmailPage = (await import("@/app/account/change-email/[token]/page")
 
 function form(fields: Record<string, string>): FormData {
   const fd = new FormData();
+  // Signup requires two consent boxes; every caller here is exercising
+  // something else, so they are on by default and can still be overridden.
+  if (!("trialConsent" in fields)) fd.append("trialConsent", "on");
+  if (!("termsConsent" in fields)) fd.append("termsConsent", "on");
   for (const [k, v] of Object.entries(fields)) fd.append(k, v);
   return fd;
 }

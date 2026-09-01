@@ -40,8 +40,10 @@ describe("proxy public paths", () => {
     ["/account/change-email/sometoken", "opened from the new address"],
     ["/billing/return", "the visitor arrives here straight from Stripe"],
     ["/api/stripe/webhook", "Stripe carries no session cookie"],
+    ["/api/cron/trial-reminder", "Vercel Cron carries no session cookie either"],
     ["/terms", "must render for someone with no account"],
     ["/privacy", "must render for someone with no account"],
+    ["/pricing", "the Terms cite this page for the rates"],
   ])("allows %s signed out (%s)", (pathname) => {
     expect(isAllowedThrough(visit(pathname))).toBe(true);
   });
@@ -57,6 +59,11 @@ describe("proxy public paths", () => {
     // though "/billing/return" is. A prefix entry of "/billing" would make the
     // owner's billing page readable by anyone.
     ["/billing"],
+    // "/api/cron/" is public with its trailing slash, which must not be short
+    // enough to publish anything alongside it. These two would both be caught
+    // by a prefix of "/api/" or "/api/cron".
+    ["/api/cronjobs"],
+    ["/api/stripe/refund"],
   ])("redirects %s to /login when signed out", (pathname) => {
     expect(isRedirectToLogin(visit(pathname))).toBe(true);
   });

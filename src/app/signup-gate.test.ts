@@ -64,6 +64,10 @@ function form(overrides: Record<string, string> = {}) {
   data.set("companyName", overrides.companyName ?? "Green Acres");
   data.set("email", overrides.email ?? "dana@example.com");
   data.set("password", overrides.password ?? "correct-horse");
+  // What a browser actually sends for a ticked box. An unticked one sends
+  // nothing at all, which is what the consent tests below rely on.
+  data.set("trialConsent", "on");
+  data.set("termsConsent", "on");
   return data;
 }
 

@@ -2,6 +2,11 @@ import "server-only";
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { createOrgWithOwner } from "@/lib/provision";
+import { isOrgActive } from "@/lib/subscription";
+import { CONSENT_KIND, consentExpiry, trialDisclosure } from "@/lib/consent";
+import { sendEmail } from "@/lib/email/client";
+import { signupAcknowledgementEmail } from "@/lib/email/templates";
+import { appUrl } from "@/lib/url";
 import { getStripe } from "./client";
 
 /**
@@ -159,10 +164,36 @@ async function completeSignup(session: Stripe.Checkout.Session): Promise<void> {
       },
     });
 
+    // The durable copy of the consent taken on the signup form. It is written
+    // inside this transaction so a company can never exist without the record
+    // of what it agreed to -- that record is the only evidence there is if the
+    // first charge is disputed.
+    //
+    // It holds its own copy of the email and company name, and no foreign key
+    // to the org, because it has to outlive the org: account data is deleted
+    // 30 days after cancellation and this is kept for three years.
+    if (pending.trialConsentAt) {
+      await tx.consentRecord.create({
+        data: {
+          orgId: provisioned.orgId,
+          email: pending.email,
+          companyName: pending.companyName,
+          kind: CONSENT_KIND,
+          termsVersion: pending.consentTermsVersion ?? "unknown",
+          disclosure: pending.consentDisclosure ?? "",
+          agreedAt: pending.trialConsentAt,
+          expiresAt: consentExpiry(pending.trialConsentAt),
+        },
+      });
+    }
+
     return provisioned;
   });
 
-  if (result.ok) return;
+  if (result.ok) {
+    await sendSignupAcknowledgement(pending.email, subscription);
+    return;
+  }
 
   if (result.reason === "already-claimed") {
     // Another delivery of this signup got there first. It is holding a live
@@ -212,25 +243,154 @@ async function completeSignup(session: Stripe.Checkout.Session): Promise<void> {
  * of trying to detect it.
  */
 async function mirrorSubscription(id: string): Promise<void> {
-  const org = await prisma.org.findFirst({
-    where: { stripeSubscriptionId: id },
-    select: { id: true },
-  });
+  const subscription = await retrieveSubscription(id);
+
+  const org = await resolveOrg(subscription);
   if (!org) {
     console.error("Stripe webhook: no org for subscription", id);
     return;
   }
 
-  const subscription = await retrieveSubscription(id);
+  // The subscription this org already holds, if it is not the one in hand. A
+  // resubscribe creates a second subscription, and only one of them may end up
+  // on the row.
+  if (org.stripeSubscriptionId && org.stripeSubscriptionId !== id) {
+    const held = await retrieveSubscription(org.stripeSubscriptionId);
+
+    // The company is already paying for a live subscription. Adopting this
+    // second one would leave them billed twice with only one of the two
+    // visible anywhere in the app. Cancel the newcomer instead and keep what
+    // they have — the same rule completeSignup applies to a duplicate
+    // checkout, and for the same reason.
+    //
+    // Not caught, deliberately. A swallowed failure here answers Stripe 200 —
+    // "handled" — while somebody is being charged twice and nothing on our
+    // side records it. A 500 means Stripe retries, and cancelling an
+    // already-cancelled subscription is a no-op, so the retry is free.
+    if (isOrgActive(held.status)) {
+      console.error(
+        "Stripe webhook: second subscription for an already-active org",
+        org.id,
+        id,
+      );
+      await getStripe().subscriptions.cancel(id);
+      return;
+    }
+  }
+
+  const adopting = org.stripeSubscriptionId !== id;
+
+  // When the 30-day retention clock starts and stops. Written only on the
+  // transition: refreshing it on every webhook while a company stays lapsed
+  // would restart the countdown each time and nothing would ever be deleted.
+  const nowActive = isOrgActive(subscription.status);
+  const wasActive = isOrgActive(org.subscriptionStatus);
+  const lapsedAt = nowActive
+    ? null
+    : wasActive || !org.lapsedAt
+      ? new Date()
+      : org.lapsedAt;
 
   await prisma.org.update({
     where: { id: org.id },
     data: {
+      lapsedAt,
+      // Adopting the subscription *is* this write. For the ordinary path both
+      // ids are already what they are set to here, so it stays a no-op.
+      stripeSubscriptionId: id,
+      stripeCustomerId: customerId(subscription.customer) ?? org.stripeCustomerId,
       subscriptionStatus: subscription.status,
       trialEndsAt: toDate(subscription.trial_end),
       currentPeriodEnd: periodEnd(subscription),
+      // Only when the row is moving to a different subscription. Clearing it on
+      // every mirror would re-arm the reminder on each subscription.updated —
+      // and Stripe sends a lot of those — so one trial would be reminded
+      // about repeatedly. Guarding on the id change means a genuinely new
+      // subscription gets a fresh reminder and an existing one keeps its record
+      // of having already been sent.
+      ...(adopting ? { trialReminderSentAt: null } : {}),
     },
   });
+}
+
+/**
+ * Finds the org a subscription belongs to.
+ *
+ * Three ways, in descending order of directness. The first is the ordinary
+ * path and the only one that existed before resubscribing was possible; the
+ * other two exist because a resubscribe creates a subscription whose id is on
+ * no Org row yet, so the first lookup necessarily misses.
+ */
+async function resolveOrg(subscription: Stripe.Subscription) {
+  const select = {
+    id: true,
+    stripeSubscriptionId: true,
+    stripeCustomerId: true,
+    subscriptionStatus: true,
+    lapsedAt: true,
+  } as const;
+
+  const byId = await prisma.org.findFirst({
+    where: { stripeSubscriptionId: subscription.id },
+    select,
+  });
+  if (byId) return byId;
+
+  // Written by startResubscribe as subscription_data.metadata. This is the
+  // deliberate, unambiguous link and is preferred over the customer lookup
+  // below, which is only an inference.
+  const orgId = subscription.metadata?.orgId;
+  if (orgId) {
+    const byMetadata = await prisma.org.findUnique({ where: { id: orgId }, select });
+    if (byMetadata) return byMetadata;
+    console.error("Stripe webhook: subscription names an unknown org", orgId);
+  }
+
+  // Last resort, for a subscription created outside our own flow — from the
+  // Stripe Dashboard, say. It carries no metadata, but the customer is still
+  // ours.
+  const customer = customerId(subscription.customer);
+  if (!customer) return null;
+  return prisma.org.findFirst({ where: { stripeCustomerId: customer }, select });
+}
+
+function customerId(
+  ref: string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined,
+): string | undefined {
+  return typeof ref === "string" ? ref : (ref?.id ?? undefined);
+}
+
+/**
+ * Restates the trial terms and the cancellation method in writing, after the
+ * account exists.
+ *
+ * Sent from here rather than from the signup action, deliberately. Signup is
+ * unauthenticated, and mailing from it once let anyone drive arbitrary
+ * recipients from our sending domain -- that reasoning is unchanged. By this
+ * point Stripe has confirmed a card against this address, so it is a paying
+ * customer rather than an arbitrary recipient, and the email is describing a
+ * charge that is genuinely scheduled.
+ *
+ * sendEmail never throws, so a mail outage cannot undo an account that has
+ * already been paid for and committed.
+ */
+async function sendSignupAcknowledgement(
+  email: string,
+  subscription: Stripe.Subscription | null,
+): Promise<void> {
+  const trialEnd = toDate(subscription?.trial_end);
+  const { subject, html } = signupAcknowledgementEmail({
+    disclosure: trialDisclosure(),
+    chargeDate: trialEnd
+      ? trialEnd.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : null,
+    billingUrl: appUrl("/billing"),
+  });
+  await sendEmail({ to: email, subject, html });
 }
 
 function subscriptionId(

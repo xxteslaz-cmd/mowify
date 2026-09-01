@@ -131,8 +131,9 @@ Subscription events re-fetch the subscription from Stripe rather than trusting
 the event body, which removes webhook ordering as a concern entirely.
 
 Requires `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`,
-optionally `STRIPE_PORTAL_RETURN_URL` (derived from `APP_URL` when unset), and a
-real `APP_URL` — `requireAppUrl()` throws rather than defaulting to localhost,
+`CRON_SECRET` (the cron routes), optionally `PURGE_ENABLED` and
+`STRIPE_PORTAL_RETURN_URL`
+(derived from `APP_URL` when unset), and a real `APP_URL` — `requireAppUrl()` throws rather than defaulting to localhost,
 because a localhost `success_url` sends a paying customer to their own machine
 and looks like success from our side.
 
@@ -152,31 +153,172 @@ owner asking.
 Steps 3 and 4 are the time-critical pair, and only in that order. Every
 pre-existing company has `subscriptionStatus: null`, which `isOrgActive()`
 reads as lapsed. Ship the code first and every existing owner is instantly
-read-only and redirected to `/billing`, which — see below — has nothing to
-offer them. Grandfathering first is invisible to a running deployment, because
-nothing reads the column yet.
+read-only and redirected to `/billing`. That page can now at least offer them a
+way back — see "Restarting a subscription" below — but it would still be asking
+a paid-up company to pay again, so grandfather first. Doing so is invisible to a
+running deployment, because nothing reads the column yet.
 
-### Known gap: no in-app way to start or restart a subscription
+### Restarting a subscription
 
-Checkout is only ever created by `signup/actions.ts`, and that path deliberately
-creates a *new* org. There is no re-subscribe flow, so:
+`startResubscribe()` in `src/app/(app)/billing/actions.ts` opens Checkout for a
+company with nothing left to repair — cancelled, or grandfathered with no
+subscription at all. `/billing` offers it instead of the portal for those cases.
 
-- A customer who cancels goes `canceled` → read-only → `/billing` → the Stripe
-  Billing Portal. **Configure the Portal to allow resubscription**, or that
-  journey ends at a screen that cannot restart anything.
-- A grandfathered org has `stripeCustomerId: null`, so `/billing` shows "no
-  billing account" and the Portal button does not render at all. If such an org
-  ever lapses it has no in-app recovery whatsoever.
+**The Billing Portal cannot do this, and an earlier version of this file said it
+could.** Per Stripe: "cancelled subscriptions do not appear in the portal. A new
+subscription needs to be created." The portal's reactivation affordance exists
+only while `cancel_at_period_end` is set and the period has not yet elapsed.
+Do not "simplify" resubscribe back into a portal configuration.
 
-Building a re-subscribe flow is a scope decision nobody has made yet. This is
-recorded so it is a known gap rather than a discovery.
+- **The resubscribe Checkout must never set `trial_period_days`.** Stripe grants
+  the same customer a second trial without complaint — "it is the responsibility
+  of your system to implement a check" — so omitting the parameter *is* the
+  check. Granting it would make cancel-and-restart an unlimited free plan, and
+  Terms §3 sells one trial per company. There is a test asserting its absence.
+- **The new subscription's id is on no `Org` row yet**, so `mirrorSubscription`
+  resolves the org by `stripeSubscriptionId`, then `metadata.orgId` (written by
+  `startResubscribe`), then `stripeCustomerId`. Removing the metadata from the
+  Checkout call silently orphans every resubscribe.
+- **A resolved org that already holds a live subscription cancels the newcomer**
+  rather than adopting it, so nobody is billed twice. Same rule as the duplicate
+  checkout branch in `completeSignup`.
+- `trialReminderSentAt` is cleared only when the row moves to a *different*
+  subscription. Clearing it on every mirror would re-arm the reminder on each
+  `subscription.updated` — and Stripe sends many — mailing one owner repeatedly.
+
+### The trial-end reminder
+
+Terms §3 promises a reminder "at least 7 days before the trial ends, telling you
+the date the charge will occur, the amount, and how to cancel." All three are
+required content, not editorial choices.
+
+**It cannot come from Stripe.** `customer.subscription.trial_will_end` fires
+exactly three days out and the timing is not configurable — Stripe's guidance on
+sending earlier is "Currently not supported through Stripe." So it is a daily
+Vercel Cron job at `GET /api/cron/trial-reminder`, declared in `vercel.json`.
+
+- Authenticates against **`CRON_SECRET`** with `timingSafeEqual` and returns
+  **404**, not 401, so the route's existence is not advertised. **A missing
+  `CRON_SECRET` fails closed** — an unset secret must never read as "no auth
+  required."
+- `"/api/cron/"` is in `PUBLIC_PREFIXES` for the same reason the Stripe webhook
+  is. The trailing slash is load-bearing; `proxy.ts` matches with `startsWith`.
+- Idempotent through `Org.trialReminderSentAt`, which is written **only when
+  `sendEmail` returns true**. Marking it regardless would consume the single
+  reminder a company gets during a provider outage — and an unset
+  `RESEND_API_KEY` returns false in exactly the same way a real outage does.
+- The window is eight days wide, not exactly seven. "At least 7 days" means
+  early is compliant and late is not, so a skipped run has a day of slack.
+
+The price lives once in `src/lib/pricing.ts`. The reminder, the Terms and the
+pricing page all read it from there; three copies of a number eventually
+contradict a contract.
+
+### Auto-renewal consent at signup
+
+The Terms sell a trial that converts into a recurring charge. **The law that
+governs that is about the signup screen, not the contract** — a correctly
+drafted clause is worthless if the screen does not match it. ROSCA is in force
+and the FTC enforces it directly; state auto-renewal laws stack on top. (The
+FTC's click-to-cancel Negative Option Rule was vacated in July 2025 and is not
+in force.)
+
+So `/signup` shows the material terms **above** the button that leads to the
+card form, and takes **two separate un-pre-ticked checkboxes** — trial terms,
+and Terms/Privacy. One box covering both would not isolate consent to the
+negative option.
+
+- **Both are validated server-side in the action**, not by the `required`
+  attribute, which a crafted POST ignores. An unticked checkbox submits
+  *nothing* — the key is absent, not `false` — so the check is for the literal
+  `"on"`.
+- The disclosure is rendered from `trialDisclosure()` in `src/lib/consent.ts`
+  and **stored verbatim** on the consent record. A version string proves nothing
+  once the words it named have been edited. `/pricing` renders the same
+  function, so the two pages cannot drift.
+- The trial length in the Checkout call reads `TRIAL_DAYS`, not a literal, so it
+  cannot diverge from the number the customer consented to.
+
+### ConsentRecord outlives the Org, deliberately
+
+The Privacy Policy makes two retention promises that pull opposite ways:
+account data is deleted **30 days** after cancellation, and consent records are
+kept **three years** because automatic renewal laws require it.
+
+`ConsentRecord` therefore has **no foreign key to `Org`** and holds its own copy
+of the email and company name. Storing consent as columns on `Org` would let the
+deletion job destroy the evidence two years and eleven months early — precisely
+when a disputed first charge makes it the only evidence there is.
+
+**Any purge job must skip `ConsentRecord`;** its own `expiresAt` is what removes
+it. `expiresAt` is stored rather than computed so shortening the constant later
+cannot retroactively shorten records already taken. There is a test that deletes
+every org and asserts the records survive.
+
+### The signup acknowledgement
+
+Sent from the **webhook**, never from the signup action. Signup is
+unauthenticated and mailing from it once let anyone drive arbitrary recipients
+from the sending domain — that rule is unchanged. By webhook time Stripe has
+confirmed a card against the address, so it is a paying customer rather than an
+arbitrary recipient.
+
+### Data lifecycle
+
+Both halves are published promises, so the code and the documents read the same
+constants — `RETENTION` in `src/lib/legal.ts` and `src/lib/pricing.ts`. **A page
+that says 30 days while the job uses 45 is not a discrepancy, it is a false
+statement to a customer**, and one number is the only reliable way to stop that.
+
+**Export** — `GET /api/export`, owner-only, **ungated by subscription status**.
+Terms §3 gives a lapsed company 30 days to export before deletion, so
+`requireActiveOrg` here would withhold it from the people the clause was written
+for. Scoped by `orgId` from the session, never from input. Credential hashes are
+excluded: they are not customer data and a downloads folder is the wrong place
+for the company's own logins.
+
+**Deletion** — `GET /api/cron/purge`, daily. `Org.lapsedAt` is the clock,
+written in `mirrorSubscription` **on the transition only**; refreshing it while
+a company stays lapsed would restart the 30 days on every webhook and nothing
+would ever be deleted.
+
+Three guards, all with tests that fail when the guard is removed:
+
+- **The active-status check is applied twice** — in the query and again inside
+  the transaction. The redundancy is the point: a bug leaving `lapsedAt` set on
+  a paying company must not be sufficient on its own to delete them.
+- **A cap of 50 orgs per run**, which aborts the whole run rather than deleting
+  the first 50. More than that is a broken query, not a wave of cancellations.
+- **`PURGE_ENABLED` must equal `"yes"`.** Unset, the job reports what it would
+  delete and touches nothing. **Deploy it unset first** and watch the numbers —
+  the first run of a deletion job against real customer data should never be its
+  first run.
+
+**`ConsentRecord` is never deleted with an org.** See the Auto-renewal consent
+section above; it is removed only by its own `expiresAt`.
+
+### The published documents
+
+`/terms` and `/privacy` are the real published pages, and they now describe
+things that exist. Two placeholders are still live and **render visibly on the
+pages** — `LEGAL.mailingAddress` and `LEGAL.county` — following the convention
+`src/lib/legal.ts` already set: unfilled values are rendered verbatim so they
+are obvious to anyone who looks, rather than hidden in a config file. Do not
+invent either one.
+
+Bump `LEGAL.version` whenever either document changes materially. Consent
+records already written keep the version they were taken under.
 
 ## Import boundaries (ESLint-enforced)
 
 - Application code imports hashing from `@/lib/auth/password`, never
   `@/lib/auth/hash`. `hash.ts` has no `server-only` guard so scripts can use it;
   the lint rule is what keeps it out of client bundles.
-- `@/lib/email/client` may only be imported from `src/app/**/actions.ts`.
+- `@/lib/email/client` may only be imported from `src/app/**/actions.ts`, from
+  cron route handlers (`src/app/api/cron/**/route.ts`), and from
+  `src/lib/stripe/handle-event.ts` (the signup acknowledgement). The reminder has
+  nobody on a page when it sends, so it cannot be a Server Action; a Route
+  Handler is server-only by construction and cannot reach a client bundle.
 
 The two restrictions are scoped independently. Do not merge them into one
 `files` block — an override for one would disable the other.
@@ -196,7 +338,7 @@ exist. Do not run it against production for any reason.
 
 ## Testing
 
-201 tests. `npm test` runs them against the test database.
+310 tests. `npm test` runs them against the test database.
 
 - `src/lib/data.isolation.test.ts` and `src/app/actions.isolation.test.ts` seed
   two orgs and prove nothing crosses between them. These are the tests that

@@ -42,6 +42,64 @@ export function changeEmailEmail(link: string) {
   };
 }
 
+/**
+ * Written confirmation of the trial terms, sent once the account exists.
+ *
+ * Restating the negative option in writing after signup is what turns "they
+ * ticked a box" into something the customer can find again in their inbox on
+ * the day the charge lands. It is also the cheapest defence against a disputed
+ * first charge there is.
+ */
+export function signupAcknowledgementEmail(input: {
+  disclosure: string;
+  chargeDate: string | null;
+  billingUrl: string;
+}) {
+  return {
+    subject: "Your GroundsRoute trial has started",
+    html: WRAP(
+      `<p>Your company is set up and your free trial has started. Here are the terms you agreed to, so you have them in writing:</p>` +
+        `<p>${input.disclosure}</p>` +
+        (input.chargeDate
+          ? `<p>Your card will be charged on <strong>${input.chargeDate}</strong> unless you cancel before then.</p>`
+          : "") +
+        `<p>Cancelling is self-serve and takes a few clicks — you never need to contact us to stop a charge.</p>` +
+        BUTTON(input.billingUrl, "View or cancel my subscription") +
+        `<p>We'll also email you a reminder at least 7 days before the trial ends.</p>`,
+    ),
+  };
+}
+
+/**
+ * The seven-day trial-end reminder.
+ *
+ * Terms section 3 commits to this in specific terms: a reminder "at least 7
+ * days before the trial ends, telling you the date the charge will occur, the
+ * amount, and how to cancel." All three are therefore required content, not
+ * editorial choices — dropping any one of them breaks a published promise.
+ *
+ * It is also the single largest reducer of trial-conversion chargebacks, which
+ * is the practical reason to write it plainly rather than to bury the charge.
+ * A customer who is surprised by a charge disputes it; a dispute costs the
+ * fee plus a ratio Stripe watches and can suspend an account over.
+ */
+export function trialEndingEmail(input: {
+  chargeDate: string;
+  amount: string;
+  billingUrl: string;
+}) {
+  return {
+    subject: "Your GroundsRoute trial ends in 7 days",
+    html: WRAP(
+      `<p>Your free trial of GroundsRoute ends on <strong>${input.chargeDate}</strong>.</p>` +
+        `<p>On that date your subscription starts and the card on file is charged <strong>${input.amount}</strong>, then the same amount each month after that, until you cancel.</p>` +
+        `<p>If you'd rather not continue, cancel before then and you will never be charged. Cancelling takes a few clicks on your billing page — you don't need to contact us.</p>` +
+        BUTTON(input.billingUrl, "Manage or cancel my subscription") +
+        `<p>If you're staying, there's nothing to do.</p>`,
+    ),
+  };
+}
+
 // Sent to the CURRENT address, not the new one, so the real owner has a
 // chance to react before the account moves anywhere: it is the only signal
 // they get if someone with a stolen session (and a guessed or leaked

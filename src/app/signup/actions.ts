@@ -11,10 +11,22 @@ import { CLAIM_COOKIE, CLAIM_TTL_MS, SWEEP_GRACE_MS } from "@/lib/auth/claim-coo
 import { getStripe } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/stripe/config";
 import { requireAppUrl } from "@/lib/url";
+import { LEGAL } from "@/lib/legal";
+import { trialDisclosure } from "@/lib/consent";
+import { TRIAL_DAYS } from "@/lib/pricing";
 
 export type SignupFormState =
   | { errors?: Record<string, string>; error?: string }
   | undefined;
+
+// An unchecked HTML checkbox submits NOTHING — the key is absent from the
+// FormData entirely, rather than arriving as "false" — so the test is for the
+// literal "on" a checked box sends, and absent, empty and forged all fail
+// alike. z.unknown() rather than z.string() because an absent key should fail
+// with the message written below, not with a type error about expecting a
+// string.
+const consentBox = (message: string) =>
+  z.unknown().refine((v) => v === "on", message);
 
 const SignupSchema = z.object({
   // trim() must run before min(1): otherwise an all-whitespace value passes
@@ -23,6 +35,20 @@ const SignupSchema = z.object({
   companyName: z.string().trim().min(1, "Enter your company name"),
   email: z.string().email("Enter a valid email").trim().toLowerCase(),
   password: z.string().min(8, "Use at least 8 characters"),
+  // Validated here rather than trusted from the `required` attribute on the
+  // input. That attribute is a client-side convenience a crafted POST ignores,
+  // and consent that can be skipped is not consent — the record we keep for
+  // three years would be evidence of nothing.
+  //
+  // Two boxes, not one. Express agreement to the negative option has to be
+  // separable from general agreement to the Terms; a single box covering both
+  // does not isolate it.
+  trialConsent: consentBox(
+    "Please confirm you understand when the trial converts to a paid subscription",
+  ),
+  termsConsent: consentBox(
+    "Please accept the Terms of Service and Privacy Policy",
+  ),
 });
 
 export async function signup(
@@ -34,6 +60,8 @@ export async function signup(
     companyName: formData.get("companyName"),
     email: formData.get("email"),
     password: formData.get("password"),
+    trialConsent: formData.get("trialConsent"),
+    termsConsent: formData.get("termsConsent"),
   });
 
   if (!parsed.success) {
@@ -92,6 +120,12 @@ export async function signup(
         passwordHash,
         claimHash: hashToken(claim),
         expiresAt,
+        // Captured on the request that actually carried the ticked boxes. The
+        // disclosure is stored in full rather than by reference, so the record
+        // still shows what was on screen after the wording is next edited.
+        trialConsentAt: new Date(),
+        consentTermsVersion: LEGAL.version,
+        consentDisclosure: trialDisclosure(),
       },
     });
   } catch (err) {
@@ -108,7 +142,11 @@ export async function signup(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: stripeConfig().priceId, quantity: 1 }],
-      subscription_data: { trial_period_days: 30 },
+      // The same constant the disclosure above the checkbox is rendered from.
+      // A literal here could drift from the trial length the customer was
+      // shown and consented to, which is the one number in this flow that must
+      // not be wrong in two places.
+      subscription_data: { trial_period_days: TRIAL_DAYS },
       // A card is required before the trial starts. Without this Stripe skips
       // payment collection for a fully discounted first period.
       payment_method_collection: "always",
