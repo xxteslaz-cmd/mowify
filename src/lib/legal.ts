@@ -20,12 +20,12 @@ export const LEGAL = {
    * than an obvious blank.
    */
   mailingAddress: "[MAILING ADDRESS]",
-  /** Venue for disputes, Terms section 15. Unfilled for the same reason. */
-  county: "[COUNTY]",
+  /** Venue for disputes, Terms section 15. */
+  county: "Dauphin County",
   contactEmail: "support@groundsroute.com",
   jurisdiction: "the Commonwealth of Pennsylvania",
   /** Update whenever the wording of either page changes materially. */
-  lastUpdated: "23 August 2026",
+  lastUpdated: "31 August 2026",
   /**
    * Stamped onto every consent record so a dispute can be answered with the
    * exact version of the Terms that was in force. Bump it whenever either
