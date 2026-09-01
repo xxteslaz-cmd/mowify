@@ -43,6 +43,7 @@ describe("proxy public paths", () => {
     ["/api/cron/trial-reminder", "Vercel Cron carries no session cookie either"],
     ["/terms", "must render for someone with no account"],
     ["/privacy", "must render for someone with no account"],
+    ["/pricing", "the Terms cite this page for the rates"],
   ])("allows %s signed out (%s)", (pathname) => {
     expect(isAllowedThrough(visit(pathname))).toBe(true);
   });

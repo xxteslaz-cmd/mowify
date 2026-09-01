@@ -14,6 +14,13 @@ export const LEGAL = {
   jurisdiction: "the Commonwealth of Pennsylvania",
   /** Update whenever the wording of either page changes materially. */
   lastUpdated: "23 August 2026",
+  /**
+   * Stamped onto every consent record so a dispute can be answered with the
+   * exact version of the Terms that was in force. Bump it whenever either
+   * published document changes materially — the records already written keep
+   * the version they were taken under.
+   */
+  version: "2026-08-31",
 } as const;
 
 /** The third parties that necessarily receive data to run the service. */

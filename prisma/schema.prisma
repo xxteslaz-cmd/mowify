@@ -186,12 +186,12 @@ model User {
 }
 
 model Session {
-  id String @id @default(cuid())
+  id        String   @id @default(cuid())
   // SHA-256 of the cookie token. The raw token is never stored, so a database
   // leak yields no usable session cookies.
-  tokenHash String @unique
+  tokenHash String   @unique
   userId    String
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
 
@@ -199,7 +199,7 @@ model Session {
 }
 
 model Token {
-  id String @id @default(cuid())
+  id         String       @id @default(cuid())
   // SHA-256 of the value that goes in the email link. The raw token is never
   // stored, so a database leak yields nothing usable.
   tokenHash  String       @unique
@@ -219,7 +219,7 @@ model Token {
 // it yet: that is the whole point of the gate. The webhook promotes a row here
 // into a real account once Stripe confirms a card.
 model PendingSignup {
-  id String @id @default(cuid())
+  id                  String    @id @default(cuid())
   // Deliberately NOT unique: one row per signup attempt, never reused.
   //
   // Keying on email and reusing the row let an unauthenticated request
@@ -231,24 +231,80 @@ model PendingSignup {
   //
   // Email uniqueness is enforced where it actually matters — at provisioning
   // time, by createOrgWithOwner's "email-taken" result.
-  email String
-  name        String
-  companyName String
+  email               String
+  name                String
+  companyName         String
   // Nulled once the account exists. There is no reason to keep a credential
   // after it has been copied onto the User row.
-  passwordHash String?
+  passwordHash        String?
   // SHA-256 of the value held in the claim cookie. Same reasoning as Session:
   // only the hash is stored, so a database leak yields nothing that can claim
   // somebody else's paid account.
-  claimHash         String  @unique
-  checkoutSessionId String? @unique
-  orgId             String?
-  failedReason      String?
+  claimHash           String    @unique
+  checkoutSessionId   String?   @unique
+  orgId               String?
+  failedReason        String?
+  // Consent to the trial's auto-renewal terms, captured on the signup form
+  // before any of this reaches Stripe. Recorded here rather than only at
+  // provisioning because this is the request that actually carried the ticked
+  // box -- writing it later would be recording our own assertion that consent
+  // happened. Copied into ConsentRecord once a payment confirms.
+  //
+  // The disclosure text is stored in full, not just the version that named it.
+  // A version string proves nothing once the words it referred to have been
+  // edited, and "they ticked a box" is not evidence of what they ticked.
+  trialConsentAt      DateTime?
+  consentTermsVersion String?
+  consentDisclosure   String?
+
   // Set on completion and never cleared. This is what makes a replayed webhook
   // a no-op rather than a second org.
   consumedAt DateTime?
   expiresAt  DateTime
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
 
+  @@index([expiresAt])
+}
+
+/**
+ * Evidence that a customer agreed to the trial's auto-renewal terms.
+ * Deliberately NOT a relation to Org, and deliberately holding its own copy of
+ * the email and company name rather than pointing at rows that hold them.
+ * The two retention promises in the Privacy Policy pull in opposite directions:
+ * account data is deleted 30 days after cancellation, while consent records are
+ * kept for at least three years because automatic renewal laws require it. A
+ * consent record stored as columns on Org would be destroyed by the former,
+ * two years and eleven months early -- and precisely at the moment a disputed
+ * first charge makes it the only evidence that exists.
+ * So this row outlives everything it describes. The purge job must skip it; its
+ * own expiresAt is what eventually removes it.
+ */
+model ConsentRecord {
+  id String @id @default(cuid())
+
+  // Which company this was, when there was one. Not a foreign key: the Org it
+  // names is expected to be gone long before this row is.
+  orgId       String?
+  email       String
+  companyName String
+
+  // What was consented to. One value today, "TRIAL_SUBSCRIPTION", but named
+  // rather than assumed so a second kind does not require reinterpreting old
+  // rows.
+  kind String
+
+  termsVersion String
+  // The exact words that were on screen above the checkbox.
+  disclosure   String
+
+  agreedAt  DateTime
+  // Stored, not computed, so the retention period a record was written under
+  // travels with it. Shortening the constant later must not silently shorten
+  // the retention of records already taken.
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([email])
   @@index([expiresAt])
 }

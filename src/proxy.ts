@@ -35,6 +35,9 @@ const PUBLIC_PREFIXES = [
   // them. Neither is a prefix of another route.
   "/terms",
   "/privacy",
+  // Terms section 4 cites this page for the rates, so it has to render for
+  // someone deciding whether to sign up at all.
+  "/pricing",
 ];
 
 export default function proxy(req: NextRequest) {

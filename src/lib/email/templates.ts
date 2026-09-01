@@ -43,6 +43,34 @@ export function changeEmailEmail(link: string) {
 }
 
 /**
+ * Written confirmation of the trial terms, sent once the account exists.
+ *
+ * Restating the negative option in writing after signup is what turns "they
+ * ticked a box" into something the customer can find again in their inbox on
+ * the day the charge lands. It is also the cheapest defence against a disputed
+ * first charge there is.
+ */
+export function signupAcknowledgementEmail(input: {
+  disclosure: string;
+  chargeDate: string | null;
+  billingUrl: string;
+}) {
+  return {
+    subject: "Your GroundsRoute trial has started",
+    html: WRAP(
+      `<p>Your company is set up and your free trial has started. Here are the terms you agreed to, so you have them in writing:</p>` +
+        `<p>${input.disclosure}</p>` +
+        (input.chargeDate
+          ? `<p>Your card will be charged on <strong>${input.chargeDate}</strong> unless you cancel before then.</p>`
+          : "") +
+        `<p>Cancelling is self-serve and takes a few clicks — you never need to contact us to stop a charge.</p>` +
+        BUTTON(input.billingUrl, "View or cancel my subscription") +
+        `<p>We'll also email you a reminder at least 7 days before the trial ends.</p>`,
+    ),
+  };
+}
+
+/**
  * The seven-day trial-end reminder.
  *
  * Terms section 3 commits to this in specific terms: a reminder "at least 7

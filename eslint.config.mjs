@@ -77,6 +77,18 @@ const eslintConfig = defineConfig([
       "no-restricted-imports": ["error", { patterns: [hashPattern] }],
     },
   },
+  // The Stripe webhook sends the signup acknowledgement, which cannot be a
+  // server action: nobody is on a page when it goes out, and it must follow
+  // Stripe confirming the card rather than the unauthenticated signup request.
+  // Named as one file rather than a glob over src/lib, and safe on the same
+  // grounds as the cron routes below — handle-event.ts carries `import
+  // "server-only"`, so the lint rule is the earlier of two guards here.
+  {
+    files: ["src/lib/stripe/handle-event.ts"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [hashPattern] }],
+    },
+  },
   // Cron route handlers send mail too — the seven-day trial reminder cannot be
   // a server action, because nobody is on a page when it needs to go out. A
   // Route Handler under src/app/api/ is server-only by construction and can

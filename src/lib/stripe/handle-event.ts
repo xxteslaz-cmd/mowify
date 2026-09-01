@@ -3,6 +3,10 @@ import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { createOrgWithOwner } from "@/lib/provision";
 import { isOrgActive } from "@/lib/subscription";
+import { CONSENT_KIND, consentExpiry, trialDisclosure } from "@/lib/consent";
+import { sendEmail } from "@/lib/email/client";
+import { signupAcknowledgementEmail } from "@/lib/email/templates";
+import { appUrl } from "@/lib/url";
 import { getStripe } from "./client";
 
 /**
@@ -160,10 +164,36 @@ async function completeSignup(session: Stripe.Checkout.Session): Promise<void> {
       },
     });
 
+    // The durable copy of the consent taken on the signup form. It is written
+    // inside this transaction so a company can never exist without the record
+    // of what it agreed to -- that record is the only evidence there is if the
+    // first charge is disputed.
+    //
+    // It holds its own copy of the email and company name, and no foreign key
+    // to the org, because it has to outlive the org: account data is deleted
+    // 30 days after cancellation and this is kept for three years.
+    if (pending.trialConsentAt) {
+      await tx.consentRecord.create({
+        data: {
+          orgId: provisioned.orgId,
+          email: pending.email,
+          companyName: pending.companyName,
+          kind: CONSENT_KIND,
+          termsVersion: pending.consentTermsVersion ?? "unknown",
+          disclosure: pending.consentDisclosure ?? "",
+          agreedAt: pending.trialConsentAt,
+          expiresAt: consentExpiry(pending.trialConsentAt),
+        },
+      });
+    }
+
     return provisioned;
   });
 
-  if (result.ok) return;
+  if (result.ok) {
+    await sendSignupAcknowledgement(pending.email, subscription);
+    return;
+  }
 
   if (result.reason === "already-claimed") {
     // Another delivery of this signup got there first. It is holding a live
@@ -314,6 +344,39 @@ function customerId(
   ref: string | Stripe.Customer | Stripe.DeletedCustomer | null | undefined,
 ): string | undefined {
   return typeof ref === "string" ? ref : (ref?.id ?? undefined);
+}
+
+/**
+ * Restates the trial terms and the cancellation method in writing, after the
+ * account exists.
+ *
+ * Sent from here rather than from the signup action, deliberately. Signup is
+ * unauthenticated, and mailing from it once let anyone drive arbitrary
+ * recipients from our sending domain -- that reasoning is unchanged. By this
+ * point Stripe has confirmed a card against this address, so it is a paying
+ * customer rather than an arbitrary recipient, and the email is describing a
+ * charge that is genuinely scheduled.
+ *
+ * sendEmail never throws, so a mail outage cannot undo an account that has
+ * already been paid for and committed.
+ */
+async function sendSignupAcknowledgement(
+  email: string,
+  subscription: Stripe.Subscription | null,
+): Promise<void> {
+  const trialEnd = toDate(subscription?.trial_end);
+  const { subject, html } = signupAcknowledgementEmail({
+    disclosure: trialDisclosure(),
+    chargeDate: trialEnd
+      ? trialEnd.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : null,
+    billingUrl: appUrl("/billing"),
+  });
+  await sendEmail({ to: email, subject, html });
 }
 
 function subscriptionId(

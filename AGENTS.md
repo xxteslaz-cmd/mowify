@@ -213,13 +213,63 @@ The price lives once in `src/lib/pricing.ts`. The reminder, the Terms and the
 pricing page all read it from there; three copies of a number eventually
 contradict a contract.
 
+### Auto-renewal consent at signup
+
+The Terms sell a trial that converts into a recurring charge. **The law that
+governs that is about the signup screen, not the contract** — a correctly
+drafted clause is worthless if the screen does not match it. ROSCA is in force
+and the FTC enforces it directly; state auto-renewal laws stack on top. (The
+FTC's click-to-cancel Negative Option Rule was vacated in July 2025 and is not
+in force.)
+
+So `/signup` shows the material terms **above** the button that leads to the
+card form, and takes **two separate un-pre-ticked checkboxes** — trial terms,
+and Terms/Privacy. One box covering both would not isolate consent to the
+negative option.
+
+- **Both are validated server-side in the action**, not by the `required`
+  attribute, which a crafted POST ignores. An unticked checkbox submits
+  *nothing* — the key is absent, not `false` — so the check is for the literal
+  `"on"`.
+- The disclosure is rendered from `trialDisclosure()` in `src/lib/consent.ts`
+  and **stored verbatim** on the consent record. A version string proves nothing
+  once the words it named have been edited. `/pricing` renders the same
+  function, so the two pages cannot drift.
+- The trial length in the Checkout call reads `TRIAL_DAYS`, not a literal, so it
+  cannot diverge from the number the customer consented to.
+
+### ConsentRecord outlives the Org, deliberately
+
+The Privacy Policy makes two retention promises that pull opposite ways:
+account data is deleted **30 days** after cancellation, and consent records are
+kept **three years** because automatic renewal laws require it.
+
+`ConsentRecord` therefore has **no foreign key to `Org`** and holds its own copy
+of the email and company name. Storing consent as columns on `Org` would let the
+deletion job destroy the evidence two years and eleven months early — precisely
+when a disputed first charge makes it the only evidence there is.
+
+**Any purge job must skip `ConsentRecord`;** its own `expiresAt` is what removes
+it. `expiresAt` is stored rather than computed so shortening the constant later
+cannot retroactively shorten records already taken. There is a test that deletes
+every org and asserts the records survive.
+
+### The signup acknowledgement
+
+Sent from the **webhook**, never from the signup action. Signup is
+unauthenticated and mailing from it once let anyone drive arbitrary recipients
+from the sending domain — that rule is unchanged. By webhook time Stripe has
+confirmed a card against the address, so it is a paying customer rather than an
+arbitrary recipient.
+
 ## Import boundaries (ESLint-enforced)
 
 - Application code imports hashing from `@/lib/auth/password`, never
   `@/lib/auth/hash`. `hash.ts` has no `server-only` guard so scripts can use it;
   the lint rule is what keeps it out of client bundles.
-- `@/lib/email/client` may only be imported from `src/app/**/actions.ts` and
-  from cron route handlers (`src/app/api/cron/**/route.ts`). The reminder has
+- `@/lib/email/client` may only be imported from `src/app/**/actions.ts`, from
+  cron route handlers (`src/app/api/cron/**/route.ts`), and from
+  `src/lib/stripe/handle-event.ts` (the signup acknowledgement). The reminder has
   nobody on a page when it sends, so it cannot be a Server Action; a Route
   Handler is server-only by construction and cannot reach a client bundle.
 
@@ -241,7 +291,7 @@ exist. Do not run it against production for any reason.
 
 ## Testing
 
-275 tests. `npm test` runs them against the test database.
+289 tests. `npm test` runs them against the test database.
 
 - `src/lib/data.isolation.test.ts` and `src/app/actions.isolation.test.ts` seed
   two orgs and prove nothing crosses between them. These are the tests that
