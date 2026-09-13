@@ -44,6 +44,18 @@ describe("proxy public paths", () => {
     ["/terms", "must render for someone with no account"],
     ["/privacy", "must render for someone with no account"],
     ["/pricing", "the Terms cite this page for the rates"],
+    // All three of these were redirected to /login in production. A crawler
+    // that gets a redirect instead of robots.txt applies none of the disallow
+    // rules that keep /c/<company-slug> and the token routes out of search
+    // indexes, and an og:image that resolves to a login page means no shared
+    // link anywhere has a preview.
+    ["/robots.txt", "crawlers must read the disallow list, not a redirect"],
+    ["/sitemap.xml", "unreachable means never indexed"],
+    ["/opengraph-image", "link previews resolve this with no session"],
+    [
+      "/opengraph-image?23b858275e0f3350",
+      "the real request carries a cache-busting query, which is not in pathname",
+    ],
   ])("allows %s signed out (%s)", (pathname) => {
     expect(isAllowedThrough(visit(pathname))).toBe(true);
   });
@@ -64,6 +76,12 @@ describe("proxy public paths", () => {
     // by a prefix of "/api/" or "/api/cron".
     ["/api/cronjobs"],
     ["/api/stripe/refund"],
+    // The generated metadata files are matched exactly, not by prefix. If they
+    // ever move into PUBLIC_PREFIXES these three start resolving, which is the
+    // whole reason they are a separate list.
+    ["/robots.txt/secret"],
+    ["/sitemap.xml/secret"],
+    ["/opengraph-image-internal"],
   ])("redirects %s to /login when signed out", (pathname) => {
     expect(isRedirectToLogin(visit(pathname))).toBe(true);
   });

@@ -40,6 +40,23 @@ const PUBLIC_PREFIXES = [
   "/pricing",
 ];
 
+// Generated metadata files, matched exactly rather than by prefix.
+//
+// These are files, not route subtrees, so nothing can ever legitimately nest
+// beneath them and an exact match costs nothing. It also keeps them out of
+// PUBLIC_PREFIXES, where every entry silently publishes everything under it —
+// the hazard the comments above keep pointing at.
+//
+// All three were redirected to /login until this list existed, and each failure
+// was invisible from inside the app. robots.txt is the worst of them: the
+// disallow list in robots.ts is what keeps /c/<company-slug> crew logins and
+// the token routes out of search indexes, and a crawler that gets a redirect
+// instead applies no rules at all. The Open Graph image is the most public —
+// og:image resolving to a login page means every link shared to Slack,
+// iMessage or Facebook has no preview. The request for it carries a cache-
+// busting query string, which is not part of pathname, so this still matches.
+const PUBLIC_FILES = ["/robots.txt", "/sitemap.xml", "/opengraph-image"];
+
 export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
@@ -49,6 +66,10 @@ export default function proxy(req: NextRequest) {
   // itself renders a public landing page when signed out (see src/app/page.tsx)
   // but every other route must still fall through to the check below.
   if (pathname === "/") {
+    return NextResponse.next();
+  }
+
+  if (PUBLIC_FILES.includes(pathname)) {
     return NextResponse.next();
   }
 
