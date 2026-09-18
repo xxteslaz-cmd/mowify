@@ -14,18 +14,13 @@ export const LEGAL = {
   entity: "Chad Slaughter",
   /** Rendered wherever the documents need the trading style spelled out. */
   entityLong: "Chad Slaughter, an individual doing business as GroundsRoute",
-  /**
-   * Still unfilled, and rendered verbatim so it is visible on the published
-   * pages rather than hidden here. An invented address on a contract is worse
-   * than an obvious blank.
-   */
-  mailingAddress: "[MAILING ADDRESS]",
+  mailingAddress: "312 Berryhill Rd, Harrisburg, PA 17109",
   /** Venue for disputes, Terms section 15. */
   county: "Dauphin County",
   contactEmail: "support@groundsroute.com",
   jurisdiction: "the Commonwealth of Pennsylvania",
   /** Update whenever the wording of either page changes materially. */
-  lastUpdated: "31 August 2026",
+  lastUpdated: "17 September 2026",
   /**
    * Stamped onto every consent record so a dispute can be answered with the
    * exact version of the Terms that was in force. Bump it whenever either

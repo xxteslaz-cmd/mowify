@@ -300,11 +300,11 @@ section above; it is removed only by its own `expiresAt`.
 ### The published documents
 
 `/terms` and `/privacy` are the real published pages, and they now describe
-things that exist. Two placeholders are still live and **render visibly on the
-pages** — `LEGAL.mailingAddress` and `LEGAL.county` — following the convention
-`src/lib/legal.ts` already set: unfilled values are rendered verbatim so they
-are obvious to anyone who looks, rather than hidden in a config file. Do not
-invent either one.
+things that exist. Every value in `LEGAL` is filled in as of 17 September
+2026. The convention `src/lib/legal.ts` set still applies to any future
+addition: an unfilled value is rendered verbatim so it is obvious to anyone
+who looks, rather than hidden in a config file. Never invent one — the owner
+supplies it.
 
 Bump `LEGAL.version` whenever either document changes materially. Consent
 records already written keep the version they were taken under.
