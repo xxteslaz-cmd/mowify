@@ -5,8 +5,9 @@ import { trialDisclosure } from "@/lib/consent";
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description:
-    "One plan, one price. GroundsRoute is $49 per month with a 30-day free trial.",
+  // Built from the same constants as the page body, so a search snippet can
+  // never quote a price the page itself no longer shows.
+  description: `One plan, one price. GroundsRoute is ${pricePerInterval()} with a ${TRIAL_DAYS}-day free trial.`,
 };
 
 // Terms section 4 points customers here for the rates, so this page existing is

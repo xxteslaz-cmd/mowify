@@ -10,24 +10,26 @@ export default async function UserMenu() {
   if (!user) return null;
 
   return (
-    <div className="flex items-center gap-4 md:w-full md:flex-col md:items-stretch md:gap-1">
+    <div className="flex flex-col items-stretch gap-1 md:w-full">
+      {/* Always a column: below md this sits inside MainNav's collapsed
+          menu panel, and above it in the sidebar. Both are vertical. */}
       {user.role === "OWNER" && (
-        <div className="flex items-center gap-4 md:w-full md:flex-col md:items-stretch md:gap-1">
+        <div className="flex w-full flex-col items-stretch gap-1">
           <a
             href="/team"
-            className="text-sm text-muted hover:text-foreground md:rounded-md md:px-3 md:py-1.5 md:hover:bg-foreground/5 md:hover:text-foreground"
+            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
           >
             Team
           </a>
           <a
             href="/account"
-            className="text-sm text-muted hover:text-foreground md:rounded-md md:px-3 md:py-1.5 md:hover:bg-foreground/5 md:hover:text-foreground"
+            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
           >
             Account
           </a>
           <a
             href="/settings"
-            className="text-sm text-muted hover:text-foreground md:rounded-md md:px-3 md:py-1.5 md:hover:bg-foreground/5 md:hover:text-foreground"
+            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
           >
             Settings
           </a>
@@ -39,14 +41,14 @@ export default async function UserMenu() {
               subscribing. */}
           <a
             href="/billing"
-            className="text-sm text-muted hover:text-foreground md:rounded-md md:px-3 md:py-1.5 md:hover:bg-foreground/5 md:hover:text-foreground"
+            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
           >
             Billing
           </a>
         </div>
       )}
       <div className="flex items-center gap-3 md:w-full md:flex-col md:items-stretch md:gap-2 md:border-t md:border-border md:pt-3">
-        <span className="text-sm text-muted md:truncate md:px-3">
+        <span className="truncate px-3 text-sm text-muted">
           {user.name}
         </span>
         <form action={logout} className="md:w-full">

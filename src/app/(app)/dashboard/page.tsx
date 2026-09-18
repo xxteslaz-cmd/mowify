@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   getActiveCrews,
   getAllCrews,
@@ -12,6 +13,10 @@ import { monthGridDays, parseISODate, todayISO } from "@/lib/date";
 import { attachNextDates, ensureOccurrencesThrough, horizonDate } from "@/lib/recurring";
 import CalendarNav from "./CalendarNav";
 import DashboardBoard from "./DashboardBoard";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
 
 export default async function DashboardPage({
   searchParams,

@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/dal";
 import ForgotPasswordForm from "./ForgotPasswordForm";
+
+export const metadata: Metadata = {
+  title: "Reset your password",
+};
 
 export default async function ForgotPasswordPage() {
   const user = await getSessionUser();

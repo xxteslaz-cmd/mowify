@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/dal";
@@ -5,13 +6,24 @@ import { trialDisclosure, formatConversionDate } from "@/lib/consent";
 import { pricePerInterval, TRIAL_DAYS } from "@/lib/pricing";
 import SignupForm from "./SignupForm";
 
+export const metadata: Metadata = {
+  title: "Start your free trial",
+  description: `Create a GroundsRoute account for your landscaping company. ${TRIAL_DAYS} days free, cancel any time.`,
+};
+
 export default async function SignupPage() {
   const user = await getSessionUser();
   if (user) redirect("/");
 
   return (
     <div className="mx-auto max-w-sm px-4 py-16">
-      <h1 className="mb-1 text-xl font-semibold">Create your company</h1>
+      <Link
+        href="/"
+        className="text-sm text-muted underline underline-offset-4 hover:text-foreground"
+      >
+        ← GroundsRoute
+      </Link>
+      <h1 className="mb-1 mt-8 text-xl font-semibold">Create your company</h1>
       <p className="mb-1 text-sm text-muted">
         {TRIAL_DAYS} days free, then {pricePerInterval()}. Cancel any time. You
         will be asked for a card on the next step.

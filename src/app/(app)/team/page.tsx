@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { requireOwner } from "@/lib/auth/dal";
 import { prisma } from "@/lib/prisma";
 import { getActiveCrews, getAssigneeMode } from "@/lib/data";
 import { assigneeTerms } from "@/lib/assignee-terms";
 import { isLocked } from "@/lib/auth/lockout";
 import TeamClient from "./TeamClient";
+
+export const metadata: Metadata = {
+  title: "Team",
+};
 
 export default async function TeamPage() {
   const { orgId } = await requireOwner();

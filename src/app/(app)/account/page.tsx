@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { requireOwner } from "@/lib/auth/dal";
 import { prisma } from "@/lib/prisma";
 import AccountClient from "./AccountClient";
+
+export const metadata: Metadata = {
+  title: "Account",
+};
 
 export default async function AccountPage() {
   const { userId } = await requireOwner();

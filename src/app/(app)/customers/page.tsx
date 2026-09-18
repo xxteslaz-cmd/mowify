@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import {
   getActiveCrews,
   getAssigneeMode,
@@ -5,6 +6,10 @@ import {
 } from "@/lib/data";
 import { assigneeTerms } from "@/lib/assignee-terms";
 import CustomersClient from "./CustomersClient";
+
+export const metadata: Metadata = {
+  title: "Customers",
+};
 
 export const dynamic = "force-dynamic";
 

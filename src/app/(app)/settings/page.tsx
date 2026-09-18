@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { getAssigneeMode } from "@/lib/data";
 import { RETENTION } from "@/lib/legal";
 import SettingsClient from "./SettingsClient";
+
+export const metadata: Metadata = {
+  title: "Settings",
+};
 
 export default async function SettingsPage() {
   const mode = await getAssigneeMode();

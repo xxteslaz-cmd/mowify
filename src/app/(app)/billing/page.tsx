@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/auth/dal";
 import { isOrgActive } from "@/lib/subscription";
 import { pricePerInterval } from "@/lib/pricing";
 import BillingClient from "./BillingClient";
+
+export const metadata: Metadata = {
+  title: "Billing",
+};
 
 const LABELS: Record<string, string> = {
   trialing: "Free trial",

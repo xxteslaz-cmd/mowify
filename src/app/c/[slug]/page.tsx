@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth/dal";
 import CrewLoginForm from "./CrewLoginForm";
+
+export const metadata: Metadata = {
+  title: "Crew sign in",
+};
 
 export default async function CrewLoginPage({
   params,

@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/dal";
 import LoginForm from "./LoginForm";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+};
 
 export default async function LoginPage() {
   // Someone already signed in has no use for this page.
@@ -10,7 +15,13 @@ export default async function LoginPage() {
 
   return (
     <div className="mx-auto max-w-sm px-4 py-10">
-      <div className="card p-5">
+      <Link
+        href="/"
+        className="text-sm text-muted underline underline-offset-4 hover:text-foreground"
+      >
+        ← GroundsRoute
+      </Link>
+      <div className="card mt-8 p-5">
         <h1 className="text-lg font-semibold">Sign in to GroundsRoute</h1>
         <p className="mt-0.5 text-sm text-muted">For owners and office staff.</p>
 

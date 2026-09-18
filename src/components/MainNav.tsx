@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -16,6 +17,7 @@ export default function MainNav({
   children?: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(false);
   // Crew can't reach Dashboard or Customers — those routes reject them — so
   // there is nothing useful to link to from their nav.
   const links = role === "OWNER" ? LINKS : [];
@@ -25,32 +27,64 @@ export default function MainNav({
     return pathname === href || pathname.startsWith(`${href}/`);
   }
 
+  // A crew member's bar is just the brand, their name and Sign out, which
+  // fits a phone in one row. An owner's has six links plus their name, which
+  // does not: rendered inline it ran to almost twice the viewport width and
+  // put every owner page on a horizontal scrollbar. So the owner's links
+  // collapse behind a Menu button below md instead.
+  const collapsible = links.length > 0;
+
   return (
     <>
       {/* Crew work off a phone in the field, so below md the sidebar folds
           back into a plain top bar rather than eating the screen. */}
       <header className="border-b border-border bg-surface md:hidden">
-        <nav className="flex items-center gap-6 px-4 py-3">
+        <div className="flex items-center gap-6 px-4 py-3">
           <span className="text-lg font-semibold">GroundsRoute</span>
-          {links.map(({ href, label }) => {
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={`text-sm transition ${
-                  active
-                    ? "font-semibold text-foreground underline decoration-2 underline-offset-8"
-                    : "text-muted hover:text-foreground"
-                }`}
-              >
-                {label}
-              </Link>
-            );
-          })}
-          <div className="ml-auto flex items-center">{children}</div>
-        </nav>
+          {collapsible ? (
+            <button
+              type="button"
+              aria-expanded={open}
+              aria-controls="mobile-nav"
+              onClick={() => setOpen((o) => !o)}
+              className="btn btn-ghost ml-auto -my-1"
+            >
+              {open ? "Close" : "Menu"}
+            </button>
+          ) : (
+            <div className="ml-auto flex items-center">{children}</div>
+          )}
+        </div>
+        {collapsible && (
+          <nav
+            id="mobile-nav"
+            hidden={!open}
+            className="flex flex-col gap-1 border-t border-border px-3 py-3"
+          >
+            {links.map(({ href, label }) => {
+              const active = isActive(href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active ? "page" : undefined}
+                  // Client-side navigation keeps this component mounted, so
+                  // the panel has to close itself; the links inside
+                  // {children} are full page loads and reset it for free.
+                  onClick={() => setOpen(false)}
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                    active
+                      ? "bg-brand-soft text-brand"
+                      : "text-muted hover:bg-foreground/5 hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+            <div className="mt-2 border-t border-border pt-3">{children}</div>
+          </nav>
+        )}
       </header>
 
       {/* Sticky rather than fixed: it stays put as the content column scrolls,

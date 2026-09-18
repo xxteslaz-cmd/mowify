@@ -1,4 +1,12 @@
 import Link from "next/link";
+import { LEGAL } from "@/lib/legal";
+import { TRIAL_DAYS, formatPrice, PRICE } from "@/lib/pricing";
+
+// The one-line offer under each call to action. Read from pricing.ts rather
+// than typed here for the reason that file gives: the number appears in the
+// Terms, the reminder email and the pricing page, and a copy that lives in
+// marketing prose is the one nobody remembers to update.
+const OFFER = `${TRIAL_DAYS} days free, then ${formatPrice()}/${PRICE.interval}.`;
 
 // A decorative stand-in for the real dashboard board, built from the same
 // tokens the app uses so it reads as "this software" rather than generic
@@ -71,8 +79,10 @@ export default function LandingPage() {
               </Link>
             </div>
             <p className="mt-3 text-sm text-muted">
-              30 days free, then $49/month. Cancel any time. Card required to
-              start.
+              {OFFER} Cancel any time. Card required to start.{" "}
+              <Link href="/pricing" className="whitespace-nowrap underline underline-offset-4 hover:text-foreground">
+                See pricing
+              </Link>
             </p>
           </div>
           <BoardMock />
@@ -148,8 +158,8 @@ export default function LandingPage() {
           Put your week on one board.
         </h2>
         <p className="mx-auto mt-3 max-w-md text-sm text-muted">
-          30 days free, then $49/month. Cancel any time, card required to start.
-          Add your crews and customers whenever you&apos;re ready.
+          {OFFER} Cancel any time, card required to start. Add your crews and
+          customers whenever you&apos;re ready.
         </p>
         <div className="mt-6 flex justify-center">
           <Link href="/signup" className="btn btn-primary btn-lg">
@@ -164,12 +174,20 @@ export default function LandingPage() {
       <footer className="border-t border-border">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-8 text-sm text-muted sm:px-6 lg:px-8">
           <span>GroundsRoute</span>
+          <Link href="/pricing" className="hover:text-foreground">
+            Pricing
+          </Link>
           <Link href="/terms" className="hover:text-foreground">
             Terms
           </Link>
           <Link href="/privacy" className="hover:text-foreground">
             Privacy
           </Link>
+          {/* A prospect with a question before signing up has nowhere else to
+              ask it; the Terms name this address as the support channel. */}
+          <a href={`mailto:${LEGAL.contactEmail}`} className="hover:text-foreground">
+            {LEGAL.contactEmail}
+          </a>
           <Link href="/login" className="ml-auto hover:text-foreground">
             Sign in
           </Link>
