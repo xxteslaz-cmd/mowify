@@ -41,7 +41,7 @@ vi.mock("@/lib/email/client", () => ({
 }));
 
 import { askQuestion } from "@/app/faq/actions";
-import { deleteQuestion, saveQuestion } from "@/app/admin/questions/actions";
+import { deleteQuestion, saveQuestion } from "@/app/(app)/admin/questions/actions";
 import { getPublishedQuestions, QUESTIONS_PER_HOUR } from "@/lib/faq";
 import { LEGAL } from "@/lib/legal";
 

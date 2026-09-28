@@ -11,16 +11,26 @@ const LINKS = [
 
 export default function MainNav({
   role,
+  admin = false,
+  unanswered = 0,
   children,
 }: {
   role?: "OWNER" | "CREW" | null;
+  /** A site admin (see src/lib/auth/admin.ts), who also answers FAQ questions. */
+  admin?: boolean;
+  /** FAQ questions waiting for an answer, shown as a count on that link. */
+  unanswered?: number;
   children?: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   // Crew can't reach Dashboard or Customers — those routes reject them — so
   // there is nothing useful to link to from their nav.
-  const links = role === "OWNER" ? LINKS : [];
+  const links: { href: string; label: string; count?: number }[] =
+    role === "OWNER" ? [...LINKS] : [];
+  if (role === "OWNER" && admin) {
+    links.push({ href: "/admin/questions", label: "FAQ questions", count: unanswered });
+  }
 
   function isActive(href: string) {
     // Detail routes such as /customers/[id] should keep their section lit.
@@ -61,7 +71,7 @@ export default function MainNav({
             hidden={!open}
             className="flex flex-col gap-1 border-t border-border px-3 py-3"
           >
-            {links.map(({ href, label }) => {
+            {links.map(({ href, label, count }) => {
               const active = isActive(href);
               return (
                 <Link
@@ -78,7 +88,7 @@ export default function MainNav({
                       : "text-muted hover:bg-foreground/5 hover:text-foreground"
                   }`}
                 >
-                  {label}
+                  <LinkLabel label={label} count={count} />
                 </Link>
               );
             })}
@@ -96,7 +106,7 @@ export default function MainNav({
         </div>
 
         <nav className="flex flex-col gap-1 px-3">
-          {links.map(({ href, label }) => {
+          {links.map(({ href, label, count }) => {
             const active = isActive(href);
             return (
               <Link
@@ -109,7 +119,7 @@ export default function MainNav({
                     : "text-muted hover:bg-foreground/5 hover:text-foreground"
                 }`}
               >
-                {label}
+                <LinkLabel label={label} count={count} />
               </Link>
             );
           })}
@@ -119,6 +129,20 @@ export default function MainNav({
           {children}
         </div>
       </aside>
+    </>
+  );
+}
+
+function LinkLabel({ label, count }: { label: string; count?: number }) {
+  return (
+    <>
+      {label}
+      {count ? (
+        <span className="ml-2 rounded-full bg-brand px-1.5 py-0.5 text-xs font-semibold text-on-brand">
+          {count}
+          <span className="sr-only"> waiting</span>
+        </span>
+      ) : null}
     </>
   );
 }

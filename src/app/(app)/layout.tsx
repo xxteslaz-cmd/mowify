@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import { getSessionUser } from "@/lib/auth/dal";
+import { isSiteAdmin } from "@/lib/auth/admin";
+import { countUnanswered } from "@/lib/faq";
 import MainNav from "@/components/MainNav";
 import UserMenu from "@/components/UserMenu";
 import VerifyBanner from "@/components/VerifyBanner";
@@ -9,8 +11,11 @@ import LapsedBanner from "@/components/LapsedBanner";
 // only delays this nested subtree — {children} keeps streaming immediately.
 async function Nav() {
   const user = await getSessionUser();
+  // Only site admins get the FAQ link, so only they pay for the count query.
+  const admin = await isSiteAdmin(user);
+  const unanswered = admin ? await countUnanswered() : 0;
   return (
-    <MainNav role={user?.role ?? null}>
+    <MainNav role={user?.role ?? null} admin={admin} unanswered={unanswered}>
       <UserMenu />
     </MainNav>
   );

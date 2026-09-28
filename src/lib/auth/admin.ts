@@ -36,15 +36,23 @@ export function isAdminEmail(
  */
 export async function requireSiteAdmin(): Promise<SessionUser> {
   const user = await verifySession();
-  if (user.role !== "OWNER") notFound();
+  if (!(await isSiteAdmin(user))) notFound();
+  return user;
+}
+
+/**
+ * The same test as requireSiteAdmin, without the 404. For deciding whether to
+ * show admin links; never use it to guard anything, because a false here
+ * lets the caller carry on.
+ */
+export async function isSiteAdmin(user: SessionUser | null): Promise<boolean> {
+  if (user?.role !== "OWNER") return false;
 
   const row = await prisma.user.findUnique({
     where: { id: user.userId },
     select: { email: true, emailVerifiedAt: true },
   });
 
-  if (!row?.emailVerifiedAt) notFound();
-  if (!isAdminEmail(row.email, process.env.ADMIN_EMAILS)) notFound();
-
-  return user;
+  if (!row?.emailVerifiedAt) return false;
+  return isAdminEmail(row.email, process.env.ADMIN_EMAILS);
 }

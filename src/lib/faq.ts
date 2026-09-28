@@ -116,3 +116,8 @@ export async function getPublishedQuestions(): Promise<Faq[]> {
   });
   return rows.map((r) => ({ question: r.question, answer: r.answer ?? "" }));
 }
+
+/** How many questions are waiting for an answer, for the admin's nav badge. */
+export async function countUnanswered(): Promise<number> {
+  return prisma.faqQuestion.count({ where: { answer: null } });
+}
