@@ -1,7 +1,18 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/dal";
 import { deleteAllSessionsForUser } from "@/lib/auth/session";
 import LandingPage from "./LandingPage";
+
+// The landing page is the one result most searches will show, so its title says
+// what the product is rather than just its name. absolute skips the layout's
+// "%s · GroundsRoute" template, which would repeat the name.
+export const metadata: Metadata = {
+  title: {
+    absolute: "GroundsRoute — Crew scheduling for landscaping companies",
+  },
+  alternates: { canonical: "/" },
+};
 
 export default async function Home() {
   const user = await getSessionUser();

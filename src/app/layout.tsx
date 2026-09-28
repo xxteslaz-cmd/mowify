@@ -28,6 +28,9 @@ export const metadata: Metadata = {
     template: "%s · GroundsRoute",
   },
   description: DESCRIPTION,
+  // No alternates.canonical here: child pages inherit it, so a root canonical
+  // of "/" would tell search engines every page is a duplicate of the landing
+  // page. Each public page sets its own instead.
   applicationName: "GroundsRoute",
   openGraph: {
     type: "website",

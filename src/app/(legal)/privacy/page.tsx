@@ -4,6 +4,7 @@ import { LEGAL, RETENTION, SUBPROCESSORS } from "@/lib/legal";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
+  alternates: { canonical: "/privacy" },
   description:
     "What GroundsRoute collects, why, who else sees it, and how long it is kept.",
 };

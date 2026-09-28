@@ -5,6 +5,7 @@ import { trialDisclosure } from "@/lib/consent";
 
 export const metadata: Metadata = {
   title: "Pricing",
+  alternates: { canonical: "/pricing" },
   // Built from the same constants as the page body, so a search snippet can
   // never quote a price the page itself no longer shows.
   description: `One plan, one price. GroundsRoute is ${pricePerInterval()} with a ${TRIAL_DAYS}-day free trial.`,

@@ -8,6 +8,7 @@ import SignupForm from "./SignupForm";
 
 export const metadata: Metadata = {
   title: "Start your free trial",
+  alternates: { canonical: "/signup" },
   description: `Create a GroundsRoute account for your landscaping company. ${TRIAL_DAYS} days free, cancel any time.`,
 };
 

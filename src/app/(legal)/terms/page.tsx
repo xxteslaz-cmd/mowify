@@ -5,6 +5,7 @@ import { PRICE, TRIAL_DAYS, formatPrice, pricePerInterval } from "@/lib/pricing"
 
 export const metadata: Metadata = {
   title: "Terms of Service",
+  alternates: { canonical: "/terms" },
   description: "The agreement between GroundsRoute and the companies that use it.",
 };
 
