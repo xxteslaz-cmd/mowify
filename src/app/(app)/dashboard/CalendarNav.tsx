@@ -56,7 +56,7 @@ export default function CalendarNav({
         <div className="mb-1 flex items-center justify-between px-1">
           <button
             onClick={() => goMonth(-1)}
-            className="rounded px-1.5 py-0.5 text-xs hover:bg-foreground/5"
+            className="tap-target min-w-11 justify-center rounded text-sm hover:bg-foreground/5"
             aria-label="Previous month"
           >
             ←
@@ -64,7 +64,7 @@ export default function CalendarNav({
           <h2 className="text-sm font-semibold">{formatMonthLabel(monthAnchor)}</h2>
           <button
             onClick={() => goMonth(1)}
-            className="rounded px-1.5 py-0.5 text-xs hover:bg-foreground/5"
+            className="tap-target min-w-11 justify-center rounded text-sm hover:bg-foreground/5"
             aria-label="Next month"
           >
             →

@@ -227,7 +227,7 @@ export default function DashboardBoard({
                   <div className="flex items-center gap-2">
                     <Link
                       href={`/crew/${key}/today?date=${dateISO}`}
-                      className="text-xs text-muted hover:text-foreground"
+                      className="-my-2 inline-flex min-h-9 items-center rounded px-2 text-xs text-muted hover:bg-foreground/5 hover:text-foreground"
                       title={`Open this ${terms.one}'s phone view`}
                     >
                       view
@@ -237,7 +237,7 @@ export default function DashboardBoard({
                         setAddDefaultCrew(key);
                         setAddOpen(true);
                       }}
-                      className="text-xs text-muted hover:text-foreground"
+                      className="-my-2 inline-flex min-h-9 items-center rounded px-2 text-xs text-muted hover:bg-foreground/5 hover:text-foreground"
                     >
                       + job
                     </button>

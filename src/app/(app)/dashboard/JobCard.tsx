@@ -91,7 +91,7 @@ export default function JobCard({
                 onClick={(e) => e.stopPropagation()}
                 onMouseDown={(e) => e.stopPropagation()}
                 aria-label="Frequency"
-                className="rounded bg-foreground/5 px-1 py-0.5 text-xs"
+                className="rounded bg-foreground/5 px-1 py-0.5 text-xs pointer-coarse:py-1.5 pointer-coarse:text-base"
               >
                 {FREQUENCIES.map((f) => (
                   <option key={f} value={f}>
@@ -114,8 +114,12 @@ export default function JobCard({
             <p className="mt-1 truncate text-xs italic text-muted">{job.notes}</p>
           )}
         </div>
+        {/* Hidden until hover only where hover exists. On a touch screen
+            there is no hover, so hiding them there left an owner on a
+            phone unable to reorder or delete stops at all. Touch also gets
+            36px buttons instead of bare glyphs. */}
         {!selectMode && (
-          <div className="flex shrink-0 flex-col items-center opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
+          <div className="flex shrink-0 flex-col items-center transition pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -124,7 +128,7 @@ export default function JobCard({
               disabled={isFirst}
               aria-label="Move stop earlier"
               title="Move stop earlier"
-              className="rounded px-1 text-xs leading-none text-muted hover:bg-foreground/5 hover:text-foreground disabled:pointer-events-none disabled:opacity-20"
+              className="rounded px-1 text-xs leading-none text-muted hover:bg-foreground/5 hover:text-foreground disabled:pointer-events-none disabled:opacity-20 pointer-coarse:flex pointer-coarse:size-9 pointer-coarse:items-center pointer-coarse:justify-center"
             >
               ▲
             </button>
@@ -136,7 +140,7 @@ export default function JobCard({
               disabled={isLast}
               aria-label="Move stop later"
               title="Move stop later"
-              className="rounded px-1 text-xs leading-none text-muted hover:bg-foreground/5 hover:text-foreground disabled:pointer-events-none disabled:opacity-20"
+              className="rounded px-1 text-xs leading-none text-muted hover:bg-foreground/5 hover:text-foreground disabled:pointer-events-none disabled:opacity-20 pointer-coarse:flex pointer-coarse:size-9 pointer-coarse:items-center pointer-coarse:justify-center"
             >
               ▼
             </button>
@@ -146,7 +150,7 @@ export default function JobCard({
                 onDelete();
               }}
               aria-label="Delete job"
-              className="rounded px-1 text-muted hover:bg-foreground/5 hover:text-foreground"
+              className="rounded px-1 text-muted hover:bg-foreground/5 hover:text-foreground pointer-coarse:flex pointer-coarse:size-9 pointer-coarse:items-center pointer-coarse:justify-center pointer-coarse:text-lg"
             >
               ×
             </button>

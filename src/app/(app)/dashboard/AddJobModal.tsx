@@ -171,7 +171,7 @@ export default function AddJobModal({
           )}
         </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="mb-4 grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
           <label className="text-sm">
             <span className="mb-1 block text-muted">Service</span>
             <select

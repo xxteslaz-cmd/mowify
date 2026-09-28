@@ -187,6 +187,16 @@ h3 {
     font-size: 0.875rem;
   }
 
+  /* iOS Safari zooms the whole page into any focused field under 16px and
+     leaves it zoomed, so on a touch screen every tap into a form shoved the
+     layout sideways. pointer: coarse rather than a width breakpoint: it is
+     the input device that triggers the zoom, and an iPad does it too. */
+  @media (pointer: coarse) {
+    .field {
+      font-size: 1rem;
+    }
+  }
+
   .field:focus {
     outline: 2px solid var(--brand);
     outline-offset: -1px;

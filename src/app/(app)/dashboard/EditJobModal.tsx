@@ -70,7 +70,7 @@ export default function EditJobModal({
           {job.frequency !== "ONE_TIME" && ` · ${FREQUENCY_LABEL[job.frequency]}`}
         </p>
 
-        <div className="mb-4 grid grid-cols-2 gap-3">
+        <div className="mb-4 grid grid-cols-1 gap-3 min-[380px]:grid-cols-2">
           <label className="text-sm">
             <span className="mb-1 block text-muted">Date</span>
             <input

@@ -36,11 +36,11 @@ export default function StopCard({
         </span>
         <div className="min-w-0 flex-1">
           <p className={`text-base font-semibold ${isDone ? "line-through" : ""}`}>{job.customer.name}</p>
-          <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="block truncate text-sm text-blue-600 underline dark:text-blue-400">
+          <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="block truncate py-2 text-sm text-blue-600 underline dark:text-blue-400">
             {job.customer.address}
           </a>
           {job.customer.phone && (
-            <a href={`tel:${job.customer.phone}`} className="block text-sm text-blue-600 underline dark:text-blue-400">
+            <a href={`tel:${job.customer.phone}`} className="block py-2 text-sm text-blue-600 underline dark:text-blue-400">
               {job.customer.phone}
             </a>
           )}

@@ -72,7 +72,7 @@ export default function MainNav({
                   // the panel has to close itself; the links inside
                   // {children} are full page loads and reset it for free.
                   onClick={() => setOpen(false)}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                  className={`rounded-md px-3 py-3 text-sm font-medium transition ${
                     active
                       ? "bg-brand-soft text-brand"
                       : "text-muted hover:bg-foreground/5 hover:text-foreground"

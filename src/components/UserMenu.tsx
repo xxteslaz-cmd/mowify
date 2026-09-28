@@ -17,19 +17,19 @@ export default async function UserMenu() {
         <div className="flex w-full flex-col items-stretch gap-1">
           <a
             href="/team"
-            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
+            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground max-md:py-3"
           >
             Team
           </a>
           <a
             href="/account"
-            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
+            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground max-md:py-3"
           >
             Account
           </a>
           <a
             href="/settings"
-            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
+            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground max-md:py-3"
           >
             Settings
           </a>
@@ -41,7 +41,7 @@ export default async function UserMenu() {
               subscribing. */}
           <a
             href="/billing"
-            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
+            className="rounded-md px-3 py-1.5 text-sm text-muted hover:bg-foreground/5 hover:text-foreground max-md:py-3"
           >
             Billing
           </a>
