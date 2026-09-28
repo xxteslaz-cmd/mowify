@@ -100,10 +100,11 @@ export default function QuestionEditor({
  * Its own form, outside the save form, with the confirmation on the page.
  *
  * It used to be a formAction button inside the save form behind
- * window.confirm(). In production a Delete click sent no request at all.
- * Browsers can suppress confirm() dialogs, and a suppressed dialog returns
- * false, cancelling the click with no sign anything went wrong. A plain
- * two-step button has no dialog to suppress.
+ * window.confirm(). Browsers can suppress confirm() dialogs, and a suppressed
+ * dialog returns false, cancelling the click with no sign anything went
+ * wrong. A plain two-step button has no dialog to suppress. (This was changed
+ * on a suspicion that turned out to be wrong — the old button did work — but
+ * the on-page confirmation is kept as the sturdier of the two.)
  */
 function DeleteQuestion({ id }: { id: string }) {
   const [confirming, setConfirming] = useState(false);
