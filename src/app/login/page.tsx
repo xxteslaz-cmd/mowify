@@ -6,7 +6,12 @@ import LoginForm from "./LoginForm";
 
 export const metadata: Metadata = {
   title: "Sign in",
-  alternates: { canonical: "/login" },
+  description: "Sign in to GroundsRoute to plan your crews' day.",
+  // A sign-in form is not an answer to anyone's search, and indexing it only
+  // competes with the landing page for the brand name. follow stays on so
+  // crawlers still reach /signup and the legal pages through its links. No
+  // canonical: Google treats noindex alongside a canonical as a mixed signal.
+  robots: { index: false, follow: true },
 };
 
 export default async function LoginPage() {

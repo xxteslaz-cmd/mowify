@@ -23,18 +23,32 @@ function ThemePicture({
   alt,
   sizes,
   className,
+  priority = false,
 }: {
   light: StaticImageData;
   dark: StaticImageData;
   alt: string;
   sizes: string;
   className?: string;
+  /** Only the largest image above the fold, which is what LCP measures. */
+  priority?: boolean;
 }) {
   // A <picture> rather than two <Image>s toggled with CSS: the browser picks
   // one source and downloads only that, so the hero shot can load eagerly
   // without costing every visitor both themes. Per the next/image docs, two
   // eager <Image>s would both load.
-  const common = { alt, sizes, fetchPriority: "high" as const, loading: "eager" as const };
+  //
+  // Both shots are above the fold, so both load eagerly, but only the one
+  // passed priority is fetched at high priority. Two high-priority images
+  // compete for the same early bandwidth, and the small phone frame would
+  // slow down the dashboard shot that the browser scores as the page's
+  // largest paint.
+  const common = {
+    alt,
+    sizes,
+    fetchPriority: priority ? ("high" as const) : ("auto" as const),
+    loading: "eager" as const,
+  };
   const {
     props: { srcSet: darkSrcSet },
   } = getImageProps({ ...common, src: dark });
@@ -59,6 +73,7 @@ function ProductShot() {
           alt="The GroundsRoute dashboard: a month calendar above one column per crew, each listing that day's stops in order, with finished stops marked completed."
           sizes="(min-width: 1024px) 1024px, 100vw"
           className="aspect-[16/10] w-full object-cover object-top"
+          priority
         />
       </div>
       {/* The crew's view, framed as a phone and overlapping the board, so
@@ -77,9 +92,9 @@ function ProductShot() {
 }
 
 /**
- * Rendered at `/` only when there is no session. A signed-in visitor never
- * sees this — the redirect chain in page.tsx sends them to their dashboard
- * or day view before this component is reached.
+ * Rendered at `/` for visitors with no session cookie, prerendered by
+ * page.tsx. A signed-in visitor is rewritten by src/proxy.ts to home/page.tsx,
+ * which sends them to their dashboard or day view instead.
  */
 export default function LandingPage() {
   return (
