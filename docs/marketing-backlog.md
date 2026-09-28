@@ -13,9 +13,8 @@ the site answers the searches a landscaping owner actually makes, such as
 
 Candidates, roughly in order of value:
 
-- **FAQ.** Card requirement, what crews need on their phones, how recurring
-  jobs work, exporting data, cancelling. Doubles as objection handling on the
-  way to signup.
+- ~~**FAQ.**~~ Done — see "Done" below. Keep an eye on `/admin/questions`:
+  what visitors ask is the best guide to what the other pages should say.
 - **Comparison page** (GroundsRoute vs Jobber, vs LawnPro). Positioning: one
   job done simply, one flat $49 price, no per-user fees. Every claim about a
   competitor must be checked against their current public pricing before it
@@ -89,9 +88,26 @@ site afterwards.
   scores as the largest paint.
 - **`/login` has its own description and is `noindex, follow`.**
 
+### Commit bc35ae2: FAQ page and visitor questions
+
+- **`/faq`** answers 11 common questions (price, card-required trial,
+  cancelling, crew phones, route order, recurring jobs, invoicing, export,
+  data separation) from the same constants the app uses, lists visitor
+  questions the owner answered and published, and takes new questions with an
+  optional reply email. Linked from the landing footer and in the sitemap.
+- **`/admin/questions`** is where they are answered, edited, published or
+  deleted. Only verified owner accounts on the `ADMIN_EMAILS` Vercel variable
+  get in (currently landen@groundsroute.com); everyone else gets a 404.
+- New `FaqQuestion` table, created by hand in both Neon databases on 28
+  September 2026. The Privacy Policy gained a paragraph on what the form
+  collects.
+
 ### Still to verify
 
 - Sign in as an owner, open `/`, and confirm it goes to the dashboard. This
   could not be tested without real credentials.
 - Run the full `npm test`. The Neon test database timed out from the review
-  machine, so only `src/proxy.test.ts` ran.
+  machine, so only `src/proxy.test.ts` and `src/lib/auth/admin.test.ts` ran;
+  `src/app/faq/faq.test.ts` is written but has never been run.
+- Submit a question on `/faq`, confirm the notification email arrives, then
+  answer and publish it from `/admin/questions` and see it appear on `/faq`.
