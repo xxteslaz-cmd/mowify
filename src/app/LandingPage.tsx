@@ -1,4 +1,9 @@
 import Link from "next/link";
+import { getImageProps, type StaticImageData } from "next/image";
+import dashboardLight from "@/assets/product/dashboard-light.png";
+import dashboardDark from "@/assets/product/dashboard-dark.png";
+import crewLight from "@/assets/product/crew-light.png";
+import crewDark from "@/assets/product/crew-dark.png";
 import { LEGAL } from "@/lib/legal";
 import { TRIAL_DAYS, formatPrice, PRICE } from "@/lib/pricing";
 
@@ -8,44 +13,64 @@ import { TRIAL_DAYS, formatPrice, PRICE } from "@/lib/pricing";
 // marketing prose is the one nobody remembers to update.
 const OFFER = `${TRIAL_DAYS} days free, then ${formatPrice()}/${PRICE.interval}.`;
 
-// A decorative stand-in for the real dashboard board, built from the same
-// tokens the app uses so it reads as "this software" rather than generic
-// marketing art. Marked aria-hidden because the labels are illustrative
-// placeholders, not real crew or customer data — a screen reader announcing
-// them as content would be misleading.
-function BoardMock() {
-  const columns = [
-    { crew: "Crew 1", stops: ["Stop 1", "Stop 2", "Stop 3"] },
-    { crew: "Crew 2", stops: ["Stop 1", "Stop 2"] },
-    { crew: "Crew 3", stops: ["Stop 1", "Stop 2", "Stop 3"] },
-  ];
-
+// Real screenshots of the app, taken from a seeded demo company (made-up
+// customers and addresses), never from a live account. Retake them whenever
+// the dashboard or crew page changes visibly, or the page is advertising a
+// product that no longer exists.
+function ThemePicture({
+  light,
+  dark,
+  alt,
+  sizes,
+  className,
+}: {
+  light: StaticImageData;
+  dark: StaticImageData;
+  alt: string;
+  sizes: string;
+  className?: string;
+}) {
+  // A <picture> rather than two <Image>s toggled with CSS: the browser picks
+  // one source and downloads only that, so the hero shot can load eagerly
+  // without costing every visitor both themes. Per the next/image docs, two
+  // eager <Image>s would both load.
+  const common = { alt, sizes, fetchPriority: "high" as const, loading: "eager" as const };
+  const {
+    props: { srcSet: darkSrcSet },
+  } = getImageProps({ ...common, src: dark });
+  // The light image is the <img> itself, so it is also what any browser
+  // that ignores prefers-color-scheme gets.
+  const { props: lightProps } = getImageProps({ ...common, src: light });
   return (
-    <div aria-hidden="true" className="card p-4 shadow-sm sm:p-5">
-      <div className="grid grid-cols-3 gap-3">
-        {columns.map(({ crew, stops }, colIndex) => (
-          <div key={crew} className="space-y-2">
-            <div className="flex items-center gap-1.5 px-0.5 text-xs font-semibold text-muted">
-              <span className="h-2 w-2 rounded-full bg-brand" />
-              {crew}
-            </div>
-            {stops.map((stop, i) => {
-              // The first stop of the first column is shown checked off, so
-              // the mock demonstrates completion, not just a list of jobs.
-              const done = colIndex === 0 && i === 0;
-              return (
-                <div
-                  key={stop}
-                  className={`rounded-md border border-border px-2.5 py-2 text-xs ${
-                    done ? "bg-brand-soft text-brand" : "bg-background text-foreground"
-                  }`}
-                >
-                  {done ? `✓ ${stop}` : stop}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcSet={darkSrcSet} />
+      <img {...lightProps} alt={alt} className={className} />
+    </picture>
+  );
+}
+
+function ProductShot() {
+  return (
+    <div className="relative mx-auto mt-12 max-w-5xl pb-10 md:mt-16">
+      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-xl">
+        <ThemePicture
+          light={dashboardLight}
+          dark={dashboardDark}
+          alt="The GroundsRoute dashboard: a month calendar above one column per crew, each listing that day's stops in order, with finished stops marked completed."
+          sizes="(min-width: 1024px) 1024px, 100vw"
+          className="aspect-[16/10] w-full object-cover object-top"
+        />
+      </div>
+      {/* The crew's view, framed as a phone and overlapping the board, so
+          the one picture carries both halves of "two views, one schedule". */}
+      <div className="absolute bottom-0 right-3 w-[27%] max-w-[230px] overflow-hidden rounded-[1.25rem] border-[5px] border-foreground bg-foreground shadow-2xl sm:right-8 sm:rounded-[1.75rem] sm:border-[7px]">
+        <ThemePicture
+          light={crewLight}
+          dark={crewDark}
+          alt="A crew's phone view of the same day: their stops in order, each with the address, phone number, customer notes and a Mark Complete button."
+          sizes="230px"
+          className="aspect-[9/17] w-full rounded-[0.8rem] object-cover object-top sm:rounded-[1.2rem]"
+        />
       </div>
     </div>
   );
@@ -60,9 +85,9 @@ export default function LandingPage() {
   return (
     <>
       <section className="hero-gradient border-b border-border">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 md:grid-cols-2 md:items-center md:py-24 lg:px-8">
-          <div>
-            <h1 className="text-display font-semibold text-foreground">
+        <div className="mx-auto max-w-6xl px-4 pt-16 sm:px-6 md:pt-24 lg:px-8">
+          <div className="max-w-2xl">
+            <h1 className="text-display font-semibold text-balance text-foreground">
               The day, planned on one board.
             </h1>
             <p className="mt-4 max-w-md text-lg text-muted">
@@ -85,7 +110,7 @@ export default function LandingPage() {
               </Link>
             </p>
           </div>
-          <BoardMock />
+          <ProductShot />
         </div>
       </section>
 
