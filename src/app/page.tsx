@@ -1,7 +1,4 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { getSessionUser } from "@/lib/auth/dal";
-import { deleteAllSessionsForUser } from "@/lib/auth/session";
 import LandingPage from "./LandingPage";
 
 // The landing page is the one result most searches will show, so its title says
@@ -14,26 +11,12 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-export default async function Home() {
-  const user = await getSessionUser();
-  // Signed out is the only case that no longer redirects: everyone else
-  // still follows the exact path they always did, below.
-  if (!user) return <LandingPage />;
-  if (user.role === "CREW" && user.crewId) {
-    redirect(`/crew/${user.crewId}/today`);
-  }
-  if (user.role === "CREW") {
-    // crewId can go null if an owner deletes the crew this login pointed at
-    // (deleteCrew now blocks that while logins remain, but a row created
-    // before that guard existed could still be in this state). Falling
-    // through to /dashboard would hit requireOwner's redirect to /login,
-    // which itself redirects a signed-in user straight back here — an
-    // infinite loop. Invalidate the session row (a database write, not a
-    // cookie write, so it's fine to do from a Server Component render — see
-    // the same pattern in getSessionUser's expiry check) so the next hop to
-    // /login sees no session and actually renders instead of bouncing again.
-    await deleteAllSessionsForUser(user.userId);
-    redirect("/login");
-  }
-  redirect("/dashboard");
+/**
+ * Prerendered, and served only to requests with no session cookie. Anyone
+ * with one is rewritten by src/proxy.ts to ./home/page.tsx, which reads the
+ * session and sends owners and crews on to where they belong. Reading the
+ * session here instead would make this page render on every request.
+ */
+export default function Home() {
+  return <LandingPage />;
 }

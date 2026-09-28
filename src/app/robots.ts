@@ -23,6 +23,9 @@ const DISALLOW = [
   "/customers",
   "/dashboard",
   "/forgot-password",
+  // The signed-in side of "/", reached by a rewrite in src/proxy.ts. Nothing
+  // should ever link here, but a guessed URL should not be crawled either.
+  "/home",
   "/reset-password/",
   "/team",
   "/verify-email/",
