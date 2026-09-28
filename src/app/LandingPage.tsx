@@ -171,24 +171,28 @@ export default function LandingPage() {
       {/* The legal pages are reachable from every public entry point, because
           someone deciding whether to hand over a card should not have to hunt
           for the terms they are agreeing to. */}
+      {/* Footer links are 44px rows (min-h-11) rather than .tap-target: they
+          wrap onto several lines on a phone, and .tap-target's negative
+          margins would stack those rows' hit areas on top of each other.
+          py-3 instead of py-8 takes back the height the rows added. */}
       <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-8 text-sm text-muted sm:px-6 lg:px-8">
-          <span>GroundsRoute</span>
-          <Link href="/pricing" className="hover:text-foreground">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 px-4 py-3 text-sm text-muted sm:px-6 lg:px-8">
+          <span className="inline-flex min-h-11 items-center">GroundsRoute</span>
+          <Link href="/pricing" className="inline-flex min-h-11 items-center hover:text-foreground">
             Pricing
           </Link>
-          <Link href="/terms" className="hover:text-foreground">
+          <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-foreground">
             Terms
           </Link>
-          <Link href="/privacy" className="hover:text-foreground">
+          <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-foreground">
             Privacy
           </Link>
           {/* A prospect with a question before signing up has nowhere else to
               ask it; the Terms name this address as the support channel. */}
-          <a href={`mailto:${LEGAL.contactEmail}`} className="hover:text-foreground">
+          <a href={`mailto:${LEGAL.contactEmail}`} className="inline-flex min-h-11 items-center hover:text-foreground">
             {LEGAL.contactEmail}
           </a>
-          <Link href="/login" className="ml-auto hover:text-foreground">
+          <Link href="/login" className="ml-auto inline-flex min-h-11 items-center hover:text-foreground">
             Sign in
           </Link>
         </div>

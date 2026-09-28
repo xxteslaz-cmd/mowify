@@ -159,6 +159,18 @@ h3 {
     font-size: 1rem;
   }
 
+  /* A standalone text link (not one inside a sentence) that still needs a
+     thumb-sized target: the hit area is 44px tall, the Apple HIG minimum,
+     and the negative margins give back the extra height so the link takes
+     the same room in the layout as a line of text-sm (1.25rem). Keep ≥12px
+     clear above and below, or the enlarged area overlaps its neighbour. */
+  .tap-target {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    margin-block: -0.75rem;
+  }
+
   .card {
     background: var(--surface);
     border: 1px solid var(--border);

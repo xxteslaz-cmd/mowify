@@ -20,7 +20,7 @@ export default async function SignupPage() {
     <div className="mx-auto max-w-sm px-4 py-16">
       <Link
         href="/"
-        className="text-sm text-muted underline underline-offset-4 hover:text-foreground"
+        className="tap-target text-sm text-muted underline underline-offset-4 hover:text-foreground"
       >
         ← GroundsRoute
       </Link>

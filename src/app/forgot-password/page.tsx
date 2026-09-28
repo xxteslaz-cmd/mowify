@@ -22,7 +22,7 @@ export default async function ForgotPasswordPage() {
       <ForgotPasswordForm />
 
       <p className="mt-6 text-sm text-muted">
-        <Link href="/login" className="underline underline-offset-4">
+        <Link href="/login" className="tap-target underline underline-offset-4">
           Back to sign in
         </Link>
       </p>

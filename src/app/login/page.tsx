@@ -18,7 +18,7 @@ export default async function LoginPage() {
     <div className="mx-auto max-w-sm px-4 py-10">
       <Link
         href="/"
-        className="text-sm text-muted underline underline-offset-4 hover:text-foreground"
+        className="tap-target text-sm text-muted underline underline-offset-4 hover:text-foreground"
       >
         ← GroundsRoute
       </Link>
@@ -31,7 +31,10 @@ export default async function LoginPage() {
         </div>
 
         <p className="mt-3 text-sm text-muted">
-          <Link href="/forgot-password" className="underline underline-offset-4">
+          <Link
+            href="/forgot-password"
+            className="tap-target underline underline-offset-4"
+          >
             Forgot your password?
           </Link>
         </p>

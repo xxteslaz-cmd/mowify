@@ -13,7 +13,7 @@ export default function LegalLayout({
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
       <Link
         href="/"
-        className="text-sm text-muted underline underline-offset-4 hover:text-foreground"
+        className="tap-target text-sm text-muted underline underline-offset-4 hover:text-foreground"
       >
         ← GroundsRoute
       </Link>
