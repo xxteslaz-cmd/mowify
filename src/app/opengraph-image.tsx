@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "GroundsRoute — crew scheduling for small landscaping companies";
+  "GroundsRoute: crew scheduling for small landscaping companies";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

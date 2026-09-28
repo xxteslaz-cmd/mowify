@@ -132,7 +132,7 @@ export default function AddJobModal({
               >
                 {filtered.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name} — {c.address}
+                    {c.name}, {c.address}
                   </option>
                 ))}
               </select>

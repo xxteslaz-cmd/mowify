@@ -14,7 +14,7 @@ export function resetPasswordEmail(link: string) {
       `<p>Someone asked to reset the password for this GroundsRoute account.</p>` +
         BUTTON(link, "Choose a new password") +
         `<p>This link works once and expires in an hour.</p>` +
-        `<p>If this wasn't you, ignore this email — your password has not changed.</p>`,
+        `<p>If this wasn't you, ignore this email. Your password has not changed.</p>`,
     ),
   };
 }
@@ -37,7 +37,7 @@ export function changeEmailEmail(link: string) {
       `<p>Someone asked to move this GroundsRoute account to this email address.</p>` +
         BUTTON(link, "Confirm my new email") +
         `<p>This link works once and expires in an hour. Nothing changes until you confirm.</p>` +
-        `<p>If this wasn't you, ignore this email — your account will stay as it is.</p>`,
+        `<p>If this wasn't you, ignore this email. Your account will stay as it is.</p>`,
     ),
   };
 }
@@ -63,7 +63,7 @@ export function signupAcknowledgementEmail(input: {
         (input.chargeDate
           ? `<p>Your card will be charged on <strong>${input.chargeDate}</strong> unless you cancel before then.</p>`
           : "") +
-        `<p>Cancelling is self-serve and takes a few clicks — you never need to contact us to stop a charge.</p>` +
+        `<p>Cancelling is self-serve and takes a few clicks. You never need to contact us to stop a charge.</p>` +
         BUTTON(input.billingUrl, "View or cancel my subscription") +
         `<p>We'll also email you a reminder at least 7 days before the trial ends.</p>`,
     ),
@@ -93,7 +93,7 @@ export function trialEndingEmail(input: {
     html: WRAP(
       `<p>Your free trial of GroundsRoute ends on <strong>${input.chargeDate}</strong>.</p>` +
         `<p>On that date your subscription starts and the card on file is charged <strong>${input.amount}</strong>, then the same amount each month after that, until you cancel.</p>` +
-        `<p>If you'd rather not continue, cancel before then and you will never be charged. Cancelling takes a few clicks on your billing page — you don't need to contact us.</p>` +
+        `<p>If you'd rather not continue, cancel before then and you will never be charged. Cancelling takes a few clicks on your billing page. You don't need to contact us.</p>` +
         BUTTON(input.billingUrl, "Manage or cancel my subscription") +
         `<p>If you're staying, there's nothing to do.</p>`,
     ),
@@ -109,7 +109,7 @@ export function emailChangeWarningEmail(newEmail: string) {
     subject: "Your GroundsRoute account email is changing",
     html: WRAP(
       `<p>Someone requested to change the email on this GroundsRoute account to <strong>${newEmail}</strong>.</p>` +
-        `<p>Nothing has changed yet — the new address must confirm first, and the link expires in an hour.</p>` +
+        `<p>Nothing has changed yet. The new address must confirm first, and the link expires in an hour.</p>` +
         `<p>If this wasn't you, sign in and change your password right away.</p>`,
     ),
   };

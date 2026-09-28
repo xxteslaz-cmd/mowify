@@ -91,7 +91,7 @@ function CrewRow({
     } catch {
       // The count we rendered can go stale if a job was assigned meanwhile.
       setError(
-        `Couldn't delete this ${terms.one} — it may have jobs assigned now.`,
+        `Couldn't delete this ${terms.one}. It may have jobs assigned now.`,
       );
       onChanged();
     } finally {

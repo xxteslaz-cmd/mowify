@@ -45,7 +45,7 @@ export default function ReturnClient() {
       <h1 className="text-lg font-semibold">Setting up your account</h1>
       <p className="mt-2 text-sm text-muted">
         {timedOut
-          ? "This is taking longer than usual. Your payment went through — refresh this page, or sign in if you already have."
+          ? "This is taking longer than usual. Your payment went through. Refresh this page, or sign in if you already have."
           : "Confirming your payment with Stripe. This usually takes a couple of seconds."}
       </p>
       {timedOut ? (

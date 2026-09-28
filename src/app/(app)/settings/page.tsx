@@ -26,8 +26,8 @@ export default async function SettingsPage() {
       <div className="card mt-4 p-6">
         <h2 className="text-sm font-medium">Export your data</h2>
         <p className="mb-4 mt-1 text-sm text-muted">
-          Downloads everything this company has in GroundsRoute — your
-          customers, crews and every job — as a single JSON file. Your crew
+          Downloads everything this company has in GroundsRoute (your
+          customers, crews and every job) as a single JSON file. Your crew
           logins are listed by name and username; passwords and PINs are not
           included, because they are not stored in a readable form.
         </p>

@@ -14,7 +14,7 @@ import LandingPage from "../LandingPage";
  */
 export const metadata: Metadata = {
   title: {
-    absolute: "GroundsRoute — Crew scheduling for landscaping companies",
+    absolute: "GroundsRoute | Crew scheduling for landscaping companies",
   },
   alternates: { canonical: "/" },
 };

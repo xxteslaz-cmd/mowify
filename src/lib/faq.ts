@@ -70,13 +70,13 @@ export const COMMON_FAQS: Faq[] = [
     question: "Does it do invoicing or text my customers?",
     answer:
       "Not today. GroundsRoute is for scheduling your crews and getting each day's stops done. " +
-      "If you need something it doesn't do, ask below — questions like that shape what gets built next.",
+      "If you need something it doesn't do, ask below. Questions like that shape what gets built next.",
   },
   {
     question: "Can I get my data out?",
     answer:
-      "Yes. Settings has a button that downloads everything your company has entered — " +
-      `customers, crews and jobs — as a file. If you cancel, you have ${RETENTION.accountDays} ` +
+      "Yes. Settings has a button that downloads everything your company has entered " +
+      `(customers, crews and jobs) as a file. If you cancel, you have ${RETENTION.accountDays} ` +
       "days to download it before your data is deleted.",
   },
   {

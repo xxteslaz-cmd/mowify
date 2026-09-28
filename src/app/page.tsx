@@ -8,7 +8,7 @@ import LandingPage from "./LandingPage";
 // "%s · GroundsRoute" template, which would repeat the name.
 export const metadata: Metadata = {
   title: {
-    absolute: "GroundsRoute — Crew scheduling for landscaping companies",
+    absolute: "GroundsRoute | Crew scheduling for landscaping companies",
   },
   alternates: { canonical: "/" },
 };

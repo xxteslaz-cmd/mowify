@@ -32,7 +32,7 @@ export default function AppError({
         </h1>
         <p className="mt-2 text-sm text-muted">
           Something failed while loading this screen. Nothing you have already
-          saved is affected — try again, and if it keeps happening, send us the
+          saved is affected. Try again, and if it keeps happening, send us the
           reference code below.
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">

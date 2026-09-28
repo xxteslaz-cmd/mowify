@@ -9,7 +9,7 @@ export default function AskQuestionForm({ maxLength }: { maxLength: number }) {
   if (state && "ok" in state) {
     return (
       <p role="status" className="text-sm text-foreground">
-        Thanks — your question is in. We&apos;ll answer it here, and by email
+        Thanks, your question is in. We&apos;ll answer it here, and by email
         if you left an address.
       </p>
     );

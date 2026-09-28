@@ -19,7 +19,7 @@ const INCLUDED = [
   "A phone view for each crew, showing only that day's stops",
   "Recurring jobs that regenerate on their own",
   "Logins for your crew that you create and revoke yourself",
-  "Every feature — there is no higher tier to upgrade to",
+  "Every feature. There is no higher tier to upgrade to",
 ];
 
 export default function PricingPage() {

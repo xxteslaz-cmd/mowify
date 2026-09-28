@@ -67,6 +67,6 @@ export const SUBPROCESSORS = [
   {
     name: "Resend",
     purpose:
-      "Delivers transactional email — password resets, email verification and address changes.",
+      "Delivers transactional email: password resets, email verification and address changes.",
   },
 ] as const;

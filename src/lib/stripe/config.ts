@@ -11,7 +11,7 @@ function required(key: string): string {
   const value = process.env[key];
   if (!value) {
     throw new Error(
-      `${key} is not set. Billing cannot run without it — see .env.example.`,
+      `${key} is not set. Billing cannot run without it. See .env.example.`,
     );
   }
   return value;

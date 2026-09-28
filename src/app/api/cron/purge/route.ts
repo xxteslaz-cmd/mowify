@@ -50,7 +50,7 @@ export async function GET(request: Request): Promise<Response> {
   if (doomed.length > MAX_PER_RUN) {
     console.error(
       `Purge selected ${doomed.length} orgs, above the cap of ${MAX_PER_RUN}. ` +
-        "Refusing to delete anything — this is far more likely to be a bad " +
+        "Refusing to delete anything. This is far more likely to be a bad " +
         "query than a real wave of cancellations.",
     );
     return Response.json(

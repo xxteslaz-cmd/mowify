@@ -147,7 +147,7 @@ export default function LandingPage() {
             <p className="mt-2 text-sm text-muted">
               Each crew signs in at your company&apos;s own link with a
               username and a 6-digit PIN, and sees just their stops for the
-              day, in order — with an address and a button to mark each one
+              day, in order, with an address and a button to mark each one
               complete.
             </p>
           </div>

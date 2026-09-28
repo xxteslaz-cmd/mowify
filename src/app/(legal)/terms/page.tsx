@@ -86,7 +86,7 @@ export default function TermsPage() {
       <ul className={UL}>
         <li>
           The trial lasts <span className={STRONG}>{TRIAL_DAYS} days</span> from
-          the day you create your account. It is free — we will not charge you
+          the day you create your account. It is free: we will not charge you
           during it.
         </li>
         <li>
@@ -193,7 +193,7 @@ export default function TermsPage() {
       <h2 className={H2}>5. Your data</h2>
       <p className={P}>
         <span className={STRONG}>You own it.</span> As between you and us, you
-        own all data you or your crews enter into the Service — customer
+        own all data you or your crews enter into the Service, including customer
         records, addresses, jobs, schedules, notes, and completion history
         (&ldquo;Customer Data&rdquo;). We claim no ownership in it.
       </p>
@@ -211,7 +211,7 @@ export default function TermsPage() {
       <p className={P}>
         <span className={STRONG}>Your responsibilities.</span> Customer Data
         typically includes personal information about people who are not parties
-        to these Terms — the names, addresses, and phone numbers of the
+        to these Terms, such as the names, addresses, and phone numbers of the
         properties you service. You represent that you have the right to collect
         that information and to enter it into the Service, and that doing so
         does not violate any law or any agreement you have with those
@@ -312,7 +312,7 @@ export default function TermsPage() {
         personnel and advisors who need it and are bound by similar obligations.
         This does not apply to information that is public through no fault of
         the receiving party, was already known to it, is independently
-        developed, or must be disclosed by law — in which case the receiving
+        developed, or must be disclosed by law, in which case the receiving
         party will give notice where legally permitted.
       </p>
 

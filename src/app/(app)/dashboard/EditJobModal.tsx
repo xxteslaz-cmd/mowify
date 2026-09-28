@@ -66,7 +66,7 @@ export default function EditJobModal({
       >
         <h2 className="text-lg font-semibold">Edit Job</h2>
         <p className="mb-4 text-sm text-muted">
-          {job.customer.name} — {serviceLabel(job)}
+          {job.customer.name}: {serviceLabel(job)}
           {job.frequency !== "ONE_TIME" && ` · ${FREQUENCY_LABEL[job.frequency]}`}
         </p>
 

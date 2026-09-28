@@ -44,14 +44,14 @@ export default function PrivacyPage() {
         <span className={STRONG}>Subscribers</span> are the landscaping
         companies that sign up for GroundsRoute, together with the owners and
         crew members who log in. For information about these people we act as
-        the business that decides how the information is used — a
-        &ldquo;controller&rdquo; under most privacy laws.
+        the business that decides how the information is used (a
+        &ldquo;controller&rdquo; under most privacy laws).
       </p>
       <p className={P}>
         <span className={STRONG}>Your customers</span> are the property owners
         and clients whose names, addresses, and job details a Subscriber enters
         into GroundsRoute. We hold this information on the Subscriber&apos;s
-        behalf and act only on their instructions — a &ldquo;processor&rdquo; or
+        behalf and act only on their instructions, as a &ldquo;processor&rdquo; or
         &ldquo;service provider&rdquo;. We do not decide what is done with it,
         we do not use it for our own purposes, and we have no direct
         relationship with these individuals.
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
       <p className={P}>
         <span className={STRONG}>Account information.</span> When a company
         signs up we collect the company name, the owner&apos;s name and email
-        address, and a password. We never store passwords themselves — only an
+        address, and a password. We never store passwords themselves, only an
         argon2 hash, from which the original password cannot practically be
         recovered.
       </p>
@@ -107,8 +107,8 @@ export default function PrivacyPage() {
       </p>
       <p className={P}>
         <span className={STRONG}>Email delivery information.</span> Transactional
-        email — password resets, email verification, address changes, and
-        billing notices such as the reminder before a trial ends — is sent
+        email (password resets, email verification, address changes, and
+        billing notices such as the reminder before a trial ends) is sent
         through Resend, which processes the recipient address and delivery
         status. We do not send marketing email unless you separately opt in.
       </p>
@@ -142,8 +142,8 @@ export default function PrivacyPage() {
       </p>
       <p className={P}>
         We may also produce aggregated, de-identified statistics about how the
-        Service is used — for example, how many companies use recurring
-        scheduling — provided those statistics contain no personal information
+        Service is used (for example, how many companies use recurring
+        scheduling), provided those statistics contain no personal information
         and cannot reasonably be re-associated with any individual or company.
       </p>
       <p className={P}>
@@ -263,7 +263,7 @@ export default function PrivacyPage() {
         Depending on where you live, you may have the right to know what
         personal information we hold about you, to obtain a copy of it, to
         correct inaccuracies, to request deletion, to obtain a portable copy,
-        and to opt out of sale or targeted advertising — the last of which does
+        and to opt out of sale or targeted advertising. The last of these does
         not apply, because we do neither. We will not discriminate against you
         for exercising any of these rights.
       </p>

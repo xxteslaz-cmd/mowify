@@ -30,7 +30,7 @@ const LABELS: Record<string, string> = {
 const REPAIRABLE_IN_PORTAL = ["past_due", "unpaid", "incomplete"];
 
 function formatDate(value: Date | null): string {
-  if (!value) return "—";
+  if (!value) return "Not set";
   return value.toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -75,7 +75,7 @@ export default async function BillingPage({
           lapsed to someone who has just paid. */}
       {restarted ? (
         <p className="card mt-4 border-brand bg-brand-soft p-4 text-sm">
-          Thanks — your payment went through. Your subscription will show as
+          Thanks, your payment went through. Your subscription will show as
           active here shortly.
         </p>
       ) : null}
