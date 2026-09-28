@@ -1,12 +1,28 @@
 import type { Metadata } from "next";
+import { cache } from "react";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth/dal";
 import CrewLoginForm from "./CrewLoginForm";
 
-export const metadata: Metadata = {
-  title: "Crew sign in",
-};
+// Shared by generateMetadata and the page so an unknown slug costs one query.
+const findOrg = cache((slug: string) =>
+  prisma.org.findUnique({
+    where: { slug },
+    select: { id: true, name: true },
+  }),
+);
+
+// A metadata export on not-found.tsx is ignored for a nested notFound(), so
+// without this an unknown slug renders the 404 under a "Crew sign in" tab.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  return { title: (await findOrg(slug)) ? "Crew sign in" : "Page not found" };
+}
 
 export default async function CrewLoginPage({
   params,
@@ -18,10 +34,7 @@ export default async function CrewLoginPage({
   const user = await getSessionUser();
   if (user) redirect("/");
 
-  const org = await prisma.org.findUnique({
-    where: { slug },
-    select: { id: true, name: true },
-  });
+  const org = await findOrg(slug);
   if (!org) notFound();
 
   return (

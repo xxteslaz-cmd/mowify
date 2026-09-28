@@ -38,7 +38,7 @@ export default function GlobalError({
             defined inline against the OS preference — the only theme signal
             this document can see. */}
         <style>{`
-          :root { --ge-bg:#f2f5f6; --ge-fg:#171b1a; --ge-muted:#667471; --ge-surface:#ffffff; --ge-border:#dfe5e6; --ge-brand:#2f6b4f; --ge-on-brand:#ffffff; }
+          :root { --ge-bg:#f2f5f6; --ge-fg:#171b1a; --ge-muted:#5d6a67; --ge-surface:#ffffff; --ge-border:#dfe5e6; --ge-brand:#2f6b4f; --ge-on-brand:#ffffff; }
           @media (prefers-color-scheme: dark) {
             :root { --ge-bg:#0f1413; --ge-fg:#e6eae8; --ge-muted:#94a09d; --ge-surface:#171d1b; --ge-border:#262e2c; --ge-brand:#62b083; --ge-on-brand:#10130f; }
           }

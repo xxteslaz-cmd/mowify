@@ -14,7 +14,7 @@ const BRAND = "#2f6b4f";
 const BRAND_SOFT = "#e8f0ea";
 const SURFACE = "#ffffff";
 const FOREGROUND = "#171b1a";
-const MUTED = "#667471";
+const MUTED = "#5d6a67";
 const BORDER = "#dfe5e6";
 
 /**
