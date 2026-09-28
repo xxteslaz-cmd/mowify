@@ -113,6 +113,16 @@ export default function PrivacyPage() {
         status. We do not send marketing email unless you separately opt in.
       </p>
       <p className={P}>
+        <span className={STRONG}>Questions asked on our FAQ page.</span> Anyone
+        can ask a question at /faq, with or without an account. We keep the
+        question and, only if you choose to give it, your email address, which
+        we use solely to reply to you. We may publish the question, edited to
+        remove anything that identifies you, together with our answer. We never
+        publish your email address. We keep questions until we delete them, and
+        will delete yours, and the email address with it, if you ask us at{" "}
+        {LEGAL.contactEmail}.
+      </p>
+      <p className={P}>
         <span className={STRONG}>What we do not collect.</span> GroundsRoute
         does not track the physical location of crew members or vehicles. It
         does not access GPS, contacts, camera, or microphone. We do not use

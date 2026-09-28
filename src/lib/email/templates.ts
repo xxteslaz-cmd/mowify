@@ -114,3 +114,22 @@ export function emailChangeWarningEmail(newEmail: string) {
     ),
   };
 }
+
+/**
+ * Tells the site owner a visitor asked something on /faq.
+ *
+ * Carries no part of the question or the asker's address. The form is
+ * unauthenticated, so anything copied in here would be a stranger's text
+ * arriving in the owner's inbox under our sending domain — and a link to the
+ * admin page is all the owner needs.
+ */
+export function newFaqQuestionEmail(link: string) {
+  return {
+    subject: "New question on the GroundsRoute FAQ",
+    html: WRAP(
+      `<p>Someone asked a question on the FAQ page.</p>` +
+        BUTTON(link, "Read and answer it") +
+        `<p>It stays private until you answer it and choose to publish it.</p>`,
+    ),
+  };
+}

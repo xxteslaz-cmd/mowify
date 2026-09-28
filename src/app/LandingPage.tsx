@@ -221,6 +221,9 @@ export default function LandingPage() {
           <Link href="/pricing" className="inline-flex min-h-11 items-center hover:text-foreground">
             Pricing
           </Link>
+          <Link href="/faq" className="inline-flex min-h-11 items-center hover:text-foreground">
+            FAQ
+          </Link>
           <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-foreground">
             Terms
           </Link>

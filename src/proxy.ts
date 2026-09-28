@@ -38,6 +38,9 @@ const PUBLIC_PREFIXES = [
   // Terms section 4 cites this page for the rates, so it has to render for
   // someone deciding whether to sign up at all.
   "/pricing",
+  // Answers prospects' questions and takes new ones, so it exists for people
+  // with no account. Its only write is askQuestion, which is rate-limited.
+  "/faq",
 ];
 
 // Generated metadata files, matched exactly rather than by prefix.
@@ -80,6 +83,9 @@ const PUBLIC_FILES = [
 // "/home" is the signed-in half of the landing page; see the rewrite below.
 const PROTECTED_SEGMENTS = [
   "account",
+  // Site administration. requireSiteAdmin is the real check; this only keeps
+  // signed-out visitors from reaching it at all.
+  "admin",
   "api",
   "billing",
   "crew",

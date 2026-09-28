@@ -309,7 +309,30 @@ supplies it.
 Bump `LEGAL.version` whenever either document changes materially. Consent
 records already written keep the version they were taken under.
 
-## Import boundaries (ESLint-enforced)
+## FAQ questions
+
+`/faq` shows fixed answers from `COMMON_FAQS` in `src/lib/faq.ts` plus visitor
+questions the site owner answered and published. Visitors ask through
+`askQuestion` in `src/app/faq/actions.ts`; the owner answers at
+`/admin/questions`.
+
+- **`FaqQuestion` is not tenant data.** No `orgId`, never in the export or the
+  purge. The asker's `email` is never selected for the public page.
+- **`/admin` is gated by `requireSiteAdmin()`** in `src/lib/auth/admin.ts`: an
+  OWNER whose email is **verified** and on `ADMIN_EMAILS`. Unset admits nobody.
+  Non-admins get a 404, not a redirect. Every admin action calls it itself.
+- **`askQuestion` never emails the address the visitor typed** — the same rule
+  as signup. It sends one notification to `LEGAL.contactEmail` containing no
+  visitor text. Flooding is capped site-wide (`QUESTIONS_PER_HOUR`,
+  `MAX_UNANSWERED`) rather than per IP, because the Privacy Policy does not say
+  this form stores IP addresses.
+- **Rollout order: push the schema first** (`npm run db:push`, then
+  `npm run db:push:test`), then deploy. `/faq` prerenders with a try/catch
+  around the published-questions query, so deploying first degrades to the
+  fixed FAQ rather than failing, but submitting a question would error until
+  the table exists.
+
+
 
 - Application code imports hashing from `@/lib/auth/password`, never
   `@/lib/auth/hash`. `hash.ts` has no `server-only` guard so scripts can use it;

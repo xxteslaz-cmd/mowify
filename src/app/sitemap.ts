@@ -27,6 +27,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.8,
     },
+    // Weekly: published answers to visitors' questions are added over time.
+    {
+      url: `${base}/faq`,
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
     // Low priority rather than omitted: nobody searches for these, but a
     // published policy that search engines can confirm exists is part of what
     // makes a paid product look legitimate to someone deciding whether to

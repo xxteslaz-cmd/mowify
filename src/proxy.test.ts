@@ -46,6 +46,7 @@ describe("proxy public paths", () => {
     ["/terms", "must render for someone with no account"],
     ["/privacy", "must render for someone with no account"],
     ["/pricing", "the Terms cite this page for the rates"],
+    ["/faq", "answers prospects' questions and takes new ones"],
     // All three of these were redirected to /login in production. A crawler
     // that gets a redirect instead of robots.txt applies none of the disallow
     // rules that keep /c/<company-slug> and the token routes out of search
@@ -82,6 +83,9 @@ describe("proxy public paths", () => {
     // The signed-in side of "/". Reached directly with no session it must
     // not render the landing page's session logic for a stranger.
     ["/home"],
+    // Site administration. requireSiteAdmin is the real gate; a signed-out
+    // visitor should not even reach it.
+    ["/admin/questions"],
   ])("redirects %s to /login when signed out", (pathname) => {
     expect(isRedirectToLogin(visit(pathname))).toBe(true);
   });

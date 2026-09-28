@@ -317,3 +317,29 @@ model ConsentRecord {
   @@index([email])
   @@index([expiresAt])
 }
+
+// A question a visitor asked on /faq, and the site owner's answer to it.
+//
+// Not tenant data: there is no orgId, because the asker usually has no account
+// and the answer is published to everyone. That also keeps it out of the
+// per-company export and the lapsed-company purge, neither of which has any
+// business touching it.
+model FaqQuestion {
+  id       String  @id @default(cuid())
+  question String
+  // Optional, and only ever used to reply to the asker by hand. Never shown
+  // on the public page, even once the question is published.
+  email    String?
+  answer   String?
+  // Only published rows with an answer appear on /faq. Answering and
+  // publishing are separate so an answer can be drafted, or sent privately by
+  // email, without going live.
+  published  Boolean   @default(false)
+  answeredAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([published])
+  @@index([createdAt])
+}

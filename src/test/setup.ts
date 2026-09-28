@@ -19,6 +19,8 @@ export async function resetDb() {
   // No foreign key to Org — it is designed to outlive one — so nothing cascades
   // it away and each suite has to clear it explicitly.
   await prisma.consentRecord.deleteMany();
+  // Not tenant data, so nothing above cascades to it either.
+  await prisma.faqQuestion.deleteMany();
   await prisma.org.deleteMany();
 }
 

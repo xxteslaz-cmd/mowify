@@ -16,6 +16,7 @@ import { requireAppUrl } from "@/lib/url";
 // those would publish a directory of every customer's company slug.
 const DISALLOW = [
   "/api/",
+  "/admin",
   "/account",
   "/billing",
   "/c/",
