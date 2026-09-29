@@ -146,3 +146,27 @@ function LinkLabel({ label, count }: { label: string; count?: number }) {
     </>
   );
 }
+
+/**
+ * The owner's secondary links (Team, Account, Settings, Billing). They live in
+ * the server-rendered UserMenu, which can't read the path, so this client
+ * piece lights the current one. A plain <a> on purpose: a full page load is
+ * what closes the mobile menu panel for these (see the note in MainNav).
+ */
+export function SubNavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  const pathname = usePathname();
+  const active = pathname === href || pathname.startsWith(`${href}/`);
+  return (
+    <a
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={`rounded-md px-3 py-1.5 text-sm transition max-md:py-3 ${
+        active
+          ? "bg-brand-soft font-medium text-brand"
+          : "text-muted hover:bg-foreground/5 hover:text-foreground"
+      }`}
+    >
+      {children}
+    </a>
+  );
+}
