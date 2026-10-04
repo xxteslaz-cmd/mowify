@@ -113,6 +113,14 @@ export default function PrivacyPage() {
         status. We do not send marketing email unless you separately opt in.
       </p>
       <p className={P}>
+        <span className={STRONG}>Website analytics.</span> We use Vercel Web
+        Analytics to count page views: which pages are visited, the referring
+        site, and the browser, operating system, device type and country. It
+        uses no cookies and does not identify individual visitors across
+        websites. Pages whose address contains a password-reset, email
+        verification or email-change link are never counted.
+      </p>
+      <p className={P}>
         <span className={STRONG}>Questions asked on our FAQ page.</span> Anyone
         can ask a question at /faq, with or without an account. We keep the
         question and, only if you choose to give it, your email address, which

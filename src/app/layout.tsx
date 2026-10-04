@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { requireAppUrl } from "@/lib/url";
+import SiteAnalytics from "./SiteAnalytics";
 import "./globals.css";
 
 // Plus Jakarta Sans over Geist: it keeps the geometric clarity a dense
@@ -65,7 +66,10 @@ export default function RootLayout({
       lang="en"
       className={`${jakarta.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <SiteAnalytics />
+      </body>
     </html>
   );
 }
