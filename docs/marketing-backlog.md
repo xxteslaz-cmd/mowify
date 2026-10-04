@@ -102,12 +102,12 @@ site afterwards.
   September 2026. The Privacy Policy gained a paragraph on what the form
   collects.
 
-### Still to verify
+### Verified on 3 October 2026
 
-- Sign in as an owner, open `/`, and confirm it goes to the dashboard. This
-  could not be tested without real credentials.
-- Run the full `npm test`. The Neon test database timed out from the review
-  machine, so only `src/proxy.test.ts` and `src/lib/auth/admin.test.ts` ran;
-  `src/app/faq/faq.test.ts` is written but has never been run.
-- Submit a question on `/faq`, confirm the notification email arrives, then
-  answer and publish it from `/admin/questions` and see it appear on `/faq`.
+- Signing in as an owner and opening `/` goes to the dashboard (checked by
+  the owner).
+- The full `npm test` passes: 34 files, 381 tests, including
+  `src/app/faq/faq.test.ts`.
+- The `/faq` question flow works end to end: submit, notification email,
+  answer and publish from `/admin/questions`, shown on `/faq` (checked by the
+  owner).
