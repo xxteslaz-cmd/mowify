@@ -119,13 +119,16 @@ describe("signup no longer creates an account", () => {
     expect(redirected.to).toBe("https://checkout.stripe.test/pay");
   });
 
-  it("asks Stripe for a 30-day trial that requires a card", async () => {
+  it("asks Stripe for a 30-day trial that does not require a card", async () => {
     await expect(signup(undefined, form())).rejects.toThrow(/redirect:/);
 
     const params = created.sessions[0];
     expect(params.mode).toBe("subscription");
-    expect(params.payment_method_collection).toBe("always");
-    expect(params.subscription_data).toMatchObject({ trial_period_days: 30 });
+    expect(params.payment_method_collection).toBe("if_required");
+    expect(params.subscription_data).toMatchObject({
+      trial_period_days: 30,
+      trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
+    });
     expect(params.success_url).toBe("https://app.example.com/billing/return");
 
     const pending = await prisma.pendingSignup.findFirstOrThrow({

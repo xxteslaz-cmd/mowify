@@ -110,7 +110,10 @@ customers links to their own machine — the failure looks like success.
 Stripe, via hosted Checkout and the hosted Billing Portal. Card data never
 reaches this server.
 
-**Nobody has an account until Stripe confirms a card.** `signup` writes a
+**Nobody has an account until Stripe Checkout completes.** The trial needs no
+card (`payment_method_collection: "if_required"`); one that ends without a card
+is cancelled by Stripe (`missing_payment_method: "cancel"`) and lands in the
+ordinary lapsed state. Resubscribing still requires a card. `signup` writes a
 `PendingSignup` row and an httpOnly claim cookie, then redirects to Checkout.
 `POST /api/stripe/webhook` is the only code that creates an `Org` — which is
 why its signature verification is not a formality, and why that route is exempt
@@ -189,8 +192,10 @@ Do not "simplify" resubscribe back into a portal configuration.
 ### The trial-end reminder
 
 Terms §3 promises a reminder "at least 7 days before the trial ends, telling you
-the date the charge will occur, the amount, and how to cancel." All three are
-required content, not editorial choices.
+the date the trial ends, the amount that will be charged if a card is on file,
+and how to add a card or cancel." All of it is required content, not editorial
+choices. The cron cannot tell whether a card is on file, so the email covers
+both cases.
 
 **It cannot come from Stripe.** `customer.subscription.trial_will_end` fires
 exactly three days out and the timing is not configurable — Stripe's guidance on

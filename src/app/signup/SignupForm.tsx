@@ -81,7 +81,7 @@ export default function SignupForm({
         )}
       </div>
 
-      {/* Above the button that leads to the card form, not behind a link to
+      {/* Above the button that leads to Checkout, not behind a link to
           the Terms. The material terms of a negative option have to be where
           the customer is deciding, which is here. */}
       <div className="card bg-brand-soft p-4 text-sm leading-relaxed">
@@ -100,9 +100,9 @@ export default function SignupForm({
             className="mt-1 shrink-0"
           />
           <span>
-            I understand my trial converts to a paid subscription on{" "}
-            <strong>{convertsOn}</strong> and my card will be charged{" "}
-            <strong>{price}</strong> unless I cancel first.
+            I understand that if I add a card, my trial converts to a paid
+            subscription on <strong>{convertsOn}</strong> and my card will be
+            charged <strong>{price}</strong> unless I cancel first.
           </span>
         </label>
         {state?.errors?.trialConsent && (

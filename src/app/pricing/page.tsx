@@ -46,8 +46,8 @@ export default function PricingPage() {
           </span>
         </p>
         <p className="mt-2 text-sm text-muted">
-          {TRIAL_DAYS} days free to start. A card is required to begin the
-          trial, and you can cancel any time from your billing page.
+          {TRIAL_DAYS} days free to start, no card needed. Cancel any time
+          from your billing page.
         </p>
 
         <ul className="mt-6 space-y-2 text-sm">

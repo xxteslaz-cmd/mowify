@@ -115,10 +115,11 @@ describe("who gets reminded", () => {
     expect(mail.sent[0].to).toBe("owner@example.com");
   });
 
-  it("names the charge date, the amount and how to cancel", async () => {
-    // All three are required content: Terms section 3 promises a reminder
-    // "telling you the date the charge will occur, the amount, and how to
-    // cancel". Dropping any one breaks a published promise.
+  it("names the end date, the amount, and how to add a card or cancel", async () => {
+    // Required content: Terms section 3 promises a reminder "telling you the
+    // date the trial ends, the amount that will be charged if a card is on
+    // file, and how to add a card or cancel". Dropping any one breaks a
+    // published promise.
     await makeTrialingOrg(7);
 
     await GET(request());
@@ -127,6 +128,7 @@ describe("who gets reminded", () => {
     expect(subject).toMatch(/trial/i);
     expect(html).toMatch(/\$49/);
     expect(html).toMatch(/cancel/i);
+    expect(html).toMatch(/add a card/i);
     expect(html).toMatch(/https:\/\/app\.example\.com\/billing/);
   });
 

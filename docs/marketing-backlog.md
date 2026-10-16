@@ -29,7 +29,7 @@ Each new public page must be added to `PUBLIC_PREFIXES` in `src/proxy.ts`
 ## 2. Trust
 
 The landing page has no testimonials, customer count, founder story or About
-page. For a $49/month product that asks for a card before the trial, trust is
+page. For a $49/month product, trust is
 the most likely reason a visitor leaves without signing up.
 
 - Testimonials must be real quotes from real customers, with permission.
@@ -41,18 +41,12 @@ the most likely reason a visitor leaves without signing up.
 
 ## 3. The card-required trial
 
-Stated honestly on every page, which is right, but it is the single biggest
-barrier in the signup funnel. Options if signups are low:
-
-- A no-card trial. **Not a copy change.** It touches the Stripe Checkout
-  flow (`PendingSignup`, the webhook that creates the `Org`), the ROSCA
-  consent screen and its stored disclosure text, the trial-reminder cron, and
-  Terms section 3. Read the Billing section of `AGENTS.md` before starting.
-- Cheaper to try first: a short demo video, or a read-only sample dashboard
-  a visitor can click around before signing up.
-
-Decide based on real funnel numbers (landing → signup page → Checkout started
-→ Checkout completed), not guesses.
+**Done 16 October 2026: the trial no longer needs a card.** Checkout uses
+`payment_method_collection: "if_required"`; a trial that ends without a card is
+cancelled by Stripe and lands in the normal lapsed state. Terms §3 (version
+2026-10-16), the consent text, FAQ, pricing, landing, signup, both trial emails
+and the Billing page were reworded to match. Watch for trial abuse (repeat
+signups with new emails), now that a card no longer gates it.
 
 ---
 

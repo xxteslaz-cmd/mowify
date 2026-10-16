@@ -100,6 +100,17 @@ export default async function BillingPage({
           </div>
         </dl>
 
+        {/* Trials start without a card and are cancelled at the end if none
+            was added, so this is the one place an owner learns to add one. */}
+        {org.subscriptionStatus === "trialing" ? (
+          <p className="mt-4 text-sm">
+            To keep using GroundsRoute after your trial, add a card under{" "}
+            <strong>Manage billing</strong> before{" "}
+            {formatDate(org.trialEndsAt)}. If you&apos;ve already added one,
+            there&apos;s nothing to do. No card, no charge: the trial just ends.
+          </p>
+        ) : null}
+
         {!active ? (
           <p className="mt-4 text-sm">
             Your account is read-only until billing is sorted out. Your schedule and

@@ -3,7 +3,7 @@ import { PRICE, TRIAL_DAYS, formatPrice, pricePerInterval } from "@/lib/pricing"
 /**
  * The trial's auto-renewal disclosure, in one place.
  *
- * Rendered on the signup page above the button that leads to the card form,
+ * Rendered on the signup page above the button that leads to Checkout,
  * and stored verbatim on the consent record. Those two must be the same words:
  * the record exists to prove what a customer was shown, and a record that
  * quotes a different sentence than the page displayed proves the opposite of
@@ -12,7 +12,7 @@ import { PRICE, TRIAL_DAYS, formatPrice, pricePerInterval } from "@/lib/pricing"
  * The law being satisfied here is about the screen, not the contract. As the
  * drafting notes on the Terms put it, auto-renewal compliance "is a flow
  * problem, not a document problem" — the clause is worthless if the signup
- * screen does not match it. So the material terms appear before the card
+ * screen does not match it. So the material terms appear before Checkout
  * rather than behind a link to the Terms.
  */
 export const CONSENT_KIND = "TRIAL_SUBSCRIPTION";
@@ -37,8 +37,8 @@ export function consentExpiry(agreedAt: Date): Date {
 export function trialDisclosure(): string {
   return [
     `Your free trial lasts ${TRIAL_DAYS} days and costs nothing.`,
-    `A valid payment card is required to start it.`,
-    `Unless you cancel before the trial ends, your subscription begins automatically on day ${TRIAL_DAYS + 1} and your card is charged ${pricePerInterval()}, and ${formatPrice()} again each ${PRICE.interval} after that, until you cancel.`,
+    `No card is needed to start it. If the trial ends without a card on file, it simply ends and you are never charged.`,
+    `If you add a card, then unless you cancel before the trial ends, your subscription begins automatically on day ${TRIAL_DAYS + 1} and your card is charged ${pricePerInterval()}, and ${formatPrice()} again each ${PRICE.interval} after that, until you cancel.`,
     `You can cancel at any time from your billing page, in a few clicks, without contacting us. Cancel before the trial ends and you are never charged.`,
     `We will email you a reminder at least 7 days before the trial ends.`,
   ].join(" ");

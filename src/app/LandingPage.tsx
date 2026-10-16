@@ -119,7 +119,7 @@ export default function LandingPage() {
               </Link>
             </div>
             <p className="mt-3 text-sm text-muted">
-              {OFFER} Cancel any time. Card required to start.{" "}
+              {OFFER} No card needed. Cancel any time.{" "}
               <Link href="/pricing" className="whitespace-nowrap underline underline-offset-4 hover:text-foreground">
                 See pricing
               </Link>
@@ -198,7 +198,7 @@ export default function LandingPage() {
           Put your week on one board.
         </h2>
         <p className="mx-auto mt-3 max-w-md text-sm text-muted">
-          {OFFER} Cancel any time, card required to start. Add your crews and
+          {OFFER} No card needed to start. Add your crews and
           customers whenever you&apos;re ready.
         </p>
         <div className="mt-6 flex justify-center">

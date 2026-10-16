@@ -146,10 +146,13 @@ export async function signup(
       // A literal here could drift from the trial length the customer was
       // shown and consented to, which is the one number in this flow that must
       // not be wrong in two places.
-      subscription_data: { trial_period_days: TRIAL_DAYS },
-      // A card is required before the trial starts. Without this Stripe skips
-      // payment collection for a fully discounted first period.
-      payment_method_collection: "always",
+      // No card up front. A trial that ends without one is cancelled, which
+      // lands the company in the ordinary lapsed state; Billing restarts it.
+      subscription_data: {
+        trial_period_days: TRIAL_DAYS,
+        trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
+      },
+      payment_method_collection: "if_required",
       customer_email: email,
       client_reference_id: pending.id,
       success_url: `${requireAppUrl()}/billing/return`,

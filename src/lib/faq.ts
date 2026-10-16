@@ -22,12 +22,12 @@ export const COMMON_FAQS: Faq[] = [
       `no charge per crew or per user, and no annual contract. Customers, jobs and crews are unlimited.`,
   },
   {
-    question: "Why do you need a card for the free trial?",
+    question: "Do I need a card for the free trial?",
     answer:
-      `The trial is ${TRIAL_DAYS} days and costs nothing. A card is required to start it, and ` +
-      `unless you cancel before the trial ends your subscription starts automatically and your ` +
-      `card is charged ${formatPrice()} per ${PRICE.interval}. We email you a reminder at least ` +
-      `7 days before the trial ends. Cancel before then and you are never charged.`,
+      `No. The trial is ${TRIAL_DAYS} days and costs nothing. To keep going after it, add a card ` +
+      `from your billing page; your subscription then starts automatically when the trial ends and ` +
+      `your card is charged ${formatPrice()} per ${PRICE.interval}. No card, no charge: the trial ` +
+      `just ends. We email you a reminder at least 7 days before the trial ends.`,
   },
   {
     question: "How do I cancel?",

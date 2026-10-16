@@ -91,23 +91,26 @@ export default function TermsPage() {
         </li>
         <li>
           <span className={STRONG}>
-            A valid payment card is required to start the trial.
+            No payment card is required to start the trial.
           </span>{" "}
-          We collect it at signup and store it with Stripe.
+          If the trial ends without a card on file, it ends and you are never
+          charged. You may add a card from your billing page at any time; it is
+          stored with Stripe.
         </li>
         <li>
           <span className={STRONG}>
-            Unless you cancel before the trial ends, your subscription begins
-            automatically on day {TRIAL_DAYS + 1} and your card is charged{" "}
-            {pricePerInterval()}, and again each {PRICE.interval} after that,
-            until you cancel.
+            If you add a card, then unless you cancel before the trial ends,
+            your subscription begins automatically on day {TRIAL_DAYS + 1} and
+            your card is charged {pricePerInterval()}, and again each{" "}
+            {PRICE.interval} after that, until you cancel.
           </span>{" "}
           Nothing further is required of you for that charge to happen.
         </li>
         <li>
           We will email you a reminder at least{" "}
           <span className={STRONG}>7 days before the trial ends</span>, telling
-          you the date the charge will occur, the amount, and how to cancel.
+          you the date the trial ends, the amount that will be charged if a card
+          is on file, and how to add a card or cancel.
         </li>
         <li>
           <span className={STRONG}>
@@ -151,8 +154,8 @@ export default function TermsPage() {
       <p className={P}>
         <span className={STRONG}>Payment.</span> Subscriptions are billed in
         advance through Stripe, our payment processor, using the card you
-        provide. By starting a trial or subscribing, you authorise us to charge
-        that card for the subscription and any applicable taxes on the schedule
+        provide. By adding a card during a trial or subscribing, you authorise
+        us to charge that card for the subscription and any applicable taxes on the schedule
         described in these Terms.
       </p>
       <p className={P}>

@@ -61,10 +61,10 @@ export function signupAcknowledgementEmail(input: {
       `<p>Your company is set up and your free trial has started. Here are the terms you agreed to, so you have them in writing:</p>` +
         `<p>${input.disclosure}</p>` +
         (input.chargeDate
-          ? `<p>Your card will be charged on <strong>${input.chargeDate}</strong> unless you cancel before then.</p>`
+          ? `<p>Your trial ends on <strong>${input.chargeDate}</strong>. To keep going after that, add a card from your billing page. If you don't, the trial simply ends and you are never charged.</p>`
           : "") +
         `<p>Cancelling is self-serve and takes a few clicks. You never need to contact us to stop a charge.</p>` +
-        BUTTON(input.billingUrl, "View or cancel my subscription") +
+        BUTTON(input.billingUrl, "Add a card or manage my trial") +
         `<p>We'll also email you a reminder at least 7 days before the trial ends.</p>`,
     ),
   };
@@ -74,8 +74,9 @@ export function signupAcknowledgementEmail(input: {
  * The seven-day trial-end reminder.
  *
  * Terms section 3 commits to this in specific terms: a reminder "at least 7
- * days before the trial ends, telling you the date the charge will occur, the
- * amount, and how to cancel." All three are therefore required content, not
+ * days before the trial ends, telling you the date the trial ends, the amount
+ * that will be charged if a card is on file, and how to add a card or cancel."
+ * All of that is therefore required content, not
  * editorial choices — dropping any one of them breaks a published promise.
  *
  * It is also the single largest reducer of trial-conversion chargebacks, which
@@ -92,10 +93,10 @@ export function trialEndingEmail(input: {
     subject: "Your GroundsRoute trial ends in 7 days",
     html: WRAP(
       `<p>Your free trial of GroundsRoute ends on <strong>${input.chargeDate}</strong>.</p>` +
-        `<p>On that date your subscription starts and the card on file is charged <strong>${input.amount}</strong>, then the same amount each month after that, until you cancel.</p>` +
-        `<p>If you'd rather not continue, cancel before then and you will never be charged. Cancelling takes a few clicks on your billing page. You don't need to contact us.</p>` +
-        BUTTON(input.billingUrl, "Manage or cancel my subscription") +
-        `<p>If you're staying, there's nothing to do.</p>`,
+        `<p><strong>If you've added a card</strong>, your subscription starts on that date and the card is charged <strong>${input.amount}</strong>, then the same amount each month after that, until you cancel. Cancel before then and you will never be charged.</p>` +
+        `<p><strong>If you haven't added a card</strong>, your trial simply ends and nothing is charged. To keep your schedule running, add a card on your billing page before then.</p>` +
+        BUTTON(input.billingUrl, "Add a card or manage my trial") +
+        `<p>Cancelling or adding a card takes a few clicks. You don't need to contact us.</p>`,
     ),
   };
 }

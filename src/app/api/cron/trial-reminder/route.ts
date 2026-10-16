@@ -9,8 +9,9 @@ import { appUrl } from "@/lib/url";
  * Emails owners seven days before their trial converts.
  *
  * Terms section 3 promises this in specific terms — "a reminder at least 7 days
- * before the trial ends, telling you the date the charge will occur, the
- * amount, and how to cancel" — which is why it is a scheduled job rather than a
+ * before the trial ends, telling you the date the trial ends, the amount that
+ * will be charged if a card is on file, and how to add a card or cancel" —
+ * which is why it is a scheduled job rather than a
  * webhook handler. Stripe's own `customer.subscription.trial_will_end` fires
  * exactly three days out and the timing is not configurable; Stripe's guidance
  * on sending earlier is "Currently not supported through Stripe." Three days is

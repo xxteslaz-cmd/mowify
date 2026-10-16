@@ -26,8 +26,8 @@ export default async function SignupPage() {
       </Link>
       <h1 className="mb-1 mt-8 text-xl font-semibold">Create your company</h1>
       <p className="mb-1 text-sm text-muted">
-        {TRIAL_DAYS} days free, then {pricePerInterval()}. Cancel any time. You
-        will be asked for a card on the next step.
+        {TRIAL_DAYS} days free, then {pricePerInterval()}. No card needed to
+        start. Cancel any time.
       </p>
       <p className="mb-6 text-sm text-muted">
         You can add logins for your crew once you are in.
