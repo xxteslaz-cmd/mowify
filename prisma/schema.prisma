@@ -157,6 +157,14 @@ model Org {
   // a single code path.
   assigneeMode AssigneeMode @default(CREW)
 
+  // Where rain forecasts are read for the dashboard banner. Coordinates are
+  // looked up once when the owner saves a ZIP in Settings; place is the
+  // "Harrisburg, PA" shown back to confirm it.
+  weatherZip   String?
+  weatherLat   Float?
+  weatherLon   Float?
+  weatherPlace String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

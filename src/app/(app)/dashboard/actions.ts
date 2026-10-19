@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { addDays, parseISODate, toISODate, todayDate } from "@/lib/date";
 import { nextWeekday } from "@/lib/customer-import";
+import { nextWorkday } from "@/lib/weather";
 import {
   generateNextOccurrence,
   ensureOccurrencesThrough,
@@ -579,4 +580,53 @@ export async function generateFirstSchedule(
   revalidatePath("/dashboard");
   revalidatePath(`/crew/${crewId}/today`);
   return { created: data.length };
+}
+
+export type RainDayResult =
+  | { toISO: string; moved: { customer: string; crew: string }[] }
+  | { error: string };
+
+/**
+ * The rain-day button: every still-scheduled job on `dateISO` moves to the next
+ * Monday–Saturday, onto the end of the same crew's route in its original order.
+ * Completed and skipped jobs stay put. Recurring series keep their normal
+ * dates afterwards — generation runs forward from each series' latest visit,
+ * so the vacated day is not refilled.
+ */
+export async function pushRainDay(dateISO: unknown): Promise<RainDayResult> {
+  const { orgId } = await requireActiveOrg();
+  if (typeof dateISO !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {
+    return { error: "Invalid date." };
+  }
+  const from = parseISODate(dateISO);
+  const to = nextWorkday(from);
+
+  const jobs = await prisma.job.findMany({
+    where: { orgId, scheduledDate: from, status: { in: ["SCHEDULED", "RESCHEDULED"] } },
+    orderBy: [{ crewId: "asc" }, { orderInDay: "asc" }],
+    include: { customer: { select: { name: true } }, crew: { select: { name: true } } },
+  });
+  if (jobs.length === 0) return { error: "Nothing left to move on this day." };
+
+  const nextOrder = new Map<string, number>();
+  for (const crewId of new Set(jobs.map((j) => j.crewId))) {
+    nextOrder.set(crewId, await prisma.job.count({ where: { orgId, crewId, scheduledDate: to } }));
+  }
+  await prisma.$transaction(
+    jobs.map((j) => {
+      const orderInDay = nextOrder.get(j.crewId)!;
+      nextOrder.set(j.crewId, orderInDay + 1);
+      return prisma.job.update({
+        where: { id: j.id },
+        data: { scheduledDate: to, orderInDay, status: "RESCHEDULED" },
+      });
+    }),
+  );
+
+  revalidatePath("/dashboard");
+  for (const crewId of nextOrder.keys()) revalidatePath(`/crew/${crewId}/today`);
+  return {
+    toISO: toISODate(to),
+    moved: jobs.map((j) => ({ customer: j.customer.name, crew: j.crew.name })),
+  };
 }

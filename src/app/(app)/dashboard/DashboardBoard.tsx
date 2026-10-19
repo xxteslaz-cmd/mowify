@@ -14,6 +14,8 @@ import AddJobModal from "./AddJobModal";
 import EditJobModal from "./EditJobModal";
 import ManageCrewsModal from "./ManageCrewsModal";
 import SetupChecklist, { type SetupProgress } from "./SetupChecklist";
+import RainDay from "./RainDay";
+import type { DayForecast } from "@/lib/weather";
 import { deleteJob, bulkRescheduleDay, updateJobFrequency, moveJobInColumn } from "./actions";
 
 type ColumnKey = string;
@@ -41,6 +43,8 @@ export default function DashboardBoard({
   customers,
   terms,
   setup,
+  forecast,
+  hasLocation,
 }: {
   dateISO: string;
   crews: Crew[];
@@ -51,6 +55,8 @@ export default function DashboardBoard({
   // is resolved once on the server so no component branches on it inline.
   terms: AssigneeTerms;
   setup: SetupProgress;
+  forecast: DayForecast | null;
+  hasLocation: boolean;
 }) {
   const router = useRouter();
   const [localJobs, setLocalJobs] = useState(jobs);
@@ -163,6 +169,13 @@ export default function DashboardBoard({
           setAddDefaultCrew(null);
           setAddOpen(true);
         }}
+      />
+
+      <RainDay
+        dateISO={dateISO}
+        forecast={forecast}
+        hasLocation={hasLocation}
+        remaining={jobs.filter((j) => j.status === "SCHEDULED" || j.status === "RESCHEDULED").length}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">

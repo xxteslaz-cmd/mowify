@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
-import { getAssigneeMode } from "@/lib/data";
+import { getAssigneeMode, getWeatherLocation } from "@/lib/data";
 import { RETENTION } from "@/lib/legal";
 import SettingsClient from "./SettingsClient";
+import WeatherZipForm from "./WeatherZipForm";
 
 export const metadata: Metadata = {
   title: "Settings",
 };
 
 export default async function SettingsPage() {
-  const mode = await getAssigneeMode();
+  const [mode, weather] = await Promise.all([getAssigneeMode(), getWeatherLocation()]);
 
   return (
     <div className="mx-auto max-w-2xl p-6">
@@ -21,6 +22,16 @@ export default async function SettingsPage() {
           people are not affected either way.
         </p>
         <SettingsClient mode={mode} />
+      </div>
+
+      <div className="card mt-4 p-6">
+        <h2 className="text-sm font-medium">Rain alerts</h2>
+        <p className="mb-4 mt-1 text-sm text-muted">
+          Enter the ZIP code you work around. When rain is forecast, the
+          dashboard offers to push that day&apos;s jobs to the next working day.
+          Leave it empty to turn alerts off.
+        </p>
+        <WeatherZipForm zip={weather.weatherZip} place={weather.weatherPlace} />
       </div>
 
       <div className="card mt-4 p-6">

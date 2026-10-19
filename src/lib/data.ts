@@ -182,3 +182,11 @@ export async function getSetupProgress() {
   ]);
   return { customers, crews, jobs, waiting };
 }
+
+export async function getWeatherLocation() {
+  const { orgId } = await requireOwner();
+  return prisma.org.findUniqueOrThrow({
+    where: { id: orgId },
+    select: { weatherZip: true, weatherLat: true, weatherLon: true, weatherPlace: true },
+  });
+}

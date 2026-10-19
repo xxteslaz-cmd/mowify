@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/auth/dal";
+import { lookupZip } from "@/lib/weather";
 
 export type SettingsResult = { ok: true } | { error: string };
 
@@ -33,4 +34,36 @@ export async function updateAssigneeMode(
   revalidatePath("/", "layout");
 
   return { ok: true };
+}
+
+/**
+ * Saves where rain forecasts come from. An empty value turns the banner off.
+ * Coordinates are looked up here, once, so the dashboard never has to.
+ */
+export async function updateWeatherZip(
+  zip: unknown,
+): Promise<{ ok: true; place: string | null } | { error: string }> {
+  const { orgId } = await requireOwner();
+  if (typeof zip !== "string") return { error: "Enter a 5-digit ZIP code." };
+  const trimmed = zip.trim();
+
+  if (trimmed === "") {
+    await prisma.org.update({
+      where: { id: orgId },
+      data: { weatherZip: null, weatherLat: null, weatherLon: null, weatherPlace: null },
+    });
+    revalidatePath("/dashboard");
+    return { ok: true, place: null };
+  }
+
+  if (!/^\d{5}$/.test(trimmed)) return { error: "Enter a 5-digit ZIP code." };
+  const found = await lookupZip(trimmed);
+  if (!found) return { error: "We couldn't find that ZIP code." };
+
+  await prisma.org.update({
+    where: { id: orgId },
+    data: { weatherZip: trimmed, weatherLat: found.lat, weatherLon: found.lon, weatherPlace: found.place },
+  });
+  revalidatePath("/dashboard");
+  return { ok: true, place: found.place };
 }

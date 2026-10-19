@@ -7,7 +7,9 @@ import {
   getDaySummaries,
   getJobsForDate,
   getSetupProgress,
+  getWeatherLocation,
 } from "@/lib/data";
+import { getDayForecast } from "@/lib/weather";
 import { assigneeTerms } from "@/lib/assignee-terms";
 import { requireOwner } from "@/lib/auth/dal";
 import { monthGridDays, parseISODate, todayISO } from "@/lib/date";
@@ -48,7 +50,7 @@ export default async function DashboardPage({
   // In the same Promise.all rather than a serial await: the mode is one small
   // read, and awaiting it on its own line would add a round trip to every
   // dashboard render.
-  const [crews, allCrews, jobs, customers, summaries, assigneeMode, setup] =
+  const [crews, allCrews, jobs, customers, summaries, assigneeMode, setup, weather] =
     await Promise.all([
       getActiveCrews(),
       getAllCrews(),
@@ -57,9 +59,17 @@ export default async function DashboardPage({
       getDaySummaries(gridDays),
       getAssigneeMode(),
       getSetupProgress(),
+      getWeatherLocation(),
     ]);
   const terms = assigneeTerms(assigneeMode);
-  const jobsWithNextDate = await attachNextDates(orgId, jobs);
+  // Open-Meteo forecasts about two weeks out; past days have nothing to push.
+  const daysAhead = (parseISODate(dateISO).getTime() - parseISODate(todayISO()).getTime()) / 86_400_000;
+  const [jobsWithNextDate, forecast] = await Promise.all([
+    attachNextDates(orgId, jobs),
+    weather.weatherLat !== null && weather.weatherLon !== null && daysAhead >= 0 && daysAhead <= 14
+      ? getDayForecast(weather.weatherLat, weather.weatherLon, dateISO)
+      : null,
+  ]);
 
   return (
     <div className="px-4 py-6 md:px-8">
@@ -79,6 +89,8 @@ export default async function DashboardPage({
         customers={customers}
         terms={terms}
         setup={setup}
+        forecast={forecast}
+        hasLocation={weather.weatherLat !== null}
       />
     </div>
   );
