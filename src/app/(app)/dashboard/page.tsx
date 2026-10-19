@@ -6,6 +6,7 @@ import {
   getCustomers,
   getDaySummaries,
   getJobsForDate,
+  getSetupProgress,
 } from "@/lib/data";
 import { assigneeTerms } from "@/lib/assignee-terms";
 import { requireOwner } from "@/lib/auth/dal";
@@ -47,7 +48,7 @@ export default async function DashboardPage({
   // In the same Promise.all rather than a serial await: the mode is one small
   // read, and awaiting it on its own line would add a round trip to every
   // dashboard render.
-  const [crews, allCrews, jobs, customers, summaries, assigneeMode] =
+  const [crews, allCrews, jobs, customers, summaries, assigneeMode, setup] =
     await Promise.all([
       getActiveCrews(),
       getAllCrews(),
@@ -55,6 +56,7 @@ export default async function DashboardPage({
       getCustomers(),
       getDaySummaries(gridDays),
       getAssigneeMode(),
+      getSetupProgress(),
     ]);
   const terms = assigneeTerms(assigneeMode);
   const jobsWithNextDate = await attachNextDates(orgId, jobs);
@@ -76,6 +78,7 @@ export default async function DashboardPage({
         jobs={jobsWithNextDate}
         customers={customers}
         terms={terms}
+        setup={setup}
       />
     </div>
   );

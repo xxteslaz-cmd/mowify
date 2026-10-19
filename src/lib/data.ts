@@ -166,3 +166,19 @@ export async function getCrewTodayJobs(crewId: string, dateISO: string) {
   ]);
   return { crew, jobs };
 }
+
+/**
+ * What the dashboard's onboarding checklist needs. `waiting` counts customers
+ * with an imported mow day and no job yet — what "Generate first schedule"
+ * would book.
+ */
+export async function getSetupProgress() {
+  const { orgId } = await requireOwner();
+  const [customers, crews, jobs, waiting] = await Promise.all([
+    prisma.customer.count({ where: { orgId } }),
+    prisma.crew.count({ where: { orgId, active: true } }),
+    prisma.job.count({ where: { orgId } }),
+    prisma.customer.count({ where: { orgId, mowDay: { not: null }, jobs: { none: {} } } }),
+  ]);
+  return { customers, crews, jobs, waiting };
+}

@@ -7,7 +7,8 @@ import type { Crew, Frequency, ServiceType } from "@prisma/client";
 import type { AssigneeTerms } from "@/lib/assignee-terms";
 import { todayISO } from "@/lib/date";
 import { SERVICE_TYPES, SERVICE_LABEL, FREQUENCIES, FREQUENCY_LABEL } from "@/lib/labels";
-import { createCustomer } from "./actions";
+import { createCustomer, importCustomers } from "./actions";
+import { IMPORT_TEMPLATE, parseImportCsv, type ImportResult } from "@/lib/customer-import";
 import { createJob } from "@/app/(app)/dashboard/actions";
 
 type CustomerRow = {
@@ -16,6 +17,7 @@ type CustomerRow = {
   address: string;
   phone: string | null;
   notes: string | null;
+  priceCents: number | null;
   _count: { jobs: number };
 };
 
@@ -31,6 +33,7 @@ export default function CustomersClient({
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -53,6 +56,9 @@ export default function CustomersClient({
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 field"
         />
+        <button onClick={() => setImportOpen(true)} className="shrink-0 btn btn-secondary">
+          Import CSV
+        </button>
         <button onClick={() => setAddOpen(true)} className="shrink-0 btn btn-primary">
           + Add Customer
         </button>
@@ -73,12 +79,27 @@ export default function CustomersClient({
               <p className="truncate text-sm text-muted">{c.address}</p>
               {c.phone && <p className="text-sm text-muted">{c.phone}</p>}
             </div>
-            <span className="shrink-0 text-xs text-muted">
+            <span className="shrink-0 text-right text-xs text-muted">
+              {c.priceCents !== null && (
+                <span className="block text-sm font-medium text-foreground">
+                  ${(c.priceCents / 100).toFixed(2)}
+                </span>
+              )}
               {c._count.jobs} {c._count.jobs === 1 ? "job" : "jobs"}
             </span>
           </Link>
         ))}
       </div>
+
+      {importOpen && (
+        <ImportModal
+          onClose={() => setImportOpen(false)}
+          onImported={() => {
+            setImportOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
 
       {addOpen && (
         <AddCustomerModal
@@ -296,6 +317,119 @@ function AddCustomerModal({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function ImportModal({ onClose, onImported }: { onClose: () => void; onImported: () => void }) {
+  const [text, setText] = useState<string | null>(null);
+  const [preview, setPreview] = useState<ImportResult | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFile(file: File | undefined) {
+    setError(null);
+    if (!file) return;
+    const t = await file.text();
+    setText(t);
+    setPreview(parseImportCsv(t));
+  }
+
+  async function handleImport() {
+    if (!text) return;
+    setSubmitting(true);
+    const res = await importCustomers(text).catch(() => ({ error: "Something went wrong." }));
+    if ("error" in res) {
+      setError(res.error);
+      setSubmitting(false);
+      return;
+    }
+    onImported();
+  }
+
+  const canImport = preview && preview.errors.length === 0 && preview.rows.length > 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-950/40 p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[90vh] w-full max-w-3xl flex-col card p-5 shadow-xl">
+        <h2 className="text-lg font-semibold">Import customers</h2>
+        <p className="mt-1 text-sm text-muted">
+          Columns: name, address, phone, mow day, frequency (weekly, biweekly or monthly), price. Only name and
+          address are required.{" "}
+          <a
+            href={`data:text/csv;charset=utf-8,${encodeURIComponent(IMPORT_TEMPLATE)}`}
+            download="groundsroute-customers.csv"
+            className="font-medium text-brand underline"
+          >
+            Download the template
+          </a>
+        </p>
+
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={(e) => handleFile(e.target.files?.[0])}
+          className="mt-4 field"
+        />
+
+        {preview && (
+          <div className="mt-4 min-h-0 flex-1 overflow-auto">
+            {preview.errors.length > 0 && (
+              <div className="mb-3 rounded-md bg-danger/10 p-3 text-sm text-danger">
+                <p className="font-medium">Fix these rows in your spreadsheet, then choose the file again:</p>
+                <ul className="mt-1 list-disc pl-5">
+                  {preview.errors.slice(0, 20).map((e) => (
+                    <li key={e}>{e}</li>
+                  ))}
+                  {preview.errors.length > 20 && <li>…and {preview.errors.length - 20} more</li>}
+                </ul>
+              </div>
+            )}
+            {preview.rows.length > 0 && (
+              <table className="w-full text-left text-sm">
+                <thead className="text-muted">
+                  <tr>
+                    <th className="p-1">Name</th>
+                    <th className="p-1">Address</th>
+                    <th className="p-1">Phone</th>
+                    <th className="p-1">Mow day</th>
+                    <th className="p-1">Frequency</th>
+                    <th className="p-1">Price</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {preview.rows.map((r) => (
+                    <tr key={r.line}>
+                      <td className="p-1">{r.name}</td>
+                      <td className="p-1">{r.address}</td>
+                      <td className="p-1">{r.phone}</td>
+                      <td className="p-1">{r.mowDay === null ? "" : DAY_NAMES[r.mowDay]}</td>
+                      <td className="p-1">{r.mowFrequency ? FREQUENCY_LABEL[r.mowFrequency] : ""}</td>
+                      <td className="p-1">{r.priceCents === null ? "" : `$${(r.priceCents / 100).toFixed(2)}`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn btn-secondary">
+            Cancel
+          </button>
+          <button onClick={handleImport} disabled={!canImport || submitting} className="btn btn-primary">
+            {submitting
+              ? "Importing..."
+              : canImport
+                ? `Import ${preview.rows.length} customer${preview.rows.length === 1 ? "" : "s"}`
+                : "Import"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { requireActiveOrg } from "@/lib/auth/dal";
+import { parseImportCsv } from "@/lib/customer-import";
 
 // A Server Action is a public HTTP endpoint, reachable with any request body
 // a caller cares to send — not only from this file's own form. The `input`
@@ -49,4 +50,37 @@ export async function updateCustomer(
   await prisma.customer.updateMany({ where: { id, orgId }, data: parsed.data });
   revalidatePath("/customers");
   revalidatePath(`/customers/${id}`);
+}
+
+/**
+ * Bulk-creates customers from the import CSV. Takes the raw text, not parsed
+ * rows, and parses it again here: the preview the browser showed is a
+ * convenience, never an input. All-or-nothing — a file with any bad row is
+ * refused, so the owner never has to work out which half got in.
+ */
+export async function importCustomers(
+  csvText: unknown,
+): Promise<{ created: number } | { error: string }> {
+  const { orgId } = await requireActiveOrg();
+  if (typeof csvText !== "string" || csvText.length > 1_000_000) {
+    return { error: "That file is too large. Split it into smaller files." };
+  }
+  const { rows, errors } = parseImportCsv(csvText);
+  if (errors.length) return { error: errors[0] };
+  if (rows.length === 0) return { error: "No customers found in the file." };
+
+  const { count } = await prisma.customer.createMany({
+    data: rows.map((r) => ({
+      orgId,
+      name: r.name,
+      address: r.address,
+      phone: r.phone,
+      priceCents: r.priceCents,
+      mowDay: r.mowDay,
+      mowFrequency: r.mowFrequency,
+    })),
+  });
+  revalidatePath("/customers");
+  revalidatePath("/dashboard");
+  return { created: count };
 }

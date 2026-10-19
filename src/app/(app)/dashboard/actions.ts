@@ -2,7 +2,8 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { addDays, parseISODate, toISODate } from "@/lib/date";
+import { addDays, parseISODate, toISODate, todayDate } from "@/lib/date";
+import { nextWeekday } from "@/lib/customer-import";
 import {
   generateNextOccurrence,
   ensureOccurrencesThrough,
@@ -523,4 +524,59 @@ export async function deleteJob(jobId: string, dateISO: string, crewId: string) 
   // job id from another company matches zero rows instead of deleting it.
   await prisma.job.deleteMany({ where: { id: jobId, orgId } });
   revalidateAffected(dateISO, crewId);
+}
+
+/**
+ * Onboarding's "generate first schedule": every customer with a mow day from
+ * the CSV import and no jobs yet gets a recurring MOW job on the given crew,
+ * starting on the next occurrence of that weekday. Customers that already
+ * have any job are left alone, so pressing it twice books nothing twice.
+ */
+export async function generateFirstSchedule(
+  crewId: unknown,
+): Promise<{ created: number } | { error: string }> {
+  const { orgId } = await requireActiveOrg();
+  if (typeof crewId !== "string" || !crewId) return { error: "Pick a crew." };
+  const ownedCrew = await prisma.crew.count({ where: { id: crewId, orgId } });
+  if (ownedCrew === 0) return { error: "Pick a crew." };
+
+  const customers = await prisma.customer.findMany({
+    where: { orgId, mowDay: { not: null }, jobs: { none: {} } },
+    select: { id: true, mowDay: true, mowFrequency: true },
+    orderBy: { name: "asc" },
+  });
+  if (customers.length === 0) {
+    return { error: "No customers with a mow day are waiting to be scheduled." };
+  }
+
+  const today = todayDate();
+  // Next position at the end of each date's route, counted once per date.
+  const nextOrder = new Map<string, number>();
+  const data: Prisma.JobCreateManyInput[] = [];
+  for (const c of customers) {
+    const date = nextWeekday(today, c.mowDay!);
+    const key = toISODate(date);
+    if (!nextOrder.has(key)) {
+      nextOrder.set(key, await prisma.job.count({ where: { orgId, crewId, scheduledDate: date } }));
+    }
+    const orderInDay = nextOrder.get(key)!;
+    nextOrder.set(key, orderInDay + 1);
+    const frequency = c.mowFrequency ?? "WEEKLY";
+    data.push({
+      orgId,
+      customerId: c.id,
+      crewId,
+      serviceType: "MOW",
+      frequency,
+      scheduledDate: date,
+      orderInDay,
+      seriesId: isRecurring(frequency) ? randomUUID() : null,
+    });
+  }
+  await prisma.job.createMany({ data });
+  await ensureOccurrencesThrough(orgId, horizonDate());
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/crew/${crewId}/today`);
+  return { created: data.length };
 }

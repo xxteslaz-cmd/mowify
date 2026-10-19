@@ -31,6 +31,13 @@ model Customer {
   notes   String?
   jobs    Job[]
 
+  // Filled by CSV import. mowDay (0 = Sunday … 6 = Saturday) and mowFrequency
+  // are the customer's standing plan; "Generate first schedule" turns them into
+  // a recurring MOW job. After that the Job rows are the source of truth.
+  priceCents   Int?
+  mowDay       Int?
+  mowFrequency Frequency?
+
   orgId String
   org   Org    @relation(fields: [orgId], references: [id])
 

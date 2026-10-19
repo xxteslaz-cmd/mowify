@@ -13,6 +13,7 @@ import JobCard from "./JobCard";
 import AddJobModal from "./AddJobModal";
 import EditJobModal from "./EditJobModal";
 import ManageCrewsModal from "./ManageCrewsModal";
+import SetupChecklist, { type SetupProgress } from "./SetupChecklist";
 import { deleteJob, bulkRescheduleDay, updateJobFrequency, moveJobInColumn } from "./actions";
 
 type ColumnKey = string;
@@ -39,6 +40,7 @@ export default function DashboardBoard({
   jobs,
   customers,
   terms,
+  setup,
 }: {
   dateISO: string;
   crews: Crew[];
@@ -48,6 +50,7 @@ export default function DashboardBoard({
   // Passed in rather than read here: this is a client component, and the mode
   // is resolved once on the server so no component branches on it inline.
   terms: AssigneeTerms;
+  setup: SetupProgress;
 }) {
   const router = useRouter();
   const [localJobs, setLocalJobs] = useState(jobs);
@@ -150,6 +153,17 @@ export default function DashboardBoard({
       {/* A refresh landing mid-save or under an open dialog would yank the
           card out from under the user. */}
       <AutoRefresh paused={pending || addOpen || editJob !== null || manageCrewsOpen} />
+
+      <SetupChecklist
+        progress={setup}
+        crews={crews}
+        terms={terms}
+        onAddCrew={() => setManageCrewsOpen(true)}
+        onAddJob={() => {
+          setAddDefaultCrew(null);
+          setAddOpen(true);
+        }}
+      />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
