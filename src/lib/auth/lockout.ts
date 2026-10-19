@@ -4,13 +4,19 @@
  * against real customer addresses and phone numbers.
  */
 export const MAX_FAILED_ATTEMPTS = 5;
+// Crew PINs get fewer tries than owner passwords: six digits is a far smaller
+// space, and the owner can unlock from /team in one tap.
+export const CREW_MAX_FAILED_ATTEMPTS = 3;
 export const LOCKOUT_MS = 15 * 60 * 1000;
 
 export function isLocked(user: { lockedUntil: Date | null }): boolean {
   return user.lockedUntil !== null && user.lockedUntil.getTime() > Date.now();
 }
 
-export function nextLockoutState(failedAttempts: number): {
+export function nextLockoutState(
+  failedAttempts: number,
+  max: number = MAX_FAILED_ATTEMPTS,
+): {
   failedAttempts: number;
   lockedUntil: Date | null;
 } {
@@ -18,7 +24,7 @@ export function nextLockoutState(failedAttempts: number): {
   return {
     failedAttempts: next,
     lockedUntil:
-      next >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCKOUT_MS) : null,
+      next >= max ? new Date(Date.now() + LOCKOUT_MS) : null,
   };
 }
 
@@ -38,4 +44,9 @@ export function lockoutMessage(lockedUntil: Date): string {
     Math.ceil((lockedUntil.getTime() - Date.now()) / 60_000),
   );
   return `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}, or ask your manager to reset it.`;
+}
+
+/** "2 more wrong attempts will lock this account." */
+export function attemptsWarning(remaining: number): string {
+  return `${remaining} more wrong attempt${remaining === 1 ? "" : "s"} will lock this account.`;
 }

@@ -8,6 +8,7 @@ import { requireActiveOrg } from "@/lib/auth/dal";
 import { hashSecret } from "@/lib/auth/password";
 import { deleteAllSessionsForUser } from "@/lib/auth/session";
 import { p2002Fields } from "@/lib/prisma-errors";
+import { randomBytes } from "crypto";
 
 const PIN = z.string().regex(/^\d{6}$/, "PIN must be exactly 6 digits");
 
@@ -116,4 +117,55 @@ export async function setCrewLoginActive(userId: string, active: boolean) {
   // rather than whenever the cookie happens to expire.
   if (!active) await deleteAllSessionsForUser(user.id);
   revalidatePath("/team");
+}
+
+type TeamResult = { ok: true } | { error: string };
+
+/** Turns a crew's self-signup link on (with a fresh code) or off. */
+export async function setCrewJoinLink(crewId: unknown, enabled: unknown): Promise<TeamResult> {
+  const { orgId } = await requireActiveOrg();
+  if (typeof crewId !== "string" || typeof enabled !== "boolean") return { error: "Invalid request." };
+  const { count } = await prisma.crew.updateMany({
+    where: { id: crewId, orgId },
+    data: { joinCode: enabled ? randomBytes(16).toString("base64url") : null },
+  });
+  if (count === 0) return { error: "Crew not found." };
+  revalidatePath("/team");
+  return { ok: true };
+}
+
+export async function approveCrewMember(userId: unknown): Promise<TeamResult> {
+  const { orgId } = await requireActiveOrg();
+  if (typeof userId !== "string") return { error: "Invalid request." };
+  const { count } = await prisma.user.updateMany({
+    where: { id: userId, orgId, role: "CREW", pendingApproval: true },
+    data: { pendingApproval: false, active: true },
+  });
+  if (count === 0) return { error: "Crew member not found." };
+  revalidatePath("/team");
+  return { ok: true };
+}
+
+/** Deletes a self-signup the owner doesn't recognise. Only ever a pending one. */
+export async function rejectCrewMember(userId: unknown): Promise<TeamResult> {
+  const { orgId } = await requireActiveOrg();
+  if (typeof userId !== "string") return { error: "Invalid request." };
+  const { count } = await prisma.user.deleteMany({
+    where: { id: userId, orgId, role: "CREW", pendingApproval: true },
+  });
+  if (count === 0) return { error: "Crew member not found." };
+  revalidatePath("/team");
+  return { ok: true };
+}
+
+export async function unlockCrewLogin(userId: unknown): Promise<TeamResult> {
+  const { orgId } = await requireActiveOrg();
+  if (typeof userId !== "string") return { error: "Invalid request." };
+  const { count } = await prisma.user.updateMany({
+    where: { id: userId, orgId, role: "CREW" },
+    data: { failedAttempts: 0, lockedUntil: null },
+  });
+  if (count === 0) return { error: "Crew member not found." };
+  revalidatePath("/team");
+  return { ok: true };
 }

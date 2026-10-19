@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { verifySecret } from "@/lib/auth/password";
 import { createSession } from "@/lib/auth/session";
 import {
+  attemptsWarning,
+  CREW_MAX_FAILED_ATTEMPTS,
   isLocked,
   lockoutMessage,
   nextLockoutState,
@@ -53,21 +55,31 @@ export async function crewLogin(
     !user ||
     user.role !== "CREW" ||
     !user.pinHash ||
-    !user.active ||
+    (!user.active && !user.pendingApproval) ||
     !user.crewId
   ) {
     await verifySecret(DUMMY_HASH, parsed.data.pin);
-    return { error: GENERIC_ERROR };
+    // ponytail: the count shown here never goes down, which tells a patient
+    // guesser this username does not exist. Usernames are per company and the
+    // PIN is still needed, so it is an accepted leak.
+    return { error: `${GENERIC_ERROR} ${attemptsWarning(CREW_MAX_FAILED_ATTEMPTS - 1)}` };
   }
 
   if (isLocked(user)) return { error: lockoutMessage(user.lockedUntil!) };
 
   if (!(await verifySecret(user.pinHash, parsed.data.pin))) {
-    const next = nextLockoutState(priorFailures(user));
+    const next = nextLockoutState(priorFailures(user), CREW_MAX_FAILED_ATTEMPTS);
     await prisma.user.update({ where: { id: user.id }, data: next });
     return next.lockedUntil
       ? { error: lockoutMessage(next.lockedUntil) }
-      : { error: GENERIC_ERROR };
+      : {
+          error: `${GENERIC_ERROR} ${attemptsWarning(CREW_MAX_FAILED_ATTEMPTS - next.failedAttempts)}`,
+        };
+  }
+
+  // Only after the PIN checks out, so this message reveals nothing to a guesser.
+  if (user.pendingApproval) {
+    return { error: "Your manager hasn't approved your account yet. Ask them to approve you on the Team page." };
   }
 
   await prisma.user.update({

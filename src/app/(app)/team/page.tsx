@@ -25,6 +25,7 @@ export default async function TeamPage() {
         name: true,
         username: true,
         active: true,
+        pendingApproval: true,
         lockedUntil: true,
         crew: { select: { id: true, name: true, color: true } },
       },

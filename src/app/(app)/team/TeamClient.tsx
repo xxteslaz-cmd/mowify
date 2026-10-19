@@ -5,9 +5,13 @@ import { useRouter } from "next/navigation";
 import type { Crew } from "@prisma/client";
 import type { AssigneeTerms } from "@/lib/assignee-terms";
 import {
+  approveCrewMember,
   createCrewLogin,
+  rejectCrewMember,
   resetCrewPin,
+  setCrewJoinLink,
   setCrewLoginActive,
+  unlockCrewLogin,
 } from "./actions";
 
 type Member = {
@@ -15,6 +19,7 @@ type Member = {
   name: string;
   username: string | null;
   active: boolean;
+  pendingApproval: boolean;
   locked: boolean;
   crew: { id: string; name: string; color: string } | null;
 };
@@ -35,7 +40,7 @@ export default function TeamClient({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
@@ -48,17 +53,26 @@ export default function TeamClient({
       ? crewLoginPath
       : `${window.location.origin}${crewLoginPath}`;
 
-  async function run(fn: () => Promise<void>) {
+  // Newer actions return { error } (thrown messages are redacted in
+  // production); older ones still throw. Both land in the same banner.
+  async function run(fn: () => Promise<void | { ok: true } | { error: string }>) {
     setBusy(true);
     setError(null);
     try {
-      await fn();
+      const result = await fn();
+      if (result && "error" in result) throw new Error(result.error);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setBusy(false);
     }
+  }
+
+  function copy(text: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(text);
+    setTimeout(() => setCopied(null), 2000);
   }
 
   async function handleAdd(e: React.FormEvent) {
@@ -98,15 +112,55 @@ export default function TeamClient({
           <div className="flex gap-2">
             <input readOnly value={fullLink} className={`${FIELD} font-mono`} />
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(fullLink);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
+              onClick={() => copy(fullLink)}
               className="shrink-0 btn btn-primary"
             >
-              {copied ? "Copied" : "Copy"}
+              {copied === fullLink ? "Copied" : "Copy"}
             </button>
+          </div>
+        </div>
+
+        <div className="mb-6 card p-4">
+          <p className="mb-2 text-sm font-medium">Let people sign themselves up</p>
+          <p className="mb-3 text-sm text-muted">
+            {`Turn on a join link for a ${terms.one} and text it to them. Each person picks their own username and PIN, then shows up below for you to approve.`}
+          </p>
+          <div className="space-y-2">
+            {crews.map((c) => {
+              const link = c.joinCode ? `${fullLink}/join/${c.joinCode}` : null;
+              return (
+                <div key={c.id} className="flex flex-wrap items-center gap-2">
+                  <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: c.color }} />
+                  <span className="w-32 truncate text-sm font-medium">{c.name}</span>
+                  {link ? (
+                    <>
+                      <input readOnly value={link} className={`${FIELD} min-w-0 flex-1 font-mono text-xs`} />
+                      <button onClick={() => copy(link)} className="btn btn-primary">
+                        {copied === link ? "Copied" : "Copy"}
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => run(() => setCrewJoinLink(c.id, false))}
+                        className="btn btn-ghost"
+                      >
+                        Turn off
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      disabled={busy}
+                      onClick={() => run(() => setCrewJoinLink(c.id, true))}
+                      className="btn btn-secondary"
+                    >
+                      Create join link
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {crews.length === 0 && (
+              <p className="text-sm text-muted">Create a crew on the dashboard first.</p>
+            )}
           </div>
         </div>
 
@@ -131,7 +185,12 @@ export default function TeamClient({
                 <div className="min-w-0">
                   <p className="font-medium">
                     {m.name}
-                    {!m.active && (
+                    {m.pendingApproval && (
+                      <span className="ml-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                        waiting for approval
+                      </span>
+                    )}
+                    {!m.active && !m.pendingApproval && (
                       <span className="ml-2 text-xs text-muted">
                         deactivated
                       </span>
@@ -157,7 +216,37 @@ export default function TeamClient({
                   </p>
                 </div>
 
-                <div className="flex shrink-0 gap-3 text-sm">
+                <div className="flex shrink-0 flex-wrap justify-end gap-3 text-sm">
+                  {m.pendingApproval ? (
+                    <>
+                      <button
+                        disabled={busy}
+                        onClick={() => run(() => approveCrewMember(m.id))}
+                        className="btn btn-primary"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => {
+                          if (confirm(`Remove ${m.name}'s sign-up?`)) run(() => rejectCrewMember(m.id));
+                        }}
+                        className="btn btn-ghost"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  ) : (
+                  <>
+                  {m.locked && (
+                    <button
+                      disabled={busy}
+                      onClick={() => run(() => unlockCrewLogin(m.id))}
+                      className="btn btn-secondary"
+                    >
+                      Unlock
+                    </button>
+                  )}
                   <button
                     disabled={busy}
                     onClick={() => handleResetPin(m.id)}
@@ -172,6 +261,8 @@ export default function TeamClient({
                   >
                     {m.active ? "Deactivate" : "Reactivate"}
                   </button>
+                  </>
+                  )}
                 </div>
               </div>
             );

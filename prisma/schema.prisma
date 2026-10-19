@@ -13,6 +13,11 @@ model Crew {
   active Boolean @default(true)
   jobs   Job[]
 
+  // Secret in the crew's self-signup link, /c/<slug>/join/<joinCode>. Null
+  // means the link is off. People who join this way wait for owner approval
+  // (User.pendingApproval), so a leaked link never exposes customer data.
+  joinCode String?
+
   orgId String
   org   Org    @relation(fields: [orgId], references: [id])
   users User[]
@@ -21,6 +26,7 @@ model Crew {
   updatedAt DateTime @updatedAt
 
   @@index([orgId])
+  @@index([joinCode])
 }
 
 model Customer {
@@ -194,6 +200,9 @@ model User {
   crew     Crew?   @relation(fields: [crewId], references: [id])
 
   active Boolean @default(true)
+  // Set for crew who signed themselves up through a join link. They cannot
+  // sign in (active is false too) until the owner approves them on /team.
+  pendingApproval Boolean @default(false)
 
   failedAttempts Int       @default(0)
   lockedUntil    DateTime?
