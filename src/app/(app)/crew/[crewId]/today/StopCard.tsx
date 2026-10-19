@@ -29,43 +29,50 @@ export default function StopCard({
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(job.customer.address)}`;
 
   return (
-    <div className={`card p-4 ${isDone ? "opacity-60" : ""}`}>
+    <div className={`card p-4 ${isDone ? "border-brand" : ""}`}>
       <div className="flex items-start gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-border text-sm font-semibold">
-          {stopNumber}
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg font-bold ${isDone ? "bg-brand text-on-brand" : "bg-border"}`}>
+          {isDone ? "✓" : stopNumber}
         </span>
         <div className="min-w-0 flex-1">
-          <p className={`text-base font-semibold ${isDone ? "line-through" : ""}`}>{job.customer.name}</p>
-          <a href={mapsUrl} target="_blank" rel="noopener noreferrer" className="block truncate py-2 text-sm text-blue-600 underline dark:text-blue-400">
-            {job.customer.address}
-          </a>
+          <p className={`text-xl font-bold ${isDone ? "line-through" : ""}`}>{job.customer.name}</p>
+          <p className="mt-1 text-lg">{job.customer.address}</p>
           {job.customer.phone && (
-            <a href={`tel:${job.customer.phone}`} className="block py-2 text-sm text-blue-600 underline dark:text-blue-400">
+            <a href={`tel:${job.customer.phone}`} className="block py-2 text-lg font-semibold text-brand underline">
               {job.customer.phone}
             </a>
           )}
-          <p className="mt-1 text-sm text-muted">{serviceLabel(job)}</p>
+          <p className="mt-1 text-base font-medium">{serviceLabel(job)}</p>
           {job.customer.notes && (
-            <p className="mt-1 rounded bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+            <p className="mt-1 rounded bg-amber-50 p-2 text-base text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
               {job.customer.notes}
             </p>
           )}
-          {job.notes && <p className="mt-1 text-sm italic text-muted">{job.notes}</p>}
+          {job.notes && <p className="mt-1 text-base italic">{job.notes}</p>}
         </div>
       </div>
 
-      <div className="mt-3 flex gap-2">
+      <a
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="btn btn-secondary btn-lg mt-3 w-full"
+      >
+        Open in Maps
+      </a>
+
+      <div className="mt-2 flex gap-2">
         <button
           onClick={() => setStatus("COMPLETED")}
           disabled={pending || job.status === "COMPLETED"}
-          className="btn btn-primary btn-lg flex-1"
+          className="btn btn-primary btn-lg min-h-14 flex-1 text-lg"
         >
-          {isDone ? "Completed ✓" : "Mark Complete"}
+          {isDone ? "Done ✓" : "Mark done"}
         </button>
         <button
           onClick={() => setStatus("SKIPPED")}
           disabled={pending || job.status === "SKIPPED"}
-          className="btn btn-secondary btn-lg"
+          className="btn btn-secondary btn-lg min-h-14"
         >
           Skip
         </button>

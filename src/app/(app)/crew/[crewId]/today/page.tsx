@@ -24,13 +24,17 @@ export default async function CrewTodayPage({
       <div className="mb-4 flex items-center gap-2">
         <span className="h-4 w-4 rounded-full" style={{ backgroundColor: crew.color }} />
         <div>
-          <h1 className="text-lg font-semibold leading-tight">{crew.name}</h1>
-          <p className="text-sm text-muted">{formatDisplayDate(parseISODate(dateISO))}</p>
+          <h1 className="text-2xl font-bold leading-tight">{crew.name}</h1>
+          <p className="text-base font-medium">
+            {formatDisplayDate(parseISODate(dateISO))}
+            {jobs.length > 0 &&
+              ` · ${jobs.filter((j) => j.status === "COMPLETED").length} of ${jobs.length} done`}
+          </p>
         </div>
       </div>
 
       {jobs.length === 0 ? (
-        <p className="card p-6 text-center text-sm text-muted">
+        <p className="card p-6 text-center text-lg">
           No stops scheduled.
         </p>
       ) : (
