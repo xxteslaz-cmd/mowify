@@ -20,6 +20,18 @@ export default async function LapsedBanner() {
 
   if (isOrgActive(org?.subscriptionStatus)) return null;
 
+  // Paused on purpose, so it reads as a status rather than a problem.
+  if (org?.subscriptionStatus === "paused") {
+    return (
+      <div className="border-b px-4 py-2 text-center text-sm">
+        Your subscription is paused, so your account is read-only.{" "}
+        <Link href="/billing" className="underline underline-offset-4">
+          See when it resumes
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="border-b border-danger/30 bg-danger/10 px-4 py-2 text-center text-sm">
       Your account is read-only until billing is sorted out.{" "}

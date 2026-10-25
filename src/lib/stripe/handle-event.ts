@@ -2,7 +2,7 @@ import "server-only";
 import type Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { createOrgWithOwner } from "@/lib/provision";
-import { isOrgActive } from "@/lib/subscription";
+import { isOrgActive, isOrgRetained } from "@/lib/subscription";
 import { CONSENT_KIND, consentExpiry, trialDisclosure } from "@/lib/consent";
 import { sendEmail } from "@/lib/email/client";
 import { signupAcknowledgementEmail } from "@/lib/email/templates";
@@ -24,6 +24,8 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted":
+    case "customer.subscription.paused":
+    case "customer.subscription.resumed":
       await mirrorSubscription((event.data.object as Stripe.Subscription).id);
       return;
     case "invoice.payment_failed": {
@@ -283,13 +285,19 @@ async function mirrorSubscription(id: string): Promise<void> {
   // When the 30-day retention clock starts and stops. Written only on the
   // transition: refreshing it on every webhook while a company stays lapsed
   // would restart the countdown each time and nothing would ever be deleted.
-  const nowActive = isOrgActive(subscription.status);
-  const wasActive = isOrgActive(org.subscriptionStatus);
-  const lapsedAt = nowActive
+  // A paused company is retained, not lapsed, so pausing never starts it.
+  const nowRetained = isOrgRetained(subscription.status);
+  const wasRetained = isOrgRetained(org.subscriptionStatus);
+  const lapsedAt = nowRetained
     ? null
-    : wasActive || !org.lapsedAt
+    : wasRetained || !org.lapsedAt
       ? new Date()
       : org.lapsedAt;
+
+  // Read only while Stripe says paused, so resuming by any route — the cron,
+  // the button, the Stripe Dashboard — clears both without anyone having to
+  // remember to.
+  const paused = subscription.status === "paused";
 
   await prisma.org.update({
     where: { id: org.id },
@@ -302,6 +310,8 @@ async function mirrorSubscription(id: string): Promise<void> {
       subscriptionStatus: subscription.status,
       trialEndsAt: toDate(subscription.trial_end),
       currentPeriodEnd: periodEnd(subscription),
+      pausedAt: paused ? metadataDate(subscription, "paused_at") : null,
+      pauseResumesAt: paused ? metadataDate(subscription, "pause_resumes_at") : null,
       // Only when the row is moving to a different subscription. Clearing it on
       // every mirror would re-arm the reminder on each subscription.updated —
       // and Stripe sends a lot of those — so one trial would be reminded
@@ -428,6 +438,12 @@ async function cancelSubscription(
   const id = subscriptionId(ref);
   if (!id) return;
   await getStripe().subscriptions.cancel(id);
+}
+
+/** Unix seconds written by pauseStripeSubscription; null if absent or junk. */
+function metadataDate(subscription: Stripe.Subscription, key: string): Date | null {
+  const seconds = Number(subscription.metadata?.[key]);
+  return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000) : null;
 }
 
 function toDate(seconds: number | null | undefined): Date | null {

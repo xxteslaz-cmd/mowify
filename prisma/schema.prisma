@@ -156,6 +156,13 @@ model Org {
   // nothing would ever be deleted. Cleared when the company becomes active
   // again.
   lapsedAt             DateTime?
+  // An owner-requested off-season pause. Mirrored from the subscription's
+  // metadata (written by pauseSubscription) and only while Stripe says the
+  // status is `paused`, so both read null the moment it resumes by any route.
+  // pausedAt is what holds the one-month minimum; pauseResumesAt is what the
+  // resume-paused cron acts on.
+  pausedAt             DateTime?
+  pauseResumesAt       DateTime?
 
   // Whether this company organises work into crews or assigns it to named
   // people. Presentation only — a Crew row is the assignable unit either way,

@@ -6,8 +6,11 @@ import { getStripe } from "@/lib/stripe/client";
 import { stripeConfig } from "@/lib/stripe/config";
 import { isOrgActive } from "@/lib/subscription";
 import { requireAppUrl } from "@/lib/url";
+import { earliestEarlyResume, parseResumeDate } from "@/lib/pause-window";
+import { pauseStripeSubscription, resumeStripeSubscription } from "@/lib/stripe/pause";
 
 export type PortalResult = { url: string } | { error: string };
+export type ActionResult = { ok: true } | { error: string };
 
 /**
  * Opens Stripe's hosted billing portal, where a customer updates their card,
@@ -75,6 +78,11 @@ export async function startResubscribe(): Promise<PortalResult> {
   if (isOrgActive(org.subscriptionStatus)) {
     return { error: "This company already has an active subscription." };
   }
+  // A paused subscription is still live on Stripe's side and resumes on its
+  // own. A second one alongside it would bill this company twice.
+  if (org.subscriptionStatus === "paused") {
+    return { error: "Your subscription is paused. Resume it instead." };
+  }
 
   // Needed only when there is no Stripe customer yet — a company grandfathered
   // in before billing existed. Without it Checkout would open with an empty
@@ -126,5 +134,115 @@ export async function startResubscribe(): Promise<PortalResult> {
       err instanceof Error ? err.message : String(err),
     );
     return { error: "We could not start checkout. Please try again." };
+  }
+}
+
+function longDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * Pauses an active, paid subscription until a date the owner picks, one to six
+ * months out (see pause-window.ts). The account goes read-only, nothing is
+ * billed, and the resume-paused cron restarts billing on that date.
+ *
+ * Trials are refused. Stripe will not pause one anyway, and allowing it here
+ * would let a 30-day trial be stretched across a season.
+ */
+export async function pauseSubscription(resumeDate: string): Promise<ActionResult> {
+  const { orgId } = await requireOwner();
+
+  const org = await prisma.org.findUnique({
+    where: { id: orgId },
+    select: { stripeSubscriptionId: true, subscriptionStatus: true },
+  });
+
+  if (!org?.stripeSubscriptionId || org.subscriptionStatus !== "active") {
+    return {
+      error: "Only an active, paid subscription can be paused. Free trials can't be.",
+    };
+  }
+
+  const now = new Date();
+  const resumesAt = parseResumeDate(resumeDate, now);
+  if (!resumesAt) {
+    return { error: "Pick a resume date between one and six months from today." };
+  }
+
+  try {
+    const status = await pauseStripeSubscription(org.stripeSubscriptionId, now, resumesAt);
+    // Written now so /billing shows the pause on the redirect back. The
+    // webhook writes the same values from Stripe a moment later.
+    const paused = status === "paused";
+    await prisma.org.update({
+      where: { id: orgId },
+      data: {
+        subscriptionStatus: status,
+        pausedAt: paused ? now : null,
+        pauseResumesAt: paused ? resumesAt : null,
+      },
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error(
+      "Pause failed:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return { error: "We could not pause your subscription. Please try again." };
+  }
+}
+
+/**
+ * Ends a pause early. Held back until the pause is a month old, so pausing
+ * cannot be used to dodge a renewal and return straight away.
+ *
+ * A pause with no pausedAt was made outside the app (the Stripe Dashboard),
+ * where we promised no minimum, so it is allowed through.
+ */
+export async function resumeSubscription(): Promise<ActionResult> {
+  const { orgId } = await requireOwner();
+
+  const org = await prisma.org.findUnique({
+    where: { id: orgId },
+    select: { stripeSubscriptionId: true, subscriptionStatus: true, pausedAt: true },
+  });
+
+  if (!org?.stripeSubscriptionId || org.subscriptionStatus !== "paused") {
+    return { error: "This subscription isn't paused." };
+  }
+
+  if (org.pausedAt) {
+    const earliest = earliestEarlyResume(org.pausedAt);
+    if (new Date() < earliest) {
+      return {
+        error: `Pauses last at least a month. You can resume from ${longDate(earliest)}.`,
+      };
+    }
+  }
+
+  try {
+    const status = await resumeStripeSubscription(org.stripeSubscriptionId);
+    if (status === "paused") {
+      return {
+        error:
+          "Your card didn't go through, so you're still paused. Update it under Manage billing, then try again.",
+      };
+    }
+    await prisma.org.update({
+      where: { id: orgId },
+      data: { subscriptionStatus: status, pausedAt: null, pauseResumesAt: null },
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error(
+      "Resume failed:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return { error: "We could not resume your subscription. Please try again." };
   }
 }

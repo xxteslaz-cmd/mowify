@@ -457,6 +457,50 @@ describe("subscription lifecycle", () => {
     expect(fresh.subscriptionStatus).toBe("active");
   });
 
+  it("mirrors a pause without starting the deletion clock, and clears it on resume", async () => {
+    const org = await orgWithSubscription("active");
+    subscriptions.value.set("sub_1", {
+      id: "sub_1",
+      status: "paused",
+      trial_end: null,
+      metadata: { paused_at: "1792000000", pause_resumes_at: "1800000000" },
+      items: { data: [{ current_period_end: 1792000000 }] },
+    });
+
+    await handleStripeEvent({
+      id: "evt_pause",
+      type: "customer.subscription.paused",
+      data: { object: { id: "sub_1" } },
+    } as never);
+
+    let fresh = await prisma.org.findUniqueOrThrow({ where: { id: org.id } });
+    expect(fresh.subscriptionStatus).toBe("paused");
+    // The purge job deletes on lapsedAt. A paused company must never get one.
+    expect(fresh.lapsedAt).toBeNull();
+    expect(fresh.pausedAt?.getTime()).toBe(1792000000 * 1000);
+    expect(fresh.pauseResumesAt?.getTime()).toBe(1800000000 * 1000);
+
+    subscriptions.value.set("sub_1", {
+      id: "sub_1",
+      status: "active",
+      trial_end: null,
+      // Stale metadata stays on Stripe after a resume; it must be ignored.
+      metadata: { paused_at: "1792000000", pause_resumes_at: "1800000000" },
+      items: { data: [{ current_period_end: 1800000000 }] },
+    });
+
+    await handleStripeEvent({
+      id: "evt_resume",
+      type: "customer.subscription.resumed",
+      data: { object: { id: "sub_1" } },
+    } as never);
+
+    fresh = await prisma.org.findUniqueOrThrow({ where: { id: org.id } });
+    expect(fresh.subscriptionStatus).toBe("active");
+    expect(fresh.pausedAt).toBeNull();
+    expect(fresh.pauseResumesAt).toBeNull();
+  });
+
   it("never touches another company's subscription", async () => {
     const mine = await orgWithSubscription("trialing");
     const theirs = await makeOrg();

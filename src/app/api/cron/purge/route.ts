@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { cronAuthorized, cronUnauthorized } from "@/lib/cron-auth";
 import { RETENTION } from "@/lib/legal";
-import { ACTIVE_SUBSCRIPTION_STATUSES } from "@/lib/subscription";
+import { RETAINED_SUBSCRIPTION_STATUSES } from "@/lib/subscription";
 
 /**
  * Deletes the data of companies that lapsed more than 30 days ago, and consent
@@ -42,7 +42,7 @@ export async function GET(request: Request): Promise<Response> {
       // Redundant with lapsedAt being set, and that is the point: an
       // independent second reason to refuse. A bug that leaves lapsedAt on a
       // paying company must not be enough on its own to delete them.
-      subscriptionStatus: { notIn: [...ACTIVE_SUBSCRIPTION_STATUSES] },
+      subscriptionStatus: { notIn: [...RETAINED_SUBSCRIPTION_STATUSES] },
     },
     select: { id: true, name: true, lapsedAt: true },
   });
@@ -105,7 +105,7 @@ async function purgeOrg(orgId: string, cutoff: Date): Promise<boolean> {
       if (
         !org.lapsedAt ||
         org.lapsedAt >= cutoff ||
-        (ACTIVE_SUBSCRIPTION_STATUSES as readonly string[]).includes(
+        (RETAINED_SUBSCRIPTION_STATUSES as readonly string[]).includes(
           org.subscriptionStatus ?? "",
         )
       ) {

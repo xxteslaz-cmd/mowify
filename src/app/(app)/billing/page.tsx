@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/auth/dal";
 import { isOrgActive } from "@/lib/subscription";
 import { pricePerInterval } from "@/lib/pricing";
+import { earliestEarlyResume, resumeDateLimits } from "@/lib/pause-window";
 import BillingClient from "./BillingClient";
 
 export const metadata: Metadata = {
@@ -14,6 +15,7 @@ const LABELS: Record<string, string> = {
   active: "Active",
   past_due: "Payment failed",
   canceled: "Cancelled",
+  paused: "Paused",
   unpaid: "Unpaid",
   incomplete: "Incomplete",
 };
@@ -35,6 +37,9 @@ function formatDate(value: Date | null): string {
     year: "numeric",
     month: "long",
     day: "numeric",
+    // Pause dates are stored as midnight UTC; without this a US time zone
+    // would show the day before the one the owner picked.
+    timeZone: "UTC",
   });
 }
 
@@ -53,6 +58,8 @@ export default async function BillingPage({
       trialEndsAt: true,
       currentPeriodEnd: true,
       stripeCustomerId: true,
+      pausedAt: true,
+      pauseResumesAt: true,
     },
   });
 
@@ -63,7 +70,12 @@ export default async function BillingPage({
   // that predates billing and has no subscription at all. The portal cannot
   // help either of them: per Stripe, a cancelled subscription does not appear
   // in the portal and a new one has to be created.
-  const canRestart = !active && !REPAIRABLE_IN_PORTAL.includes(status);
+  //
+  // Never for `paused` either: that subscription still exists and resumes on
+  // its own, so restarting would open a second one beside it.
+  const paused = status === "paused";
+  const canRestart = !active && !paused && !REPAIRABLE_IN_PORTAL.includes(status);
+  const earlyResumeFrom = org.pausedAt ? earliestEarlyResume(org.pausedAt) : null;
 
   return (
     <div className="mx-auto max-w-2xl p-6">
@@ -88,13 +100,19 @@ export default async function BillingPage({
           </div>
           <div>
             <dt className="text-sm text-muted">
-              {org.subscriptionStatus === "trialing" ? "Trial ends" : "Next billing date"}
+              {org.subscriptionStatus === "trialing"
+                ? "Trial ends"
+                : paused
+                  ? "Resumes"
+                  : "Next billing date"}
             </dt>
             <dd className="mt-1 font-medium">
               {formatDate(
                 org.subscriptionStatus === "trialing"
                   ? org.trialEndsAt
-                  : org.currentPeriodEnd,
+                  : paused
+                    ? org.pauseResumesAt
+                    : org.currentPeriodEnd,
               )}
             </dd>
           </div>
@@ -111,7 +129,17 @@ export default async function BillingPage({
           </p>
         ) : null}
 
-        {!active ? (
+        {paused ? (
+          <p className="mt-4 text-sm">
+            Your subscription is paused and nothing is being charged. Your account
+            is read-only: your schedule, customers and crews are all kept, but
+            you can&apos;t add or change jobs until it resumes. Billing restarts
+            automatically on {formatDate(org.pauseResumesAt)} at{" "}
+            {pricePerInterval()}.
+          </p>
+        ) : null}
+
+        {!active && !paused ? (
           <p className="mt-4 text-sm">
             Your account is read-only until billing is sorted out. Your schedule and
             customers are all still here, and your crews can still mark stops complete.
@@ -129,6 +157,15 @@ export default async function BillingPage({
           <BillingClient
             canRestart={canRestart}
             canManage={Boolean(org.stripeCustomerId)}
+            canPause={status === "active"}
+            paused={paused}
+            resumeLimits={resumeDateLimits(new Date())}
+            price={pricePerInterval()}
+            earlyResumeFrom={
+              earlyResumeFrom && earlyResumeFrom > new Date()
+                ? formatDate(earlyResumeFrom)
+                : null
+            }
           />
         </div>
       </div>
