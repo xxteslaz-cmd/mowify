@@ -11,7 +11,7 @@ import { TRIAL_DAYS, formatPrice, PRICE } from "@/lib/pricing";
 // than typed here for the reason that file gives: the number appears in the
 // Terms, the reminder email and the pricing page, and a copy that lives in
 // marketing prose is the one nobody remembers to update.
-const OFFER = `${TRIAL_DAYS} days free, then ${formatPrice()}/${PRICE.interval}.`;
+const OFFER = `${TRIAL_DAYS} days free, then ${formatPrice()}/${PRICE.interval}. One plan with every feature, and no extra charge for more users.`;
 
 // Real screenshots of the app, taken from a seeded demo company (made-up
 // customers and addresses), never from a live account. Retake them whenever

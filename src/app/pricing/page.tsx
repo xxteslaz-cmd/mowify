@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/pricing" },
   // Built from the same constants as the page body, so a search snippet can
   // never quote a price the page itself no longer shows.
-  description: `One plan, one price. GroundsRoute is ${pricePerInterval()} with a ${TRIAL_DAYS}-day free trial.`,
+  description: `One plan, one price for everything. GroundsRoute is ${pricePerInterval()} with every feature and no per-user charge, plus a ${TRIAL_DAYS}-day free trial.`,
 };
 
 // Terms section 4 points customers here for the rates, so this page existing is
@@ -19,7 +19,7 @@ const INCLUDED = [
   "A phone view for each crew, showing only that day's stops",
   "Recurring jobs that regenerate on their own",
   "Logins for your crew that you create and revoke yourself",
-  "Every feature. There is no higher tier to upgrade to",
+  "Every feature and every user. There is no higher tier and no per-user charge",
 ];
 
 export default function PricingPage() {
@@ -34,7 +34,8 @@ export default function PricingPage() {
 
       <h1 className="mt-8 text-2xl font-semibold">Pricing</h1>
       <p className="mt-2 text-sm text-muted">
-        One plan. No setup fee, no per-crew pricing, no annual commitment.
+        One plan, one price for everything. We don&apos;t charge extra for more
+        features or more users. No setup fee, no annual commitment.
       </p>
 
       <div className="card mt-8 p-6">
