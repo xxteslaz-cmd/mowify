@@ -66,3 +66,35 @@ export async function getDayForecast(
     return null;
   }
 }
+
+/**
+ * The days from `fromISO` to `toISO` (inclusive) whose forecast is rainy, for
+ * the raindrops on the dashboard calendar. One request for the whole range.
+ * Open-Meteo forecasts 16 days ahead, so the caller clips the range to that.
+ * Any failure returns no days, the same as no rain.
+ */
+export async function getRainyDays(
+  lat: number,
+  lon: number,
+  fromISO: string,
+  toISO: string,
+): Promise<string[]> {
+  try {
+    const url =
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&daily=precipitation_probability_max,precipitation_sum&timezone=auto` +
+      `&start_date=${fromISO}&end_date=${toISO}`;
+    const res = await fetch(url, { next: { revalidate: 3600 }, signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return [];
+    const { daily } = await res.json();
+    const days: string[] = daily?.time ?? [];
+    return days.filter((_, i) =>
+      isRainy(
+        daily.precipitation_probability_max?.[i] ?? null,
+        daily.precipitation_sum?.[i] ?? null,
+      ),
+    );
+  } catch {
+    return [];
+  }
+}

@@ -9,10 +9,10 @@ import {
   getSetupProgress,
   getWeatherLocation,
 } from "@/lib/data";
-import { getDayForecast } from "@/lib/weather";
+import { getDayForecast, getRainyDays } from "@/lib/weather";
 import { assigneeTerms } from "@/lib/assignee-terms";
 import { requireOwner } from "@/lib/auth/dal";
-import { monthGridDays, parseISODate, todayISO } from "@/lib/date";
+import { addDays, monthGridDays, parseISODate, toISODate, todayISO } from "@/lib/date";
 import { attachNextDates, ensureOccurrencesThrough, horizonDate } from "@/lib/recurring";
 import CalendarNav from "./CalendarNav";
 import DashboardBoard from "./DashboardBoard";
@@ -64,11 +64,18 @@ export default async function DashboardPage({
   const terms = assigneeTerms(assigneeMode);
   // Open-Meteo forecasts about two weeks out; past days have nothing to push.
   const daysAhead = (parseISODate(dateISO).getTime() - parseISODate(todayISO()).getTime()) / 86_400_000;
-  const [jobsWithNextDate, forecast] = await Promise.all([
+  // Raindrops on the calendar: the visible days from today up to the 16-day
+  // forecast limit.
+  const rainFrom = [todayISO(), toISODate(gridDays[0])].sort()[1];
+  const rainTo = [toISODate(addDays(parseISODate(todayISO()), 15)), toISODate(lastVisible)].sort()[0];
+  const [jobsWithNextDate, forecast, rainyDays] = await Promise.all([
     attachNextDates(orgId, jobs),
     weather.weatherLat !== null && weather.weatherLon !== null && daysAhead >= 0 && daysAhead <= 14
       ? getDayForecast(weather.weatherLat, weather.weatherLon, dateISO)
       : null,
+    weather.weatherLat !== null && weather.weatherLon !== null && rainFrom <= rainTo
+      ? getRainyDays(weather.weatherLat, weather.weatherLon, rainFrom, rainTo)
+      : [],
   ]);
 
   return (
@@ -79,7 +86,7 @@ export default async function DashboardPage({
           {`Plan the day, move jobs between ${terms.many}, and see what's next.`}
         </p>
       </div>
-      <CalendarNav dateISO={dateISO} monthISO={monthISO} summaries={summaries} />
+      <CalendarNav dateISO={dateISO} monthISO={monthISO} summaries={summaries} rainyDays={rainyDays} />
       <DashboardBoard
         key={dateISO}
         dateISO={dateISO}
