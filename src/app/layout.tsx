@@ -64,6 +64,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      // Only the landing page sets scroll-behavior: smooth (globals.css).
+      // This tells Next to scroll instantly on route changes regardless, so
+      // leaving that page doesn't glide back to the top of the next one.
+      data-scroll-behavior="smooth"
       className={`${jakarta.variable} h-full antialiased`}
     >
       <body className="min-h-full">

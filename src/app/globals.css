@@ -216,6 +216,25 @@ h3 {
     background: radial-gradient(ellipse 80% 60% at 50% 0%, var(--brand-soft), var(--background) 70%);
   }
 
+  /* Landing page sections fade and rise in as they scroll into view. Pure CSS
+     (scroll-driven animations), so a browser without support, or a visitor
+     who asked for reduced motion, just sees the content in place. */
+  @media (prefers-reduced-motion: no-preference) {
+    /* Pricing and FAQ links glide to their section instead of jumping.
+       Scoped to the landing page so the app's own scrolling is untouched. */
+    html:has(.landing) {
+      scroll-behavior: smooth;
+    }
+
+    @supports (animation-timeline: view()) {
+      .reveal {
+        animation: reveal linear both;
+        animation-timeline: view();
+        animation-range: entry 0% entry 80%;
+      }
+    }
+  }
+
   /* One size larger than anything a form or dashboard needs, reserved for the
      hero headline so it reads as marketing rather than app chrome. */
   .text-display {
@@ -228,5 +247,12 @@ h3 {
     .text-display {
       font-size: 3rem;
     }
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    translate: 0 1.5rem;
   }
 }
