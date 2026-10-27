@@ -127,7 +127,7 @@ const FEATURES = [
     title: "Every job has a crew",
     body: "Assign each job to a crew, or to a named employee if that's how you run things. Move a job to another crew and it moves on their phones too.",
     image: featureCrews,
-    alt: "The dashboard board with a column for each of three crews, under the Add Job, Select & reschedule and Manage Crews buttons.",
+    alt: "The dashboard board with a column for each of three crews, each holding that day's jobs.",
   },
 ];
 
@@ -365,7 +365,6 @@ export default function LandingPage() {
               </h2>
               <p className="mt-4 text-muted">
                 GroundsRoute is built locally in the Harrisburg, PA area by Landen.
-                {" "}TODO: one or two sentences on why you built it.
               </p>
               <p className="mt-4 text-muted">
                 Questions? Email{" "}
